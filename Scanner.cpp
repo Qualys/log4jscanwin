@@ -9,6 +9,10 @@
 
 #include "zlib/zlib.h"
 #include "minizip/unzip.h"
+#include "rapidjson/document.h"     
+#include "rapidjson/stringbuffer.h"
+#include "rapidjson/writer.h"
+#include "rapidjson/prettywriter.h"
 
 
 #define ARGX3(s1,s2,s3) (!stricmp(argv[i], s1)||!stricmp(argv[i], s2)||!stricmp(argv[i], s3))
@@ -25,6 +29,8 @@ class CReportSummary {
   uint64_t scannedWARs;
   uint64_t scannedEARs;
   uint64_t foundVunerabilities;
+  uint64_t scanStart;
+  uint64_t scanEnd;
 
   CReportSummary() {
     scannedFiles = 0;
@@ -34,6 +40,8 @@ class CReportSummary {
     scannedWARs = 0;
     scannedEARs = 0;
     foundVunerabilities = 0;
+    scanStart = 0;
+    scanEnd = 0;
   }
 };
 
@@ -42,7 +50,21 @@ class CReportVunerabilities {
   std::string file;
   std::string version;
   bool detectedLog4j;
-  bool detectedCVE;
+  bool detectedJNDILookupClass;
+  bool detectedLog4jManifest;
+  bool detectedVulnerableVersion;
+  std::string cveStatus;
+
+  CReportVunerabilities( std::string file, std::string version, bool detectedLog4j, bool detectedJNDILookupClass,
+                         bool detectedLog4jManifest, bool detectedVulnerableVersion, std::string cveStatus ) {
+    this->file = file;
+    this->version = version;
+    this->detectedLog4j = detectedLog4j;
+    this->detectedJNDILookupClass = detectedJNDILookupClass;
+    this->detectedLog4jManifest = detectedLog4jManifest;
+    this->detectedVulnerableVersion = detectedVulnerableVersion;
+    this->cveStatus = cveStatus;
+  }
 };
 
 class CCommandLineOptions {
@@ -53,6 +75,8 @@ class CCommandLineOptions {
   std::string file;
   bool scanDirectory;
   std::string directory;
+  bool report;
+  bool reportPretty;
   bool verbose;
   bool no_logo;
   bool help;
@@ -64,11 +88,14 @@ class CCommandLineOptions {
     file.clear();
     scanDirectory = false;
     directory.clear();
+    report = false;
+    reportPretty = false;
     verbose = false;
     no_logo = false;
     help = false;
   }
 };
+
 
 CCommandLineOptions cmdline_options;
 CReportSummary repSummary;
@@ -162,6 +189,9 @@ int32_t ScanFileArchive( std::string file ) {
           version = manifest.substr(pos + prop.size(), eol - (pos + prop.size()));
 
           if ( VulnerableVersionCheck( version ) ) {
+            if ( foundJNDILookupClass ) {
+              repSummary.foundVunerabilities++;
+            }
             foundVulnerableVersion = true;
           }
         }
@@ -170,27 +200,32 @@ int32_t ScanFileArchive( std::string file ) {
     unzClose( zf );
   }
 
-  if ( !cmdline_options.no_logo ) {
-    if ( foundLog4j ) {
-      std::string cveStatus;
+  if ( foundLog4j ) {
+    std::string cveStatus;
 
-      if ( foundJNDILookupClass && foundVulnerableVersion ) {
-        cveStatus = "Potentially Vulnerable";
-      } else if ( !foundJNDILookupClass && foundLog4jManifest ) {
-        cveStatus = "Mitigated";
-      } else if ( foundJNDILookupClass && foundLog4jManifest && !foundVulnerableVersion ) {
-        cveStatus = "Mitigated";
-      } else {
-        cveStatus = "Unknown";
-      }
-
-      printf( "Log4j Found: '%s' ( Version: '%s', JDNI Class: %s, Manifest Owner: %s, CVE Status: %s )\n",
-              file.c_str(),
-              version.c_str(),
-              foundJNDILookupClass ? "Found" : "NOT Found",
-              foundLog4jManifest ? "Log4j" : "Unknown (Uber/Shaded Jar?)",
-              cveStatus.c_str() );
+    if ( foundJNDILookupClass && foundVulnerableVersion ) {
+      cveStatus = "Potentially Vulnerable";
+    } else if ( !foundJNDILookupClass && foundLog4jManifest ) {
+      cveStatus = "Mitigated";
+    } else if ( foundJNDILookupClass && foundLog4jManifest && !foundVulnerableVersion ) {
+      cveStatus = "Mitigated";
+    } else {
+      cveStatus = "Unknown";
     }
+
+    repVulns.push_back( 
+      CReportVunerabilities( file, version, foundLog4j, foundJNDILookupClass, foundLog4jManifest, foundVulnerableVersion, cveStatus )
+    );
+
+    if ( !cmdline_options.no_logo ) {
+
+        printf( "Log4j Found: '%s' ( Version: '%s', JDNI Class: %s, Manifest Owner: %s, CVE Status: %s )\n",
+                file.c_str(),
+                version.c_str(),
+                foundJNDILookupClass ? "Found" : "NOT Found",
+                foundLog4jManifest ? "Log4j" : "Unknown (Uber-Jar?)",
+                cveStatus.c_str() );
+      }
   }
 
   return rv;
@@ -203,8 +238,6 @@ int32_t ScanFile( std::string file ) {
   char dir[_MAX_DIR];
   char fname[_MAX_FNAME];
   char ext[_MAX_EXT];
-
-  repSummary.scannedFiles++;
 
   if ( 0 == _splitpath_s( file.c_str(), drive, dir, fname, ext ) ) {
 
@@ -247,8 +280,6 @@ int32_t ScanDirectory( std::string directory ) {
    {
      do {
 
-       repSummary.scannedDirectories++;
-
        std::string filename( FindFileData.cFileName );
 
        if ( (filename.size() == 1) && (filename == ".") ) continue;
@@ -260,6 +291,8 @@ int32_t ScanDirectory( std::string directory ) {
        if ( (FindFileData.dwFileAttributes & FILE_ATTRIBUTE_VIRTUAL) == FILE_ATTRIBUTE_VIRTUAL ) continue;
 
        if ( (FindFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY ) {
+         repSummary.scannedDirectories++;
+
          std::string dir = directory + std::string(FindFileData.cFileName) + std::string("\\");
          rv = ScanDirectory( dir );
          if ( ERROR_SUCCESS != rv ) {
@@ -272,6 +305,8 @@ int32_t ScanDirectory( std::string directory ) {
          //
 
        } else {
+         repSummary.scannedFiles++;
+
          std::string file = directory + std::string( FindFileData.cFileName );
          rv = ScanFile( file );
          if ( ERROR_SUCCESS != rv ) {
@@ -279,6 +314,7 @@ int32_t ScanDirectory( std::string directory ) {
              printf( "Failed to process file '%s' (rv: %d)\n", file.c_str(), rv );
            }
          }
+
        }
 
      } while ( FindNextFile(hFind, &FindFileData) );
@@ -299,7 +335,7 @@ int32_t ScanLocalDrives() {
   for ( uint32_t i = 0; i < rt; i += 4 ) {
     char* drive = &drives[i];
     DWORD type = GetDriveType( drive );
-    if ( (DRIVE_FIXED == type) || (DRIVE_RAMDISK == type) ) {
+    if ( (DRIVE_FIXED == type) || (DRIVE_REMOVABLE == type) || (DRIVE_RAMDISK == type) ) {
       ScanDirectory( drive );
     }
   }
@@ -327,6 +363,103 @@ int32_t ScanNetworkDrives() {
 }
 
 
+int32_t GenerateReportSummary( rapidjson::Document& doc ) {
+  int32_t rv = ERROR_SUCCESS;
+
+  rapidjson::Value vScanDuration( rapidjson::kNumberType );
+  rapidjson::Value vScannedFiles( rapidjson::kNumberType );
+  rapidjson::Value vScannedDirectories( rapidjson::kNumberType );
+  rapidjson::Value vScannedJARs( rapidjson::kNumberType );
+  rapidjson::Value vScannedWARs( rapidjson::kNumberType );
+  rapidjson::Value vScannedEARs( rapidjson::kNumberType );
+  rapidjson::Value vScannedZIPs( rapidjson::kNumberType );
+  rapidjson::Value oSummary( rapidjson::kObjectType );
+
+  vScanDuration.SetInt64( repSummary.scanEnd - repSummary.scanStart );
+  vScannedFiles.SetInt64( repSummary.scannedFiles );
+  vScannedDirectories.SetInt64( repSummary.scannedDirectories );
+  vScannedJARs.SetInt64( repSummary.scannedJARs );
+  vScannedWARs.SetInt64( repSummary.scannedWARs );
+  vScannedEARs.SetInt64( repSummary.scannedEARs );
+  vScannedZIPs.SetInt64( repSummary.scannedZIPs );
+
+  oSummary.AddMember("scanDuration", vScanDuration, doc.GetAllocator());
+  oSummary.AddMember("scannedFiles", vScannedFiles, doc.GetAllocator());
+  oSummary.AddMember("scannedDirectories", vScannedDirectories, doc.GetAllocator());
+  oSummary.AddMember("scannedJARs", vScannedJARs, doc.GetAllocator());
+  oSummary.AddMember("scannedWARs", vScannedWARs, doc.GetAllocator());
+  oSummary.AddMember("scannedEARs", vScannedEARs, doc.GetAllocator());
+  oSummary.AddMember("scannedZIPs", vScannedZIPs, doc.GetAllocator());
+
+  doc.AddMember("scanSummary", oSummary, doc.GetAllocator());
+
+  return rv;
+}
+
+
+int32_t GenerateReportDetail( rapidjson::Document& doc ) {
+  int32_t rv = ERROR_SUCCESS;
+  rapidjson::Value oDetails( rapidjson::kArrayType );
+
+  for ( size_t i = 0; i < repVulns.size(); i++ ) {
+    CReportVunerabilities vuln = repVulns[i];
+
+    rapidjson::Value vFile( rapidjson::kStringType );
+    rapidjson::Value vVersion( rapidjson::kStringType );
+    rapidjson::Value vDetectedLog4j( rapidjson::kTrueType );
+    rapidjson::Value vDetectedJNDILookupClass( rapidjson::kTrueType );
+    rapidjson::Value vDetectedLog4jManifest( rapidjson::kTrueType );
+    rapidjson::Value vDetectedVulnerableVersion( rapidjson::kTrueType );
+    rapidjson::Value vCVEStatus( rapidjson::kStringType );
+    rapidjson::Value oDetail( rapidjson::kObjectType );
+
+    vFile.SetString( vuln.file.c_str(), doc.GetAllocator() );
+    vVersion.SetString( vuln.version.c_str(), doc.GetAllocator() );
+    vDetectedLog4j.SetBool( vuln.detectedLog4j );
+    vDetectedJNDILookupClass.SetBool( vuln.detectedJNDILookupClass );
+    vDetectedLog4jManifest.SetBool( vuln.detectedLog4jManifest );
+    vDetectedVulnerableVersion.SetBool( vuln.detectedVulnerableVersion );
+    vCVEStatus.SetString( vuln.cveStatus.c_str(), doc.GetAllocator() );
+
+    oDetail.AddMember("file", vFile, doc.GetAllocator());
+    oDetail.AddMember("version", vVersion, doc.GetAllocator());
+    oDetail.AddMember("detectedLog4j", vDetectedLog4j, doc.GetAllocator());
+    oDetail.AddMember("detectedJNDILookupClass", vDetectedJNDILookupClass, doc.GetAllocator());
+    oDetail.AddMember("detectedLog4jManifest", vDetectedLog4jManifest, doc.GetAllocator());
+    oDetail.AddMember("detectedVulnerableVersion", vDetectedVulnerableVersion, doc.GetAllocator());
+    oDetail.AddMember("cveStatus", vCVEStatus, doc.GetAllocator());
+
+    oDetails.PushBack(oDetail, doc.GetAllocator());
+  }
+
+  doc.AddMember("scanDetails", oDetails, doc.GetAllocator());
+  return rv;
+}
+
+
+int32_t GenerateReport() {
+  int32_t rv = ERROR_SUCCESS;
+  rapidjson::Document doc;
+  rapidjson::StringBuffer buffer;
+
+  doc.Parse("{}");
+
+  GenerateReportSummary( doc );
+  GenerateReportDetail( doc );
+
+  if ( cmdline_options.reportPretty ) {
+    rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(buffer);
+    doc.Accept(writer);
+  } else {
+    rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+    doc.Accept(writer);
+  }
+
+  printf("%s", buffer.GetString());
+  return rv;
+}
+
+
 int32_t PrintHelp( _In_ int32_t argc, _In_ char* argv[] ) {
   int32_t rv = ERROR_SUCCESS;
 
@@ -334,10 +467,14 @@ int32_t PrintHelp( _In_ int32_t argc, _In_ char* argv[] ) {
   printf("  Scan local drives for vunerable JAR, WAR, EAR, ZIP files used by various Java applications.\n");
   printf("/scan_network\n");
   printf("  Scan network drives for vunerable JAR, WAR, EAR, ZIP files used by various Java applications.\n");
-  printf("/scan_directory \"C:\\Some\\Path\"\n");
+  printf("/scan_directory 'C:\\Some\\Path'\n");
   printf("  Scan a specific directory for vunerable JAR, WAR, EAR, ZIP files used by various Java applications.\n");
-  printf("/scan_file \"C:\\Some\\Path\\Some.jar\"\n");
+  printf("/scan_file 'C:\\Some\\Path\\Some.jar'\n");
   printf("  Scan a specific file for CVE-2021-44228.\n");
+  printf("/report\n");
+  printf("  Generate a JSON report of possible detections of CVE-2021-44228.\n");
+  printf("/report_pretty\n");
+  printf("  Generate a human readable JSON report of possible detections of CVE-2021-44228.\n");
   printf("\n");
 
   return rv;
@@ -359,6 +496,13 @@ int32_t ProcessCommandLineOptions( _In_ int32_t argc, _In_ char* argv[] ) {
     } else if ( ARG(scan_directory) && ARGPARAMCOUNT(1) ) {
       cmdline_options.scanDirectory = true;
       cmdline_options.directory = argv[i+1];
+    } else if ( ARG(report) ) {
+      cmdline_options.no_logo = true;
+      cmdline_options.report = true;
+    } else if ( ARG(report_pretty) ) {
+      cmdline_options.no_logo = true;
+      cmdline_options.report = true;
+      cmdline_options.reportPretty = true;
     } else if ( ARG(nologo) ) {
       cmdline_options.no_logo = true;
     } else if ( ARG(v) || ARG(verbose) ) {
@@ -383,7 +527,7 @@ int32_t __cdecl main( _In_ int32_t argc, _In_ char* argv[] )
   }
 
   if ( !cmdline_options.no_logo ) {
-    printf("Qualys CVE-2021-44228 Log4j Vulnerability Scanner 1.0\n");
+    printf("Qualys CVE-2021-44228 Log4j Vulnerability Scanner 1.1.0\n");
     printf("https://www.qualys.com/\n\n");
   }
 
@@ -391,6 +535,16 @@ int32_t __cdecl main( _In_ int32_t argc, _In_ char* argv[] )
     PrintHelp(argc, argv);
     goto END;
   }
+
+  if ( !cmdline_options.scanLocalDrives &&
+       !cmdline_options.scanNetworkDrives &&
+       !cmdline_options.scanDirectory &&
+       !cmdline_options.scanFile )
+  {
+    cmdline_options.scanLocalDrives = true;
+  }
+
+  repSummary.scanStart = time(0);
 
   if ( cmdline_options.scanLocalDrives ) {
     if ( !cmdline_options.no_logo ) {
@@ -420,6 +574,22 @@ int32_t __cdecl main( _In_ int32_t argc, _In_ char* argv[] )
     ScanFile(cmdline_options.file);
   }
 
+  repSummary.scanEnd = time(0);
+
+  if ( !cmdline_options.no_logo ) {
+    printf( "\nScan Summary:\n");
+    printf( "\tScan Duration:\t\t %lld Seconds\n", repSummary.scanEnd - repSummary.scanStart );
+    printf( "\tFiles Scanned:\t\t %lld\n", repSummary.scannedFiles );
+    printf( "\tDirectories Scanned:\t %lld\n", repSummary.scannedDirectories );
+    printf( "\tJAR(s) Scanned:\t\t %lld\n", repSummary.scannedJARs );
+    printf( "\tWAR(s) Scanned:\t\t %lld\n", repSummary.scannedWARs );
+    printf( "\tEAR(s) Scanned:\t\t %lld\n", repSummary.scannedEARs );
+    printf( "\tZIP(s) Scanned:\t\t %lld\n", repSummary.scannedZIPs );
+  }
+
+  if ( cmdline_options.report ) {
+    GenerateReport();
+  }
 
 END:
   return rv;
