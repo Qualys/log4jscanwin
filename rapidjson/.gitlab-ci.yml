@@ -1,0 +1,92 @@
+stages:
+  - Build
+  - Test
+  - Package
+  - Deploy
+
+variables:
+  GIT_SUBMODULE_STRATEGY: recursive  
+  VERSION: 1.1.0.$CI_PIPELINE_IID
+
+build:include:
+  stage: Build
+  tags:
+  - windows
+  - vs2019
+  - c++
+  script:
+  - Write-Host "Capturing Includes"
+  artifacts:
+    name: "$CI_JOB_NAME-$CI_COMMIT_REF_NAME"
+    paths:
+      - include
+
+test:windows_x64:
+  stage: Test
+  tags:
+  - windows
+  - vs2019
+  - c++
+  script:
+  - mkdir build-x64
+  - cd build-x64
+  - cmake .. -A x64 -DCMAKE_BUILD_TYPE=RelWithDebInfo -DRAPIDJSON_BUILD_THIRDPARTY_GTEST=ON -Dgtest_force_shared_crt=ON
+  - msbuild RapidJSON.sln /p:Configuration=RelWithDebInfo /p:Platform=x64
+  - ctest --no-compress-output -C RelWithDebInfo -T test --output-on-failure
+  - ../agentng-scripts/CTest2JUnit.ps1
+  artifacts:
+    when: always
+    reports:
+      junit: build-x64/Testing/**/TestResults.xml
+      metrics: build-x64/Testing/Temporary/CTestCostData.txt
+  dependencies: []
+
+test:windows_x86:
+  stage: Test
+  tags:
+  - windows
+  - vs2019
+  - c++
+  script:
+  - mkdir build-x86
+  - cd build-x86
+  - cmake .. -A Win32 -DCMAKE_BUILD_TYPE=RelWithDebInfo -DRAPIDJSON_BUILD_THIRDPARTY_GTEST=ON -Dgtest_force_shared_crt=ON
+  - msbuild RapidJSON.sln /p:Configuration=RelWithDebInfo /p:Platform=Win32
+  - ctest --no-compress-output -C RelWithDebInfo -T test --output-on-failure
+  - ../agentng-scripts/CTest2JUnit.ps1
+  artifacts:
+    when: always
+    reports:
+      junit: build-x86/Testing/**/TestResults.xml
+      metrics: build-x86/Testing/Temporary/CTestCostData.txt
+  dependencies: []
+
+package:nuget:
+  stage: Package
+  tags:
+  - windows
+  - vs2019
+  - nuget
+  script:
+  - cd agentng-nuspec
+  - .\build.ps1
+  artifacts:
+    name: "$CI_JOB_NAME-$CI_COMMIT_REF_NAME"
+    paths:
+      - agentng-nuspec/packages/*.nupkg
+  dependencies:
+  - build:include
+
+deploy:nuget:
+  stage: Deploy
+  tags:
+  - windows
+  - vs2019
+  - nuget
+  script:
+  - cd agentng-nuspec/Packages
+  - nuget sources add -configfile ..\nuget.config -name gitlab -source "$CI_SERVER_URL/api/v4/projects/$CI_PROJECT_ID/packages/nuget/index.json" -username gitlab-ci-token -password $CI_JOB_TOKEN -storepasswordincleartext -noninteractive
+  - nuget push "*.nupkg" -configfile ..\nuget.config -source "$CI_SERVER_URL/api/v4/projects/$CI_PROJECT_ID/packages/nuget/index.json" -noninteractive 
+  - nuget sources remove -configfile ..\nuget.config -name gitlab -noninteractive
+  dependencies:
+  - package:nuget
