@@ -133,7 +133,8 @@ int32_t ScanFileArchive( std::string file, std::string alternate ) {
   char* p = NULL;
   char buf[2048];
   std::string manifest;
-  std::string version = "Unknown";
+  std::string implementationOwner;
+  std::string implementationVersion;
 
   if ( !alternate.empty() ) {
     zf = unzOpen64( alternate.c_str() );
@@ -155,6 +156,10 @@ int32_t ScanFileArchive( std::string file, std::string alternate ) {
         if ( UNZ_OK == rv )
         {
 
+          p = strstr( filename, "org/apache/log4j" );
+          if ( NULL != p ) {
+            foundLog4j = true;
+          }
           p = strstr( filename, "org/apache/logging/log4j" );
           if ( NULL != p ) {
             foundLog4j = true;
@@ -250,21 +255,57 @@ int32_t ScanFileArchive( std::string file, std::string alternate ) {
     std::string cveStatus;
 
     if ( std::string::npos != manifest.find("Implementation-Version:", 0) ) {
+
       foundVersion = true;
       std::string prop("Implementation-Version:");
       size_t pos = manifest.find(prop.c_str() + 1, 0);
       size_t eol = manifest.find("\r\n", pos);
-      version = manifest.substr(pos + prop.size(), eol - (pos + prop.size()));
+      implementationVersion = manifest.substr(pos + prop.size(), eol - (pos + prop.size()));
+
+    } else if ( std::string::npos != manifest.find("Bundle-Version:", 0) ) {
+
+      foundVersion = true;
+      std::string prop("Bundle-Version:");
+      size_t pos = manifest.find(prop.c_str() + 1, 0);
+      size_t eol = manifest.find("\r\n", pos);
+      implementationVersion = manifest.substr(pos + prop.size(), eol - (pos + prop.size()));
+
+    } else {
+
+      implementationVersion = "Unknown";
+
     }
+
     if ( std::string::npos != manifest.find("Implementation-Vendor-Id:", 0) ) {
+
       foundVendorId = true;
-      if ( std::string::npos != manifest.find("org.apache.logging.log4j", 0) ) {
+      std::string prop("Implementation-Vendor-Id:");
+      size_t pos = manifest.find(prop.c_str() + 1, 0);
+      size_t eol = manifest.find("\r\n", pos);
+      implementationOwner = manifest.substr(pos + prop.size(), eol - (pos + prop.size()));
+
+      if ( implementationOwner == "org.apache.logging.log4j" ) {
         foundLog4jManifest = true;
       }
+
+    } else if ( std::string::npos != manifest.find("Bundle-Vendor:", 0) ) {
+
+      foundVendorId = true;
+      std::string prop("Bundle-Vendor:");
+      size_t pos = manifest.find(prop.c_str() + 1, 0);
+      size_t eol = manifest.find("\r\n", pos);
+      implementationOwner = manifest.substr(pos + prop.size(), eol - (pos + prop.size()));
+
+      if ( implementationOwner == "org.apache.log4j" ) {
+        foundLog4jManifest = true;
+      }
+
+    } else {
+      implementationOwner = "Unknown";
     }
 
     if (foundJNDILookupClass && foundLog4jManifest) {
-      if ( VulnerableVersionCheck( version ) ) {
+      if ( VulnerableVersionCheck( implementationVersion ) ) {
         repSummary.foundVunerabilities++;
         foundVulnerableVersion = true;
       }
@@ -277,7 +318,7 @@ int32_t ScanFileArchive( std::string file, std::string alternate ) {
     } else if ( foundJNDILookupClass && foundLog4jManifest && !foundVulnerableVersion ) {
       cveStatus = "Mitigated";
     } else if ( foundJNDILookupClass && foundVersion && foundVendorId ) {
-      cveStatus = "Potentially Vulnerable (Log4j and JNDI Class Found in JAR, Unknown Vendor and Version) (Uber-JAR/Shaded-JAR?)";
+      cveStatus = "Potentially Vulnerable (Log4j and JNDI Class Found in JAR, Implementation Vendor and Version NOT Log4j) (Uber-JAR/Shaded-JAR?)";
     } else if ( !foundJNDILookupClass && !foundVersion && !foundVendorId ) {
       cveStatus = "N/A";
     } else {
@@ -285,16 +326,15 @@ int32_t ScanFileArchive( std::string file, std::string alternate ) {
     }
 
     repVulns.push_back( 
-      CReportVunerabilities( file, version, foundLog4j, foundJNDILookupClass, foundLog4jManifest, foundVulnerableVersion, cveStatus )
+      CReportVunerabilities( file, implementationVersion, foundLog4j, foundJNDILookupClass, foundLog4jManifest, foundVulnerableVersion, cveStatus )
     );
 
     if ( !cmdline_options.no_logo ) {
-
-      printf( "Log4j Found: '%s' ( Version: '%s', JDNI Class: %s, Manifest Owner: %s, CVE Status: %s )\n",
+      printf( "Log4j Found: '%s' ( Version: %s, JDNI Class: %s, Owner: %s, CVE Status: %s )\n",
               file.c_str(),
-              version.c_str(),
+              implementationVersion.c_str(),
               foundJNDILookupClass ? "Found" : "NOT Found",
-              foundLog4jManifest ? "Log4j" : "Unknown",
+              implementationOwner.c_str(),
               cveStatus.c_str() );
     }
   }
