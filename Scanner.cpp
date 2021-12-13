@@ -527,9 +527,9 @@ int32_t PrintHelp( _In_ int32_t argc, _In_ char* argv[] ) {
   printf("  Scan local drives for vunerable JAR, WAR, EAR, ZIP files used by various Java applications.\n");
   printf("/scan_network\n");
   printf("  Scan network drives for vunerable JAR, WAR, EAR, ZIP files used by various Java applications.\n");
-  printf("/scan_directory 'C:\\Some\\Path'\n");
+  printf("/scan_directory \"C:\\Some\\Path\"\n");
   printf("  Scan a specific directory for vunerable JAR, WAR, EAR, ZIP files used by various Java applications.\n");
-  printf("/scan_file 'C:\\Some\\Path\\Some.jar'\n");
+  printf("/scan_file \"C:\\Some\\Path\\Some.jar\"\n");
   printf("  Scan a specific file for CVE-2021-44228.\n");
   printf("/report\n");
   printf("  Generate a JSON report of possible detections of CVE-2021-44228.\n");
@@ -569,6 +569,21 @@ int32_t ProcessCommandLineOptions( _In_ int32_t argc, _In_ char* argv[] ) {
       cmdline_options.verbose = true;
     } else if ( ARG(h) || ARG(help) ) {
       cmdline_options.help = true;
+    }
+  }
+
+  //
+  // Check to make sure the directory path is normalized
+  //
+  if ( cmdline_options.scanDirectory ) {
+    if ( 0 == cmdline_options.directory.substr(0, 1).compare("\"") ) {
+      cmdline_options.directory.erase( 0, 1 );
+    }
+    if ( 0 == cmdline_options.directory.substr(cmdline_options.directory.size() - 1, 1).compare("\"") ) {
+      cmdline_options.directory.erase( cmdline_options.directory.size() - 1, 1 );
+    }
+    if ( 0 != cmdline_options.directory.substr(cmdline_options.directory.size() - 1, 1).compare("\\") ) {
+      cmdline_options.directory += "\\";
     }
   }
 
