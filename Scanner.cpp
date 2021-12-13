@@ -3,6 +3,7 @@
 
 #include <windows.h>
 #include <stdint.h>
+#include <time.h>
 #include <iostream>
 #include <vector>
 #include <string>
@@ -131,7 +132,7 @@ int32_t ScanFileArchive( std::string file, std::string alternate ) {
   bool foundLog4jManifest = false;
   bool foundVulnerableVersion = false;
   char* p = NULL;
-  char buf[2048];
+  char buf[1024];
   std::string manifest;
   std::string implementationOwner;
   std::string implementationVersion;
@@ -593,7 +594,7 @@ int32_t PrintHelp( _In_ int32_t argc, _In_ char* argv[] ) {
 }
 
 
-int32_t ProcessCommandLineOptions( _In_ int32_t argc, _In_ char* argv[] ) {
+int32_t ProcessCommandLineOptions( int32_t argc, char* argv[] ) {
   int32_t rv = ERROR_SUCCESS;
 
   for ( int32_t i=1; i<argc; i++ ) {
@@ -643,7 +644,7 @@ int32_t ProcessCommandLineOptions( _In_ int32_t argc, _In_ char* argv[] ) {
 }
 
 
-int32_t __cdecl main( _In_ int32_t argc, _In_ char* argv[] )
+int32_t __cdecl main( int32_t argc, char* argv[] )
 {
   int32_t rv = ERROR_SUCCESS;
 
