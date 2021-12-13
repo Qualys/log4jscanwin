@@ -116,11 +116,13 @@ bool VulnerableVersionCheck( std::string version ) {
 }
 
 
-int32_t ScanFileArchive( std::string file ) {
+int32_t ScanFileArchive( std::string file, std::string alternate ) {
   int32_t rv = ERROR_SUCCESS;
   unzFile zf = NULL;
   unz_file_info64 file_info;
-  char filename[_MAX_PATH];
+  char filename[_MAX_PATH+1];
+  char tmpPath[_MAX_PATH+1];
+  char tmpFilename[_MAX_PATH+1];
   bool foundLog4j = false;
   bool foundJNDILookupClass = false;
   bool foundLog4jManifest = false;
@@ -130,7 +132,11 @@ int32_t ScanFileArchive( std::string file ) {
   std::string manifest;
   std::string version = "Unknown";
 
-  zf = unzOpen64( file.c_str() );
+  if ( !alternate.empty() ) {
+    zf = unzOpen64( alternate.c_str() );
+  } else {
+    zf = unzOpen64( file.c_str() );
+  }
   if ( NULL != zf ) {
 
     //
@@ -142,66 +148,119 @@ int32_t ScanFileArchive( std::string file ) {
       do
       {
         rv = unzGetCurrentFileInfo64( zf, &file_info, filename, _countof(filename), NULL, 0, NULL, 0 );
+
         if ( UNZ_OK == rv )
         {
+
           p = strstr( filename, "org/apache/logging/log4j" );
           if ( NULL != p ) {
             foundLog4j = true;
           }
-          p = strstr( filename, "org/apache/logging/log4j/core/lookup/JndiLookup.class" );
-          if ( NULL != p ) {
+          if ( 0 == stricmp( filename, "org/apache/logging/log4j/core/lookup/JndiLookup.class" ) ) {
             foundJNDILookupClass = true;
           }
+          if ( 0 == stricmp( filename, "META-INF/MANIFEST.MF" ) ) {
+            rv = unzOpenCurrentFile( zf );
+            if ( UNZ_OK == rv ) {
+              do
+              {
+                memset( buf, 0, sizeof(buf) );
+                rv = unzReadCurrentFile( zf, buf, sizeof(buf) );
+                if (rv < 0 || rv == 0) break;
+                manifest.append( buf, rv );
+              } while (rv > 0);
+              unzCloseCurrentFile( zf );
+            }
+          }
+
+          //
+          // Add Support for nested archive files
+          //
+          p = &filename[0] + ( strlen(filename) - 4 );
+          if ( (0 == stricmp( p, ".jar" )) || (0 == stricmp( p, ".war" )) || (0 == stricmp( p, ".ear" )) || (0 == stricmp( p, ".zip" )) ) {
+
+            if ( 0 == stricmp( p, ".jar" ) ) {
+               repSummary.scannedJARs++;
+            }
+            if ( 0 == stricmp( p, ".war" ) ) {
+               repSummary.scannedWARs++;
+            }
+            if ( 0 == stricmp( p, ".ear" ) ) {
+               repSummary.scannedEARs++;
+            }
+            if ( 0 == stricmp( p, ".zip" ) ) {
+               repSummary.scannedZIPs++;
+            }
+
+            GetTempPath( _countof(tmpPath), tmpPath );
+            GetTempFileName( tmpPath, "qua", 0, tmpFilename );
+
+            HANDLE h = CreateFile( tmpFilename,
+                                   GENERIC_READ | GENERIC_WRITE,
+                                   NULL,
+                                   NULL,
+                                   CREATE_ALWAYS,
+                                   FILE_ATTRIBUTE_TEMPORARY,
+                                   NULL );
+
+            if ( h != INVALID_HANDLE_VALUE ) {
+
+              rv = unzOpenCurrentFile( zf );
+              if ( UNZ_OK == rv ) {
+                do
+                {
+                  memset( buf, 0, sizeof(buf) );
+                  rv = unzReadCurrentFile( zf, buf, sizeof(buf) );
+                  if (rv < 0 || rv == 0) break;
+                  WriteFile( h, buf, rv, NULL, NULL );
+                } while (rv > 0);
+                unzCloseCurrentFile( zf );
+
+              }
+              CloseHandle( h );
+
+              std::string masked_filename = file + "!" + filename;
+              std::string alternate_filename = tmpFilename;
+
+              ScanFileArchive( masked_filename, alternate_filename );
+
+              DeleteFile( alternate_filename.c_str() );
+            }
+          }
         }
+
         rv = unzGoToNextFile( zf );
       } while ( UNZ_OK == rv );
     }
 
-    //
-    // If we have detected some evidence of Log4j then lets check to see if we can detect 
-    // CVE-2021-44228
-    //
-    if ( foundLog4j ) {
-
-      rv = unzLocateFile( zf, "META-INF/MANIFEST.MF", FALSE );
-      if ( UNZ_OK == rv ) {
-        rv = unzOpenCurrentFile( zf );
-        if ( UNZ_OK == rv ) {
-          do
-          {
-            memset( buf, 0, sizeof(buf) );
-            rv = unzReadCurrentFile( zf, buf, sizeof(buf) );
-            if (rv < 0 || rv == 0) break;
-            manifest.append( buf, rv );
-          } while (rv > 0);
-          unzCloseCurrentFile( zf );
-        }
-
-        //
-        // Check manifest for confirmation of version number only if Implementation-Vendor-Id is org.apache.logging.log4j
-        //
-        if ( std::string::npos != manifest.find("Implementation-Vendor-Id: org.apache.logging.log4j", 0) ) {
-          foundLog4jManifest = true;
-
-          std::string prop("Implementation-Version:");
-          size_t pos = manifest.find(prop.c_str() + 1, 0);
-          size_t eol = manifest.find("\r\n", pos);
-          version = manifest.substr(pos + prop.size(), eol - (pos + prop.size()));
-
-          if ( VulnerableVersionCheck( version ) ) {
-            if ( foundJNDILookupClass ) {
-              repSummary.foundVunerabilities++;
-            }
-            foundVulnerableVersion = true;
-          }
-        }
-      }
-    }
     unzClose( zf );
   }
 
+  //
+  // If we have detected some evidence of Log4j then lets check to see if we can detect 
+  // CVE-2021-44228
+  //
   if ( foundLog4j ) {
     std::string cveStatus;
+
+    //
+    // Check manifest for confirmation of version number only if Implementation-Vendor-Id is org.apache.logging.log4j
+    //
+    if ( std::string::npos != manifest.find("Implementation-Vendor-Id: org.apache.logging.log4j", 0) ) {
+      foundLog4jManifest = true;
+
+      std::string prop("Implementation-Version:");
+      size_t pos = manifest.find(prop.c_str() + 1, 0);
+      size_t eol = manifest.find("\r\n", pos);
+      version = manifest.substr(pos + prop.size(), eol - (pos + prop.size()));
+
+      if ( VulnerableVersionCheck( version ) ) {
+        if ( foundJNDILookupClass ) {
+          repSummary.foundVunerabilities++;
+        }
+        foundVulnerableVersion = true;
+      }
+    }
 
     if ( foundJNDILookupClass && foundVulnerableVersion ) {
       cveStatus = "Potentially Vulnerable";
@@ -241,22 +300,23 @@ int32_t ScanFile( std::string file ) {
 
   if ( 0 == _splitpath_s( file.c_str(), drive, dir, fname, ext ) ) {
 
-    if ( 0 == stricmp( ext, ".zip" ) ) {
-       repSummary.scannedZIPs++;
-       rv = ScanFileArchive(file);
-    }
     if ( 0 == stricmp( ext, ".jar" ) ) {
        repSummary.scannedJARs++;
-       rv = ScanFileArchive(file);
+       rv = ScanFileArchive( file, "" );
     }
     if ( 0 == stricmp( ext, ".war" ) ) {
        repSummary.scannedWARs++;
-       rv = ScanFileArchive(file);
+       rv = ScanFileArchive( file, "" );
     }
     if ( 0 == stricmp( ext, ".ear" ) ) {
        repSummary.scannedEARs++;
-       rv = ScanFileArchive(file);
+       rv = ScanFileArchive( file, "" );
     }
+    if ( 0 == stricmp( ext, ".zip" ) ) {
+       repSummary.scannedZIPs++;
+       rv = ScanFileArchive( file, "" );
+    }
+
   } else {
     rv = errno;
   }
