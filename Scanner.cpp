@@ -648,6 +648,11 @@ int32_t __cdecl main( int32_t argc, char* argv[] )
 {
   int32_t rv = ERROR_SUCCESS;
 
+#ifndef _WIN64
+  PVOID pHandle;
+  Wow64DisableWow64FsRedirection(&pHandle);
+#endif
+
   rv = ProcessCommandLineOptions( argc, argv );
   if ( ERROR_SUCCESS != rv ) {
     printf("Failed to process command line pptions.\n");
