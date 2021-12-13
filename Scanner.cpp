@@ -276,6 +276,8 @@ int32_t ScanFileArchive( std::string file, std::string alternate ) {
       cveStatus = "Mitigated";
     } else if ( foundJNDILookupClass && foundLog4jManifest && !foundVulnerableVersion ) {
       cveStatus = "Mitigated";
+    } else if ( foundJNDILookupClass && foundVersion && foundVendorId ) {
+      cveStatus = "Potentially Vulnerable (Log4j and JNDI Class Found in JAR, Unknown Vendor and Version) (Uber-JAR/Shaded-JAR?)";
     } else if ( !foundJNDILookupClass && !foundVersion && !foundVendorId ) {
       cveStatus = "N/A";
     } else {
@@ -288,13 +290,13 @@ int32_t ScanFileArchive( std::string file, std::string alternate ) {
 
     if ( !cmdline_options.no_logo ) {
 
-        printf( "Log4j Found: '%s' ( Version: '%s', JDNI Class: %s, Manifest Owner: %s, CVE Status: %s )\n",
-                file.c_str(),
-                version.c_str(),
-                foundJNDILookupClass ? "Found" : "NOT Found",
-                foundLog4jManifest ? "Log4j" : "Unknown (Uber-Jar?)",
-                cveStatus.c_str() );
-      }
+      printf( "Log4j Found: '%s' ( Version: '%s', JDNI Class: %s, Manifest Owner: %s, CVE Status: %s )\n",
+              file.c_str(),
+              version.c_str(),
+              foundJNDILookupClass ? "Found" : "NOT Found",
+              foundLog4jManifest ? "Log4j" : "Unknown",
+              cveStatus.c_str() );
+    }
   }
 
   return rv;
