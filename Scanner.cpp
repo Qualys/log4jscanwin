@@ -125,6 +125,9 @@ int32_t ScanFileArchive( std::string file, std::string alternate ) {
   char tmpFilename[_MAX_PATH+1];
   bool foundLog4j = false;
   bool foundJNDILookupClass = false;
+  bool foundManifest = false;
+  bool foundVersion = false;
+  bool foundVendorId = false;
   bool foundLog4jManifest = false;
   bool foundVulnerableVersion = false;
   char* p = NULL;
@@ -160,6 +163,8 @@ int32_t ScanFileArchive( std::string file, std::string alternate ) {
             foundJNDILookupClass = true;
           }
           if ( 0 == stricmp( filename, "META-INF/MANIFEST.MF" ) ) {
+            foundManifest = true;
+
             rv = unzOpenCurrentFile( zf );
             if ( UNZ_OK == rv ) {
               do
@@ -171,6 +176,7 @@ int32_t ScanFileArchive( std::string file, std::string alternate ) {
               } while (rv > 0);
               unzCloseCurrentFile( zf );
             }
+
           }
 
           //
@@ -243,31 +249,35 @@ int32_t ScanFileArchive( std::string file, std::string alternate ) {
   if ( foundLog4j ) {
     std::string cveStatus;
 
-    //
-    // Check manifest for confirmation of version number only if Implementation-Vendor-Id is org.apache.logging.log4j
-    //
-    if ( std::string::npos != manifest.find("Implementation-Vendor-Id: org.apache.logging.log4j", 0) ) {
-      foundLog4jManifest = true;
-
+    if ( std::string::npos != manifest.find("Implementation-Version:", 0) ) {
+      foundVersion = true;
       std::string prop("Implementation-Version:");
       size_t pos = manifest.find(prop.c_str() + 1, 0);
       size_t eol = manifest.find("\r\n", pos);
       version = manifest.substr(pos + prop.size(), eol - (pos + prop.size()));
+    }
+    if ( std::string::npos != manifest.find("Implementation-Vendor-Id:", 0) ) {
+      foundVendorId = true;
+      if ( std::string::npos != manifest.find("org.apache.logging.log4j", 0) ) {
+        foundLog4jManifest = true;
+      }
+    }
 
+    if (foundJNDILookupClass && foundLog4jManifest) {
       if ( VulnerableVersionCheck( version ) ) {
-        if ( foundJNDILookupClass ) {
-          repSummary.foundVunerabilities++;
-        }
+        repSummary.foundVunerabilities++;
         foundVulnerableVersion = true;
       }
     }
 
-    if ( foundJNDILookupClass && foundVulnerableVersion ) {
+    if ( foundJNDILookupClass && foundLog4jManifest && foundVulnerableVersion ) {
       cveStatus = "Potentially Vulnerable";
     } else if ( !foundJNDILookupClass && foundLog4jManifest ) {
       cveStatus = "Mitigated";
     } else if ( foundJNDILookupClass && foundLog4jManifest && !foundVulnerableVersion ) {
       cveStatus = "Mitigated";
+    } else if ( !foundJNDILookupClass && !foundVersion && !foundVendorId ) {
+      cveStatus = "N/A";
     } else {
       cveStatus = "Unknown";
     }
