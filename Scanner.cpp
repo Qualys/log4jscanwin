@@ -46,27 +46,41 @@ class CReportSummary {
   }
 };
 
+
 class CReportVunerabilities {
  public:
   std::string file;
-  std::string version;
+  std::string manifestVersion;
+  std::string manifestVendor;
   bool detectedLog4j;
+  bool detectedLog4j1x;
+  bool detectedLog4j2x;
   bool detectedJNDILookupClass;
   bool detectedLog4jManifest;
+  std::string log4jVersion;
+  std::string log4jVendor;
   bool detectedVulnerableVersion;
   std::string cveStatus;
 
-  CReportVunerabilities( std::string file, std::string version, bool detectedLog4j, bool detectedJNDILookupClass,
-                         bool detectedLog4jManifest, bool detectedVulnerableVersion, std::string cveStatus ) {
+  CReportVunerabilities( std::string file, std::string manifestVersion, std::string manifestVendor, bool detectedLog4j,
+                         bool detectedLog4j1x, bool detectedLog4j2x, bool detectedJNDILookupClass, bool detectedLog4jManifest,
+                         std::string log4jVersion, std::string log4jVendor, bool detectedVulnerableVersion, std::string cveStatus )
+  {
     this->file = file;
-    this->version = version;
+    this->manifestVersion = manifestVersion;
+    this->manifestVendor = manifestVendor;
     this->detectedLog4j = detectedLog4j;
+    this->detectedLog4j1x = detectedLog4j1x;
+    this->detectedLog4j2x = detectedLog4j2x;
     this->detectedJNDILookupClass = detectedJNDILookupClass;
     this->detectedLog4jManifest = detectedLog4jManifest;
+    this->log4jVersion = log4jVersion;
+    this->log4jVendor = log4jVendor;
     this->detectedVulnerableVersion = detectedVulnerableVersion;
     this->cveStatus = cveStatus;
   }
 };
+
 
 class CCommandLineOptions {
  public:
@@ -78,6 +92,7 @@ class CCommandLineOptions {
   std::string directory;
   bool report;
   bool reportPretty;
+  bool reportSig;
   bool verbose;
   bool no_logo;
   bool help;
@@ -91,6 +106,7 @@ class CCommandLineOptions {
     directory.clear();
     report = false;
     reportPretty = false;
+    reportSig = false;
     verbose = false;
     no_logo = false;
     help = false;
@@ -103,7 +119,51 @@ CReportSummary repSummary;
 std::vector<CReportVunerabilities> repVulns;
 
 
-bool VulnerableVersionCheck( std::string version ) {
+bool SanitizeContents(std::string& str) {
+  std::string::iterator iter = str.begin();
+  while (iter != str.end()) {
+      if (*iter == '\r') {
+          iter = str.erase(iter);
+      } else {
+          ++iter;
+      }
+  }
+  return true;
+}
+
+
+bool StripWhitespace(std::string& str) {
+  while (1) {
+    if (str.length() == 0) break;
+    if (!isascii(str[0])) break;
+    if (!isspace(str[0])) break;
+    str.erase(0, 1);
+  }
+
+  int n = (int) str.length();
+  while (n>0) {
+    if (!isascii(str[n-1])) break;
+    if (!isspace(str[n-1])) break;
+    n--;
+  }
+  str.erase(n, str.length()-n);
+  return true;
+}
+
+
+bool GetDictionaryValue( std::string& dict, std::string name, std::string defaultValue, std::string& value ) {
+  if ( std::string::npos != dict.find(name.c_str(), 0) ) {
+    size_t pos = dict.find(name.c_str(), 0);
+    size_t eol = dict.find("\n", pos);
+    value = dict.substr(pos + name.size(), eol - (pos + name.size()));
+    return true;
+  }
+  value = defaultValue;
+  return false;
+}
+
+
+bool Log4jVersionCheck( std::string version ) {
   int major = atoi( version.c_str() );
   if ( major < 2 ) return false;
 
@@ -121,21 +181,30 @@ int32_t ScanFileArchive( std::string file, std::string alternate ) {
   int32_t rv = ERROR_SUCCESS;
   unzFile zf = NULL;
   unz_file_info64 file_info;
+  char* p = NULL;
+  char buf[256];
   char filename[_MAX_PATH+1];
   char tmpPath[_MAX_PATH+1];
   char tmpFilename[_MAX_PATH+1];
   bool foundLog4j = false;
+  bool foundLog4j1x = false;
+  bool foundLog4j2x = false;
   bool foundJNDILookupClass = false;
   bool foundManifest = false;
-  bool foundVersion = false;
-  bool foundVendorId = false;
+  bool foundLog4j1xPOM = false;
+  bool foundLog4j2xPOM = false;
+  bool foundManifestVendor = false;
+  bool foundManifestVersion = false;
   bool foundLog4jManifest = false;
   bool foundVulnerableVersion = false;
-  char* p = NULL;
-  char buf[1024];
   std::string manifest;
-  std::string implementationOwner;
-  std::string implementationVersion;
+  std::string pomLog4j1x;
+  std::string pomLog4j2x;
+  std::string manifestVendor;
+  std::string manifestVersion;
+  std::string log4jVendor;
+  std::string log4jVersion;
+
 
   if ( !alternate.empty() ) {
     zf = unzOpen64( alternate.c_str() );
@@ -160,13 +229,47 @@ int32_t ScanFileArchive( std::string file, std::string alternate ) {
           p = strstr( filename, "org/apache/log4j" );
           if ( NULL != p ) {
             foundLog4j = true;
+            foundLog4j1x = true;
           }
           p = strstr( filename, "org/apache/logging/log4j" );
           if ( NULL != p ) {
             foundLog4j = true;
+            foundLog4j2x = true;
           }
           if ( 0 == stricmp( filename, "org/apache/logging/log4j/core/lookup/JndiLookup.class" ) ) {
             foundJNDILookupClass = true;
+          }
+          if ( 0 == stricmp( filename, "META-INF/maven/log4j/log4j/pom.properties" ) ) {
+            foundLog4j1xPOM = true;
+
+            rv = unzOpenCurrentFile( zf );
+            if ( UNZ_OK == rv ) {
+              do
+              {
+                memset( buf, 0, sizeof(buf) );
+                rv = unzReadCurrentFile( zf, buf, sizeof(buf) );
+                if (rv < 0 || rv == 0) break;
+                pomLog4j1x.append( buf, rv );
+              } while (rv > 0);
+              unzCloseCurrentFile( zf );
+            }
+
+          }
+          if ( 0 == stricmp( filename, "META-INF/maven/org.apache.logging.log4j/log4j-core/pom.properties" ) ) {
+            foundLog4j2xPOM = true;
+
+            rv = unzOpenCurrentFile( zf );
+            if ( UNZ_OK == rv ) {
+              do
+              {
+                memset( buf, 0, sizeof(buf) );
+                rv = unzReadCurrentFile( zf, buf, sizeof(buf) );
+                if (rv < 0 || rv == 0) break;
+                pomLog4j2x.append( buf, rv );
+              } while (rv > 0);
+              unzCloseCurrentFile( zf );
+            }
+
           }
           if ( 0 == stricmp( filename, "META-INF/MANIFEST.MF" ) ) {
             foundManifest = true;
@@ -255,87 +358,76 @@ int32_t ScanFileArchive( std::string file, std::string alternate ) {
   if ( foundLog4j ) {
     std::string cveStatus;
 
-    if ( std::string::npos != manifest.find("Implementation-Version:", 0) ) {
+    SanitizeContents( pomLog4j1x );
+    SanitizeContents( pomLog4j2x );
+    SanitizeContents( manifest );
 
-      foundVersion = true;
-      std::string prop("Implementation-Version:");
-      size_t pos = manifest.find(prop.c_str() + 1, 0);
-      size_t eol = manifest.find("\r\n", pos);
-      implementationVersion = manifest.substr(pos + prop.size(), eol - (pos + prop.size()));
-
-    } else if ( std::string::npos != manifest.find("Bundle-Version:", 0) ) {
-
-      foundVersion = true;
-      std::string prop("Bundle-Version:");
-      size_t pos = manifest.find(prop.c_str() + 1, 0);
-      size_t eol = manifest.find("\r\n", pos);
-      implementationVersion = manifest.substr(pos + prop.size(), eol - (pos + prop.size()));
-
-    } else {
-
-      implementationVersion = "Unknown";
-
+    if ( foundLog4j1x ) {
+      GetDictionaryValue( pomLog4j1x, "artifactId=", "Unknown", log4jVendor );
+      GetDictionaryValue( pomLog4j1x, "version=", "Unknown", log4jVersion );
+    }
+    if ( foundLog4j2x ) {
+      GetDictionaryValue( pomLog4j2x, "artifactId=", "Unknown", log4jVendor );
+      GetDictionaryValue( pomLog4j2x, "version=", "Unknown", log4jVersion );
     }
 
-    if ( std::string::npos != manifest.find("Implementation-Vendor-Id:", 0) ) {
-
-      foundVendorId = true;
-      std::string prop("Implementation-Vendor-Id:");
-      size_t pos = manifest.find(prop.c_str() + 1, 0);
-      size_t eol = manifest.find("\r\n", pos);
-      implementationOwner = manifest.substr(pos + prop.size(), eol - (pos + prop.size()));
-
-      if ( implementationOwner == "org.apache.logging.log4j" ) {
-        foundLog4jManifest = true;
+    if ( foundManifest ) {
+      foundManifestVendor = GetDictionaryValue( manifest, "Implementation-Vendor-Id:", "Unknown", manifestVendor);
+      if ( !foundManifestVendor ) {
+        foundManifestVendor = GetDictionaryValue( manifest, "Bundle-Vendor:", "Unknown", manifestVendor);
+      }
+      foundManifestVersion = GetDictionaryValue( manifest, "Implementation-Version:", "Unknown", manifestVersion );
+      if ( !foundManifestVersion ) {
+        foundManifestVersion = GetDictionaryValue( manifest, "Bundle-Version:", "Unknown", manifestVersion );
       }
 
-    } else if ( std::string::npos != manifest.find("Bundle-Vendor:", 0) ) {
+      StripWhitespace( manifestVendor );
+      StripWhitespace( manifestVersion );
 
-      foundVendorId = true;
-      std::string prop("Bundle-Vendor:");
-      size_t pos = manifest.find(prop.c_str() + 1, 0);
-      size_t eol = manifest.find("\r\n", pos);
-      implementationOwner = manifest.substr(pos + prop.size(), eol - (pos + prop.size()));
-
-      if ( implementationOwner == "org.apache.log4j" ) {
-        foundLog4jManifest = true;
+      if ( foundManifestVendor ) {
+        if (  std::string::npos != manifestVendor.find("log4j", 0) ) {
+          foundLog4jManifest = true;
+        }
+        if (  std::string::npos != manifestVendor.find("org.apache.logging.log4j", 0) ) {
+          foundLog4jManifest = true;
+        }
       }
-
-    } else {
-      implementationOwner = "Unknown";
     }
 
-    if (foundJNDILookupClass && foundLog4jManifest) {
-      if ( VulnerableVersionCheck( implementationVersion ) ) {
-        repSummary.foundVunerabilities++;
+    if ( !pomLog4j1x.empty() || !pomLog4j2x.empty() ) {
+      if ( Log4jVersionCheck( log4jVersion ) ) {
         foundVulnerableVersion = true;
       }
     }
 
-    if ( foundJNDILookupClass && foundLog4jManifest && foundVulnerableVersion ) {
+    if ( foundLog4j2x && foundJNDILookupClass && foundVulnerableVersion ) {
+      repSummary.foundVunerabilities++;
       cveStatus = "Potentially Vulnerable";
-    } else if ( !foundJNDILookupClass && foundLog4jManifest ) {
+    } else if ( !foundJNDILookupClass && !foundManifestVendor && !foundManifestVersion ) {
+      cveStatus = "N/A";
+    } else if ( !foundJNDILookupClass && foundLog4j2x && foundLog4jManifest ) {
       cveStatus = "Mitigated";
-    } else if ( foundJNDILookupClass && foundLog4jManifest && !foundVulnerableVersion ) {
+    } else if ( foundJNDILookupClass && foundLog4j2x && !foundVulnerableVersion ) {
       cveStatus = "Mitigated";
-    } else if ( foundJNDILookupClass && foundVersion && foundVendorId ) {
-      cveStatus = "Potentially Vulnerable (Log4j and JNDI Class Found in JAR, Implementation Vendor and Version NOT Log4j) (Uber-JAR/Shaded-JAR?)";
-    } else if ( !foundJNDILookupClass && !foundVersion && !foundVendorId ) {
+    } else if ( !foundJNDILookupClass && foundLog4j1x && !foundVulnerableVersion ) {
       cveStatus = "N/A";
     } else {
       cveStatus = "Unknown";
     }
 
     repVulns.push_back( 
-      CReportVunerabilities( file, implementationVersion, foundLog4j, foundJNDILookupClass, foundLog4jManifest, foundVulnerableVersion, cveStatus )
+      CReportVunerabilities( file, manifestVersion, manifestVendor, foundLog4j, foundLog4j1x, foundLog4j2x, foundJNDILookupClass,
+                             foundLog4jManifest, log4jVersion, log4jVendor, foundVulnerableVersion, cveStatus )
     );
 
     if ( !cmdline_options.no_logo ) {
-      printf( "Log4j Found: '%s' ( Version: %s, JDNI Class: %s, Owner: %s, CVE Status: %s )\n",
+      printf( "Log4j Found: '%s' ( Manifest Vendor: %s, Manifest Version: %s, JDNI Class: %s, Log4j Vendor: %s, Log4j Version: %s, CVE Status: %s )\n",
               file.c_str(),
-              implementationVersion.c_str(),
+              manifestVendor.c_str(),
+              manifestVersion.c_str(),
               foundJNDILookupClass ? "Found" : "NOT Found",
-              implementationOwner.c_str(),
+              log4jVendor.c_str(),
+              log4jVersion.c_str(),
               cveStatus.c_str() );
     }
   }
@@ -486,6 +578,7 @@ int32_t GenerateReportSummary( rapidjson::Document& doc ) {
   rapidjson::Value vScannedWARs( rapidjson::kNumberType );
   rapidjson::Value vScannedEARs( rapidjson::kNumberType );
   rapidjson::Value vScannedZIPs( rapidjson::kNumberType );
+  rapidjson::Value vVulnerabilitiesFound( rapidjson::kNumberType );
   rapidjson::Value oSummary( rapidjson::kObjectType );
 
   vScanDuration.SetInt64( repSummary.scanEnd - repSummary.scanStart );
@@ -495,6 +588,7 @@ int32_t GenerateReportSummary( rapidjson::Document& doc ) {
   vScannedWARs.SetInt64( repSummary.scannedWARs );
   vScannedEARs.SetInt64( repSummary.scannedEARs );
   vScannedZIPs.SetInt64( repSummary.scannedZIPs );
+  vVulnerabilitiesFound.SetInt64( repSummary.foundVunerabilities );
 
   oSummary.AddMember("scanDuration", vScanDuration, doc.GetAllocator());
   oSummary.AddMember("scannedFiles", vScannedFiles, doc.GetAllocator());
@@ -503,6 +597,7 @@ int32_t GenerateReportSummary( rapidjson::Document& doc ) {
   oSummary.AddMember("scannedWARs", vScannedWARs, doc.GetAllocator());
   oSummary.AddMember("scannedEARs", vScannedEARs, doc.GetAllocator());
   oSummary.AddMember("scannedZIPs", vScannedZIPs, doc.GetAllocator());
+  oSummary.AddMember("vulnerabilitiesFound", vVulnerabilitiesFound, doc.GetAllocator());
 
   doc.AddMember("scanSummary", oSummary, doc.GetAllocator());
 
@@ -518,27 +613,42 @@ int32_t GenerateReportDetail( rapidjson::Document& doc ) {
     CReportVunerabilities vuln = repVulns[i];
 
     rapidjson::Value vFile( rapidjson::kStringType );
-    rapidjson::Value vVersion( rapidjson::kStringType );
+    rapidjson::Value vManifestVendor( rapidjson::kStringType );
+    rapidjson::Value vManifestVersion( rapidjson::kStringType );
     rapidjson::Value vDetectedLog4j( rapidjson::kTrueType );
+    rapidjson::Value vDetectedLog4j1x( rapidjson::kTrueType );
+    rapidjson::Value vDetectedLog4j2x( rapidjson::kTrueType );
     rapidjson::Value vDetectedJNDILookupClass( rapidjson::kTrueType );
     rapidjson::Value vDetectedLog4jManifest( rapidjson::kTrueType );
+    rapidjson::Value vLog4jVendor( rapidjson::kStringType );
+    rapidjson::Value vLog4jVersion( rapidjson::kStringType );
     rapidjson::Value vDetectedVulnerableVersion( rapidjson::kTrueType );
     rapidjson::Value vCVEStatus( rapidjson::kStringType );
     rapidjson::Value oDetail( rapidjson::kObjectType );
 
     vFile.SetString( vuln.file.c_str(), doc.GetAllocator() );
-    vVersion.SetString( vuln.version.c_str(), doc.GetAllocator() );
+    vManifestVendor.SetString( vuln.manifestVendor.c_str(), doc.GetAllocator() );
+    vManifestVersion.SetString( vuln.manifestVersion.c_str(), doc.GetAllocator() );
     vDetectedLog4j.SetBool( vuln.detectedLog4j );
+    vDetectedLog4j1x.SetBool( vuln.detectedLog4j1x );
+    vDetectedLog4j2x.SetBool( vuln.detectedLog4j2x );
     vDetectedJNDILookupClass.SetBool( vuln.detectedJNDILookupClass );
     vDetectedLog4jManifest.SetBool( vuln.detectedLog4jManifest );
+    vLog4jVendor.SetString( vuln.log4jVendor.c_str(), doc.GetAllocator() );
+    vLog4jVersion.SetString( vuln.log4jVersion.c_str(), doc.GetAllocator() );
     vDetectedVulnerableVersion.SetBool( vuln.detectedVulnerableVersion );
     vCVEStatus.SetString( vuln.cveStatus.c_str(), doc.GetAllocator() );
 
     oDetail.AddMember("file", vFile, doc.GetAllocator());
-    oDetail.AddMember("version", vVersion, doc.GetAllocator());
+    oDetail.AddMember("manifestVendor", vManifestVendor, doc.GetAllocator());
+    oDetail.AddMember("manifestVersion", vManifestVersion, doc.GetAllocator());
     oDetail.AddMember("detectedLog4j", vDetectedLog4j, doc.GetAllocator());
+    oDetail.AddMember("detectedLog4j1x", vDetectedLog4j1x, doc.GetAllocator());
+    oDetail.AddMember("detectedLog4j2x", vDetectedLog4j2x, doc.GetAllocator());
     oDetail.AddMember("detectedJNDILookupClass", vDetectedJNDILookupClass, doc.GetAllocator());
     oDetail.AddMember("detectedLog4jManifest", vDetectedLog4jManifest, doc.GetAllocator());
+    oDetail.AddMember("log4jVendor", vLog4jVendor, doc.GetAllocator());
+    oDetail.AddMember("log4jVersion", vLog4jVersion, doc.GetAllocator());
     oDetail.AddMember("detectedVulnerableVersion", vDetectedVulnerableVersion, doc.GetAllocator());
     oDetail.AddMember("cveStatus", vCVEStatus, doc.GetAllocator());
 
@@ -550,7 +660,7 @@ int32_t GenerateReportDetail( rapidjson::Document& doc ) {
 }
 
 
-int32_t GenerateReport() {
+int32_t GenerateJSONReport() {
   int32_t rv = ERROR_SUCCESS;
   rapidjson::Document doc;
   rapidjson::StringBuffer buffer;
@@ -573,6 +683,30 @@ int32_t GenerateReport() {
 }
 
 
+int32_t GenerateSignatureReport() {
+  int32_t rv = ERROR_SUCCESS;
+
+  for ( size_t i = 0; i < repVulns.size(); i++ ) {
+    CReportVunerabilities vuln = repVulns[i];
+
+    printf( "Manifest Vendor: %s, Manifest Version: %s, JDNI Class: %s, Log4j Vendor: %s, Log4j Version: %s, CVE Status: %s\n",
+            vuln.manifestVendor.c_str(),
+            vuln.manifestVersion.c_str(),
+            vuln.detectedJNDILookupClass ? "Found" : "NOT Found",
+            vuln.log4jVendor.c_str(),
+            vuln.log4jVersion.c_str(),
+            vuln.cveStatus.c_str()
+    );
+    printf( "Path=%s\n", vuln.file.c_str() );
+    printf( "%s %s\n", vuln.log4jVendor.c_str(), vuln.log4jVersion.c_str() );
+    printf( "------------------------------------------------------------------------\n" );
+
+  }
+
+  return rv;
+}
+
+
 int32_t PrintHelp( _In_ int32_t argc, _In_ char* argv[] ) {
   int32_t rv = ERROR_SUCCESS;
 
@@ -588,6 +722,8 @@ int32_t PrintHelp( _In_ int32_t argc, _In_ char* argv[] ) {
   printf("  Generate a JSON report of possible detections of CVE-2021-44228.\n");
   printf("/report_pretty\n");
   printf("  Generate a human readable JSON report of possible detections of CVE-2021-44228.\n");
+  printf("/report_sig\n");
+  printf("  Generate a signature report of possible detections of CVE-2021-44228.\n");
   printf("\n");
 
   return rv;
@@ -616,6 +752,10 @@ int32_t ProcessCommandLineOptions( int32_t argc, char* argv[] ) {
       cmdline_options.no_logo = true;
       cmdline_options.report = true;
       cmdline_options.reportPretty = true;
+    } else if ( ARG(report_sig) ) {
+      cmdline_options.no_logo = true;
+      cmdline_options.report = true;
+      cmdline_options.reportSig = true;
     } else if ( ARG(nologo) ) {
       cmdline_options.no_logo = true;
     } else if ( ARG(v) || ARG(verbose) ) {
@@ -710,7 +850,14 @@ int32_t __cdecl main( int32_t argc, char* argv[] )
   repSummary.scanEnd = time(0);
 
   if ( !cmdline_options.no_logo ) {
+    char         buf[64] = { 0 };
+    struct tm*   tm = NULL;
+
+    tm = localtime((time_t*)&repSummary.scanStart);
+    strftime(buf, _countof(buf)-1, "%FT%T%z", tm);
+
     printf( "\nScan Summary:\n");
+    printf( "\tScan Date:\t\t %s\n", buf );
     printf( "\tScan Duration:\t\t %lld Seconds\n", repSummary.scanEnd - repSummary.scanStart );
     printf( "\tFiles Scanned:\t\t %lld\n", repSummary.scannedFiles );
     printf( "\tDirectories Scanned:\t %lld\n", repSummary.scannedDirectories );
@@ -718,10 +865,15 @@ int32_t __cdecl main( int32_t argc, char* argv[] )
     printf( "\tWAR(s) Scanned:\t\t %lld\n", repSummary.scannedWARs );
     printf( "\tEAR(s) Scanned:\t\t %lld\n", repSummary.scannedEARs );
     printf( "\tZIP(s) Scanned:\t\t %lld\n", repSummary.scannedZIPs );
+    printf( "\tVulnerabilities Found:\t %lld\n", repSummary.foundVunerabilities );
   }
 
   if ( cmdline_options.report ) {
-    GenerateReport();
+    if ( !cmdline_options.reportSig ) {
+      GenerateJSONReport();
+    } else {
+      GenerateSignatureReport();
+    }
   }
 
 END:
