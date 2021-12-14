@@ -541,7 +541,7 @@ int32_t ScanLocalDrives() {
   for ( uint32_t i = 0; i < rt; i += 4 ) {
     char* drive = &drives[i];
     DWORD type = GetDriveType( drive );
-    if ( (DRIVE_FIXED == type) || (DRIVE_REMOVABLE == type) || (DRIVE_RAMDISK == type) ) {
+    if ( (DRIVE_FIXED == type) || (DRIVE_RAMDISK == type) ) {
       ScanDirectory( drive );
     }
   }
