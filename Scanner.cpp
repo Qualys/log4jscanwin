@@ -119,6 +119,26 @@ CReportSummary repSummary;
 std::vector<CReportVunerabilities> repVulns;
 
 
+bool UncompressContents( unzFile zf, std::string& str ) {
+  int32_t rv = ERROR_SUCCESS;
+  char buf[4096];
+
+  rv = unzOpenCurrentFile( zf );
+  if ( UNZ_OK == rv ) {
+    do
+    {
+      memset( buf, 0, sizeof(buf) );
+      rv = unzReadCurrentFile( zf, buf, sizeof(buf) );
+      if (rv < 0 || rv == 0) break;
+      str.append( buf, rv );
+    } while (rv > 0);
+    unzCloseCurrentFile( zf );
+  }
+
+  return true;
+}
+
+
 bool SanitizeContents(std::string& str) {
   std::string::iterator iter = str.begin();
   while (iter != str.end()) {
@@ -243,72 +263,24 @@ int32_t ScanFileArchive( std::string file, std::string alternate ) {
           }
           if ( 0 == stricmp( filename, "META-INF/maven/log4j/log4j/pom.properties" ) ) {
             foundLog4j1xPOM = true;
-
-            rv = unzOpenCurrentFile( zf );
-            if ( UNZ_OK == rv ) {
-              do
-              {
-                memset( buf, 0, sizeof(buf) );
-                rv = unzReadCurrentFile( zf, buf, sizeof(buf) );
-                if (rv < 0 || rv == 0) break;
-                pomLog4j1x.append( buf, rv );
-              } while (rv > 0);
-              unzCloseCurrentFile( zf );
-            }
-
+            UncompressContents( zf, pomLog4j1x );
           }
           p = strstr( filename, "META-INF/maven/org.apache.logging.log4j" );
           if ( NULL != p ) {
             if ( 0 == stricmp( filename, "META-INF/maven/org.apache.logging.log4j/log4j-core/pom.properties" ) ) {
               foundLog4j2xCorePOM = true;
-
-              rv = unzOpenCurrentFile( zf );
-              if ( UNZ_OK == rv ) {
-                do
-                {
-                  memset( buf, 0, sizeof(buf) );
-                  rv = unzReadCurrentFile( zf, buf, sizeof(buf) );
-                  if (rv < 0 || rv == 0) break;
-                  pomLog4j2xCore.append( buf, rv );
-                } while (rv > 0);
-                unzCloseCurrentFile( zf );
-              }
-
+              UncompressContents( zf, pomLog4j2xCore );
             } else {
               p = strstr( filename, "/pom.properties" );
               if ( NULL != p ) {
                 foundLog4j2xPOM = true;
-
-                rv = unzOpenCurrentFile( zf );
-                if ( UNZ_OK == rv ) {
-                  do
-                  {
-                    memset( buf, 0, sizeof(buf) );
-                    rv = unzReadCurrentFile( zf, buf, sizeof(buf) );
-                    if (rv < 0 || rv == 0) break;
-                    pomLog4j2x.append( buf, rv );
-                  } while (rv > 0);
-                  unzCloseCurrentFile( zf );
-                }
-
+                UncompressContents( zf, pomLog4j2x );
               }
             }
           }
           if ( 0 == stricmp( filename, "META-INF/MANIFEST.MF" ) ) {
             foundManifest = true;
-
-            rv = unzOpenCurrentFile( zf );
-            if ( UNZ_OK == rv ) {
-              do
-              {
-                memset( buf, 0, sizeof(buf) );
-                rv = unzReadCurrentFile( zf, buf, sizeof(buf) );
-                if (rv < 0 || rv == 0) break;
-                manifest.append( buf, rv );
-              } while (rv > 0);
-              unzCloseCurrentFile( zf );
-            }
-
+            UncompressContents( zf, manifest );
           }
 
           //
