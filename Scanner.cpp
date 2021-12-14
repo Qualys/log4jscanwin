@@ -193,6 +193,7 @@ int32_t ScanFileArchive( std::string file, std::string alternate ) {
   bool foundManifest = false;
   bool foundLog4j1xPOM = false;
   bool foundLog4j2xPOM = false;
+  bool foundLog4j2xCorePOM = false;
   bool foundManifestVendor = false;
   bool foundManifestVersion = false;
   bool foundLog4jManifest = false;
@@ -200,6 +201,7 @@ int32_t ScanFileArchive( std::string file, std::string alternate ) {
   std::string manifest;
   std::string pomLog4j1x;
   std::string pomLog4j2x;
+  std::string pomLog4j2xCore;
   std::string manifestVendor;
   std::string manifestVersion;
   std::string log4jVendor;
@@ -255,21 +257,42 @@ int32_t ScanFileArchive( std::string file, std::string alternate ) {
             }
 
           }
-          if ( 0 == stricmp( filename, "META-INF/maven/org.apache.logging.log4j/log4j-core/pom.properties" ) ) {
-            foundLog4j2xPOM = true;
+          p = strstr( filename, "META-INF/maven/org.apache.logging.log4j" );
+          if ( NULL != p ) {
+            if ( 0 == stricmp( filename, "META-INF/maven/org.apache.logging.log4j/log4j-core/pom.properties" ) ) {
+              foundLog4j2xCorePOM = true;
 
-            rv = unzOpenCurrentFile( zf );
-            if ( UNZ_OK == rv ) {
-              do
-              {
-                memset( buf, 0, sizeof(buf) );
-                rv = unzReadCurrentFile( zf, buf, sizeof(buf) );
-                if (rv < 0 || rv == 0) break;
-                pomLog4j2x.append( buf, rv );
-              } while (rv > 0);
-              unzCloseCurrentFile( zf );
+              rv = unzOpenCurrentFile( zf );
+              if ( UNZ_OK == rv ) {
+                do
+                {
+                  memset( buf, 0, sizeof(buf) );
+                  rv = unzReadCurrentFile( zf, buf, sizeof(buf) );
+                  if (rv < 0 || rv == 0) break;
+                  pomLog4j2xCore.append( buf, rv );
+                } while (rv > 0);
+                unzCloseCurrentFile( zf );
+              }
+
+            } else {
+              p = strstr( filename, "/pom.properties" );
+              if ( NULL != p ) {
+                foundLog4j2xPOM = true;
+
+                rv = unzOpenCurrentFile( zf );
+                if ( UNZ_OK == rv ) {
+                  do
+                  {
+                    memset( buf, 0, sizeof(buf) );
+                    rv = unzReadCurrentFile( zf, buf, sizeof(buf) );
+                    if (rv < 0 || rv == 0) break;
+                    pomLog4j2x.append( buf, rv );
+                  } while (rv > 0);
+                  unzCloseCurrentFile( zf );
+                }
+
+              }
             }
-
           }
           if ( 0 == stricmp( filename, "META-INF/MANIFEST.MF" ) ) {
             foundManifest = true;
@@ -359,6 +382,7 @@ int32_t ScanFileArchive( std::string file, std::string alternate ) {
     std::string cveStatus;
 
     SanitizeContents( pomLog4j1x );
+    SanitizeContents( pomLog4j2xCore );
     SanitizeContents( pomLog4j2x );
     SanitizeContents( manifest );
 
@@ -367,8 +391,13 @@ int32_t ScanFileArchive( std::string file, std::string alternate ) {
       GetDictionaryValue( pomLog4j1x, "version=", "Unknown", log4jVersion );
     }
     if ( foundLog4j2x ) {
-      GetDictionaryValue( pomLog4j2x, "artifactId=", "Unknown", log4jVendor );
-      GetDictionaryValue( pomLog4j2x, "version=", "Unknown", log4jVersion );
+      if ( foundLog4j2xCorePOM ) {
+        GetDictionaryValue( pomLog4j2xCore, "artifactId=", "Unknown", log4jVendor );
+        GetDictionaryValue( pomLog4j2xCore, "version=", "Unknown", log4jVersion );
+      } else {
+        GetDictionaryValue( pomLog4j2x, "artifactId=", "Unknown", log4jVendor );
+        GetDictionaryValue( pomLog4j2x, "version=", "Unknown", log4jVersion );
+      }
     }
 
     if ( foundManifest ) {
@@ -394,7 +423,7 @@ int32_t ScanFileArchive( std::string file, std::string alternate ) {
       }
     }
 
-    if ( !pomLog4j1x.empty() || !pomLog4j2x.empty() ) {
+    if ( foundLog4j1xPOM || foundLog4j2xPOM || foundLog4j2xCorePOM ) {
       if ( Log4jVersionCheck( log4jVersion ) ) {
         foundVulnerableVersion = true;
       }
