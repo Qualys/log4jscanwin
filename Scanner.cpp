@@ -571,6 +571,7 @@ int32_t ScanNetworkDrives() {
 int32_t GenerateReportSummary( rapidjson::Document& doc ) {
   int32_t rv = ERROR_SUCCESS;
 
+  rapidjson::Value vScanDate( rapidjson::kStringType );
   rapidjson::Value vScanDuration( rapidjson::kNumberType );
   rapidjson::Value vScannedFiles( rapidjson::kNumberType );
   rapidjson::Value vScannedDirectories( rapidjson::kNumberType );
@@ -581,6 +582,13 @@ int32_t GenerateReportSummary( rapidjson::Document& doc ) {
   rapidjson::Value vVulnerabilitiesFound( rapidjson::kNumberType );
   rapidjson::Value oSummary( rapidjson::kObjectType );
 
+  char         buf[64] = { 0 };
+  struct tm*   tm = NULL;
+
+  tm = localtime((time_t*)&repSummary.scanStart);
+  strftime(buf, _countof(buf)-1, "%FT%T%z", tm);
+
+  vScanDate.SetString( &buf[0], doc.GetAllocator() );
   vScanDuration.SetInt64( repSummary.scanEnd - repSummary.scanStart );
   vScannedFiles.SetInt64( repSummary.scannedFiles );
   vScannedDirectories.SetInt64( repSummary.scannedDirectories );
