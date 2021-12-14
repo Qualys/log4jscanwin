@@ -7,6 +7,8 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include <strsafe.h>
+#include <DbgHelp.h>
 
 #include "zlib/zlib.h"
 #include "minizip/unzip.h"
@@ -20,6 +22,18 @@
 #define ARG(S) ARGX3("-" #S, "--" #S, "/" #S)
 #define ARGPARAMCOUNT(X) ((i+X) <= (argc-1))
 
+#define SAFE_CLOSE_HANDLE(x)        do{if((x) && INVALID_HANDLE_VALUE != (x)) \
+                                      {::CloseHandle(x); (x)=INVALID_HANDLE_VALUE;}}\
+                                    while(FALSE)
+
+constexpr char* qualys_program_data_locaton = "%programdata%\\Qualys";
+constexpr char* result_sig_output = "log4j_findings.out";
+constexpr char* status_file = "status.txt";
+
+FILE* status_file_pointer = nullptr;
+std::string report_file;
+
+std::vector<std::string> error_array;
 
 class CReportSummary {
  public:
@@ -199,6 +213,7 @@ bool Log4jVersionCheck( std::string version ) {
 
 int32_t ScanFileArchive( std::string file, std::string alternate ) {
   int32_t rv = ERROR_SUCCESS;
+  unsigned long bytesWritten = 0;
   unzFile zf = NULL;
   unz_file_info64 file_info;
   char* p = NULL;
@@ -322,7 +337,7 @@ int32_t ScanFileArchive( std::string file, std::string alternate ) {
                   memset( buf, 0, sizeof(buf) );
                   rv = unzReadCurrentFile( zf, buf, sizeof(buf) );
                   if (rv < 0 || rv == 0) break;
-                  WriteFile( h, buf, rv, NULL, NULL );
+                  WriteFile( h, buf, rv, &bytesWritten, NULL );
                 } while (rv > 0);
                 unzCloseCurrentFile( zf );
 
@@ -505,6 +520,14 @@ int32_t ScanDirectory( std::string directory ) {
            if ( cmdline_options.verbose ) {
              printf( "Failed to process directory '%s' (rv: %d)\n", dir.c_str(), rv );
            }
+           if (rv != -100)
+           {
+               char err[1024] = {};
+               sprintf_s(err, "Failed to process directory '%s' (rv: %d)", dir.c_str(), rv);
+
+               error_array.push_back(err);
+           }
+           
          }
 
          // TODO: Look for suspect directory structures containing raw log4j java classes
@@ -519,6 +542,14 @@ int32_t ScanDirectory( std::string directory ) {
            if ( cmdline_options.verbose ) {
              printf( "Failed to process file '%s' (rv: %d)\n", file.c_str(), rv );
            }
+           if (rv != -100)
+           {
+               char err[1024] = {};
+               sprintf_s(err, "Failed to process file '%s' (rv: %d)\n", file.c_str(), rv);
+
+               error_array.push_back(err);
+           }
+           
          }
 
        }
@@ -692,25 +723,146 @@ int32_t GenerateJSONReport() {
 }
 
 
+bool DirectoryExists(const char* dirPath)
+{
+    if (dirPath == NULL)
+        return false;
+
+    DWORD fileAttr = GetFileAttributes(dirPath);
+    return (fileAttr != INVALID_FILE_ATTRIBUTES && (fileAttr & FILE_ATTRIBUTE_DIRECTORY));
+}
+
+
+bool ExpandEnvironmentVariables(const char* source, std::string& destination)
+{
+    try {
+
+        DWORD dwReserve = ExpandEnvironmentStrings(source, NULL, 0);
+        if (dwReserve == 0)
+        {
+            return false;
+        }
+
+        destination.resize(dwReserve);
+
+        DWORD dwWritten = ExpandEnvironmentStrings(source, &destination[0], (DWORD)destination.size());
+        if (dwWritten == 0)
+        {
+            return false;
+        }
+
+        // dwWritten includes the null terminating character
+        destination.resize(dwWritten - 1);
+
+    }
+    catch (std::bad_alloc&) {
+        return false;
+    }
+
+    return true;
+}
+
+std::string GetResultFile(bool signature_output = false)
+{
+    std::string destination_dir;
+    std::string report_file_path;
+    bool create_result_in_qualys_location = false;
+
+    if (ExpandEnvironmentVariables(qualys_program_data_locaton, destination_dir))
+    {
+        if (DirectoryExists(destination_dir.c_str()))
+        {
+            if (signature_output)
+            {
+                report_file_path = destination_dir + "\\" + result_sig_output;
+            }
+            else
+            {
+                report_file_path = destination_dir + "\\" + status_file;
+            }
+
+            create_result_in_qualys_location = true;
+        }
+    }
+
+    if (create_result_in_qualys_location == false)
+    {
+        // get path to scan utility
+        char path[MAX_PATH] = { 0 };
+        GetModuleFileName(NULL, path, MAX_PATH);
+
+        report_file_path = path;
+
+        std::wstring::size_type pos = std::string(report_file_path).find_last_of("\\");
+        report_file_path = report_file_path.substr(0, pos);
+
+        if (signature_output)
+        {
+            report_file_path = report_file_path + "\\" + result_sig_output;
+        }
+        else
+        {
+            report_file_path = report_file_path + "\\" + status_file;
+        }
+        
+    }
+    
+    return report_file_path;
+}
+
 int32_t GenerateSignatureReport() {
   int32_t rv = ERROR_SUCCESS;
+  
+  // signature output should go into a file always
+  // 1. First check if %programdata%\Qualys\QualysAgent exist
+  // 2. If not exist then current direcotry will be used
+  report_file = GetResultFile(true);
 
-  for ( size_t i = 0; i < repVulns.size(); i++ ) {
-    CReportVunerabilities vuln = repVulns[i];
+  FILE* result_file = nullptr;
+  fopen_s(&result_file, report_file.c_str(), "w+");
 
-    printf( "Manifest Vendor: %s, Manifest Version: %s, JDNI Class: %s, Log4j Vendor: %s, Log4j Version: %s, CVE Status: %s\n",
-            vuln.manifestVendor.c_str(),
-            vuln.manifestVersion.c_str(),
-            vuln.detectedJNDILookupClass ? "Found" : "NOT Found",
-            vuln.log4jVendor.c_str(),
-            vuln.log4jVersion.c_str(),
-            vuln.cveStatus.c_str()
-    );
-    printf( "Path=%s\n", vuln.file.c_str() );
-    printf( "%s %s\n", vuln.log4jVendor.c_str(), vuln.log4jVersion.c_str() );
-    printf( "------------------------------------------------------------------------\n" );
+  if (result_file)
+  {
+      for (size_t i = 0; i < repVulns.size(); i++) {
+          CReportVunerabilities vuln = repVulns[i];
 
+          fprintf_s(result_file, "Manifest Vendor: %s, Manifest Version: %s, JDNI Class: %s, Log4j Vendor: %s, Log4j Version: %s, CVE Status: %s\n",
+              vuln.manifestVendor.c_str(),
+              vuln.manifestVersion.c_str(),
+              vuln.detectedJNDILookupClass ? "Found" : "NOT Found",
+              vuln.log4jVendor.c_str(),
+              vuln.log4jVersion.c_str(),
+              vuln.cveStatus.c_str()
+          );
+          fprintf_s(result_file, "Path=%s\n", vuln.file.c_str());
+          fprintf_s(result_file, "%s %s\n", vuln.log4jVendor.c_str(), vuln.log4jVersion.c_str());
+          fprintf_s(result_file, "------------------------------------------------------------------------\n");
+
+      }
+
+      fclose(result_file);
   }
+  else
+  {
+      for (size_t i = 0; i < repVulns.size(); i++) {
+          CReportVunerabilities vuln = repVulns[i];
+
+          printf("Manifest Vendor: %s, Manifest Version: %s, JDNI Class: %s, Log4j Vendor: %s, Log4j Version: %s, CVE Status: %s\n",
+              vuln.manifestVendor.c_str(),
+              vuln.manifestVersion.c_str(),
+              vuln.detectedJNDILookupClass ? "Found" : "NOT Found",
+              vuln.log4jVendor.c_str(),
+              vuln.log4jVersion.c_str(),
+              vuln.cveStatus.c_str()
+          );
+          printf("Path=%s\n", vuln.file.c_str());
+          printf("%s %s\n", vuln.log4jVendor.c_str(), vuln.log4jVersion.c_str());
+          printf("------------------------------------------------------------------------\n");
+
+      }
+
+      report_file.clear();
+  } 
 
   return rv;
 }
@@ -792,19 +944,362 @@ int32_t ProcessCommandLineOptions( int32_t argc, char* argv[] ) {
   return rv;
 }
 
+std::string GetUtilityDir()
+{
+    // get path to scan utility
+    char path[MAX_PATH] = { 0 };
+    std::string utility_dir;
+    if (GetModuleFileName(NULL, path, MAX_PATH))
+    {
+        utility_dir = path;
+
+        std::wstring::size_type pos = std::string(utility_dir).find_last_of("\\");
+        utility_dir = utility_dir.substr(0, pos);
+    }
+
+    return utility_dir;
+}
+
+// Provide a generic way to format exceptions
+//
+int QualysDumpGenericException(const char* szExceptionDescription, DWORD dwExceptionCode, PVOID pExceptionAddress) {
+
+    printf("Unhandled Exception Detected - Reason: %s (0x%x) at address 0x%p\n\n",
+        szExceptionDescription,
+        dwExceptionCode,
+        pExceptionAddress);
+
+    if (status_file_pointer)
+    {
+        fprintf_s(status_file_pointer, "Unhandled Exception Detected - Reason: %s (0x%x) at address 0x%p\n\n",
+            szExceptionDescription,
+            dwExceptionCode,
+            pExceptionAddress);        
+    }   
+
+    return 0;
+}
+
+// Dump the exception code record to the trace log in a human readable form.
+//
+int QualysDumpExceptionRecord(PEXCEPTION_POINTERS pExPtrs) {
+    PVOID          pExceptionAddress = pExPtrs->ExceptionRecord->ExceptionAddress;
+    DWORD          dwExceptionCode = pExPtrs->ExceptionRecord->ExceptionCode;
+
+    std::string status_file = GetResultFile(false);
+    fopen_s(&status_file_pointer, status_file.c_str(), "a");
+
+    if (status_file_pointer)
+    {
+        fprintf_s(status_file_pointer, "Run status : Failed\n");
+        fflush(status_file_pointer);
+    }
+
+    switch (dwExceptionCode) {
+    case 0xE06D7363:
+        QualysDumpGenericException("Out Of Memory (C++ Exception)", dwExceptionCode, pExceptionAddress);
+        break;
+    case EXCEPTION_ACCESS_VIOLATION:
+        char        wszStatus[256];
+        char        wszSubStatus[256];
+        StringCchPrintfEx(wszStatus, 256, NULL, NULL, STRSAFE_NULL_ON_FAILURE, "Access Violation");
+        StringCchPrintfEx(wszSubStatus, 256, NULL, NULL, STRSAFE_NULL_ON_FAILURE, "");
+        if (pExPtrs->ExceptionRecord->NumberParameters == 2) {
+            switch (pExPtrs->ExceptionRecord->ExceptionInformation[0]) {
+            case 0: // read attempt
+                StringCchPrintfEx(
+                    wszSubStatus, 256,
+                    NULL, NULL, STRSAFE_NULL_ON_FAILURE,
+                    "read attempt to address 0x%p",
+                    pExPtrs->ExceptionRecord->ExceptionInformation[1]
+                );
+                break;
+            case 1: // write attempt
+                StringCchPrintfEx(
+                    wszSubStatus, 256,
+                    NULL, NULL, STRSAFE_NULL_ON_FAILURE,
+                    "write attempt to address 0x%p",
+                    pExPtrs->ExceptionRecord->ExceptionInformation[1]
+                );
+                break;
+            }
+        }
+        printf("Unhandled Exception Detected - Reason: % s(0x % x) at address 0x % p % s\n\n",
+            wszStatus,
+            dwExceptionCode,
+            pExceptionAddress,
+            wszSubStatus);
+
+        if (status_file_pointer)
+        {
+            fprintf_s(status_file_pointer, "Unhandled Exception Detected - Reason: %s (0x%x) at address 0x%p %s\n\n",
+                wszStatus,
+                dwExceptionCode,
+                pExceptionAddress,
+                wszSubStatus);
+        }
+        break;
+    case EXCEPTION_DATATYPE_MISALIGNMENT:
+        QualysDumpGenericException("Data Type Misalignment", dwExceptionCode, pExceptionAddress);
+        break;
+    case EXCEPTION_BREAKPOINT:
+        QualysDumpGenericException("Breakpoint Encountered", dwExceptionCode, pExceptionAddress);
+        break;
+    case EXCEPTION_SINGLE_STEP:
+        QualysDumpGenericException("Single Instruction Executed", dwExceptionCode, pExceptionAddress);
+        break;
+    case EXCEPTION_ARRAY_BOUNDS_EXCEEDED:
+        QualysDumpGenericException("Array Bounds Exceeded", dwExceptionCode, pExceptionAddress);
+        break;
+    case EXCEPTION_FLT_DENORMAL_OPERAND:
+        QualysDumpGenericException("Float Denormal Operand", dwExceptionCode, pExceptionAddress);
+        break;
+    case EXCEPTION_FLT_DIVIDE_BY_ZERO:
+        QualysDumpGenericException("Divide by Zero", dwExceptionCode, pExceptionAddress);
+        break;
+    case EXCEPTION_FLT_INEXACT_RESULT:
+        QualysDumpGenericException("Float Inexact Result", dwExceptionCode, pExceptionAddress);
+        break;
+    case EXCEPTION_FLT_INVALID_OPERATION:
+        QualysDumpGenericException("Float Invalid Operation", dwExceptionCode, pExceptionAddress);
+        break;
+    case EXCEPTION_FLT_OVERFLOW:
+        QualysDumpGenericException("Float Overflow", dwExceptionCode, pExceptionAddress);
+        break;
+    case EXCEPTION_FLT_STACK_CHECK:
+        QualysDumpGenericException("Float Stack Check", dwExceptionCode, pExceptionAddress);
+        break;
+    case EXCEPTION_FLT_UNDERFLOW:
+        QualysDumpGenericException("Float Underflow", dwExceptionCode, pExceptionAddress);
+        break;
+    case EXCEPTION_INT_DIVIDE_BY_ZERO:
+        QualysDumpGenericException("Integer Divide by Zero", dwExceptionCode, pExceptionAddress);
+        break;
+    case EXCEPTION_INT_OVERFLOW:
+        QualysDumpGenericException("Integer Overflow", dwExceptionCode, pExceptionAddress);
+        break;
+    case EXCEPTION_PRIV_INSTRUCTION:
+        QualysDumpGenericException("Privileged Instruction", dwExceptionCode, pExceptionAddress);
+        break;
+    case EXCEPTION_IN_PAGE_ERROR:
+        QualysDumpGenericException("In Page Error", dwExceptionCode, pExceptionAddress);
+        break;
+    case EXCEPTION_ILLEGAL_INSTRUCTION:
+        QualysDumpGenericException("Illegal Instruction", dwExceptionCode, pExceptionAddress);
+        break;
+    case EXCEPTION_NONCONTINUABLE_EXCEPTION:
+        QualysDumpGenericException("Noncontinuable Exception", dwExceptionCode, pExceptionAddress);
+        break;
+    case EXCEPTION_STACK_OVERFLOW:
+        QualysDumpGenericException("Stack Overflow", dwExceptionCode, pExceptionAddress);
+        break;
+    case EXCEPTION_INVALID_DISPOSITION:
+        QualysDumpGenericException("Invalid Disposition", dwExceptionCode, pExceptionAddress);
+        break;
+    case EXCEPTION_GUARD_PAGE:
+        QualysDumpGenericException("Guard Page Violation", dwExceptionCode, pExceptionAddress);
+        break;
+    case EXCEPTION_INVALID_HANDLE:
+        QualysDumpGenericException("Invalid Handle", dwExceptionCode, pExceptionAddress);
+        break;
+    case CONTROL_C_EXIT:
+        QualysDumpGenericException("Ctrl+C Exit", dwExceptionCode, pExceptionAddress);
+        break;
+    default:
+        QualysDumpGenericException("Unknown exception", dwExceptionCode, pExceptionAddress);
+        break;
+    }
+
+    return 0;
+}
+
+LONG CALLBACK QualysCatchUnhandledExceptionFilter(PEXCEPTION_POINTERS pExPtrs) {
+    CHAR wszBuffer[MAX_PATH];
+    CHAR wszMiniDumpFileName[MAX_PATH];
+    HANDLE hDumpFile = NULL;
+    SYSTEMTIME sysTime;
+    SECURITY_ATTRIBUTES saMiniDumpSecurity;
+
+    std::string status_file = GetResultFile(false);
+
+    fopen_s(&status_file_pointer, status_file.c_str(), "a");
+
+    if (status_file_pointer)
+    {
+        fprintf_s(status_file_pointer, "Run status : Failed\n");
+        fflush(status_file_pointer);
+    }
+
+    // Attempt to dump an unhandled exception banner just in case things are
+    // so bad that a minidump cannot be created.
+    QualysDumpExceptionRecord(pExPtrs);
+
+    // Create a directory to dump the minidump files into
+    SecureZeroMemory(&saMiniDumpSecurity, sizeof(saMiniDumpSecurity));
+    saMiniDumpSecurity.nLength = sizeof(saMiniDumpSecurity);
+    saMiniDumpSecurity.bInheritHandle = FALSE;
+
+    // Construct a valid minidump filename that will be unique.
+    // Use the '.mdmp' extension so it'll be recognize by the Windows debugging
+    // tools.
+    GetLocalTime(&sysTime);
+    StringCchPrintfEx(
+        wszMiniDumpFileName,
+        MAX_PATH,
+        NULL,
+        NULL,
+        STRSAFE_NULL_ON_FAILURE,
+        "%s\\%0.2d%0.2d%0.4d%d%0.2d%0.2d%0.4d.mdmp",
+        GetUtilityDir().c_str(),
+        sysTime.wMonth,
+        sysTime.wDay,
+        sysTime.wYear,
+        sysTime.wHour,
+        sysTime.wMinute,
+        sysTime.wSecond,
+        sysTime.wMilliseconds
+    );
+
+    printf("Creating minidump file %s with crash details.\n",
+        wszMiniDumpFileName);
+
+    // Create the file to dump the minidump data into...
+    //
+    hDumpFile = CreateFile(
+        wszMiniDumpFileName,
+        GENERIC_WRITE,
+        NULL,
+        NULL,
+        CREATE_ALWAYS,
+        FILE_ATTRIBUTE_NORMAL,
+        NULL
+    );
+
+    if (hDumpFile != INVALID_HANDLE_VALUE)
+    {
+        MINIDUMP_EXCEPTION_INFORMATION eiMinidumpInfo;
+        SecureZeroMemory(&eiMinidumpInfo, sizeof(eiMinidumpInfo));
+        eiMinidumpInfo.ThreadId = GetCurrentThreadId();
+        eiMinidumpInfo.ExceptionPointers = pExPtrs;
+        eiMinidumpInfo.ClientPointers = FALSE;
+
+        //
+        // Write the Mini Dump to disk
+        //
+        if (!MiniDumpWriteDump(GetCurrentProcess(),
+            GetCurrentProcessId(),
+            hDumpFile,
+            (MINIDUMP_TYPE)(
+                MiniDumpNormal |
+                MiniDumpWithPrivateReadWriteMemory |
+                MiniDumpWithDataSegs |
+                MiniDumpWithHandleData |
+                MiniDumpWithFullMemoryInfo |
+                MiniDumpWithThreadInfo |
+                MiniDumpWithUnloadedModules |
+                MiniDumpWithIndirectlyReferencedMemory),
+            &eiMinidumpInfo,
+            NULL,
+            NULL))
+        {
+
+            // Either the state of the process is beyond our ability to be able
+            // to scape together a usable dump file or we are on XP/2k3 and
+            // not all of the dump flags are supported.  Retry using dump flags
+            // that are supported by XP.
+            //
+            if (!MiniDumpWriteDump(GetCurrentProcess(),
+                GetCurrentProcessId(),
+                hDumpFile,
+                (MINIDUMP_TYPE)(
+                    MiniDumpNormal |
+                    MiniDumpWithPrivateReadWriteMemory |
+                    MiniDumpWithDataSegs |
+                    MiniDumpWithHandleData),
+                &eiMinidumpInfo,
+                NULL,
+                NULL))
+            {
+
+                // Well out XP/2k3 compatible list of parameters didn't work, it
+                // doesn't look like we will be able to get anything useful.
+                //
+                // Close things down and delete the file if it exists.
+                //
+                SAFE_CLOSE_HANDLE(hDumpFile);
+                DeleteFile(wszMiniDumpFileName);
+
+                printf("Failed to create minidump file %s.\n",
+                    wszMiniDumpFileName);
+            }
+        }
+
+        SAFE_CLOSE_HANDLE(hDumpFile);
+    }
+
+    TerminateProcess(GetCurrentProcess(), pExPtrs->ExceptionRecord->ExceptionCode);
+    return 0;
+}
 
 int32_t __cdecl main( int32_t argc, char* argv[] )
 {
+   // See function header for QualysCatchUnhandledExceptionFilter
+   //
+   SetUnhandledExceptionFilter(QualysCatchUnhandledExceptionFilter);
+
   int32_t rv = ERROR_SUCCESS;
 
+  std::string status_file = GetResultFile(false);
+  
+  fopen_s(&status_file_pointer, status_file.c_str(), "w+");
+
+  if (status_file_pointer)
+  {
+      SYSTEMTIME sysTime;
+      GetLocalTime(&sysTime);
+
+      char logPartDateTime[28] = {};
+
+      int charCount;
+
+      charCount = sprintf_s(logPartDateTime, "%02d/%02d/%04d %d:%02d:%02d.%04d",
+          sysTime.wMonth,
+          sysTime.wDay,
+          sysTime.wYear,
+          sysTime.wHour,
+          sysTime.wMinute,
+          sysTime.wSecond,
+          sysTime.wMilliseconds);
+
+      fprintf_s(status_file_pointer, "Scan start time : %s\n", logPartDateTime);
+
+      fflush(status_file_pointer);
+  }
+  
+
 #ifndef _WIN64
+  using typeWow64DisableWow64FsRedirection = BOOL(WINAPI*) (PVOID OlValue);
+  typeWow64DisableWow64FsRedirection Wow64DisableWow64FsRedirection;    
+  BOOL bIs64BitWindows = FALSE;
   PVOID pHandle;
-  Wow64DisableWow64FsRedirection(&pHandle);
+
+  if (!IsWow64Process(GetCurrentProcess(), &bIs64BitWindows)) {
+      printf("Failed to determine if process is running as WoW64.\n");
+      goto END;
+  }
+  
+  if (bIs64BitWindows) {
+      Wow64DisableWow64FsRedirection = (typeWow64DisableWow64FsRedirection)GetProcAddress(GetModuleHandle("Kernel32.DLL"), "Wow64DisableWow64FsRedirection");
+
+      if (Wow64DisableWow64FsRedirection) {
+          Wow64DisableWow64FsRedirection(&pHandle);
+      }
+  }
 #endif
 
   rv = ProcessCommandLineOptions( argc, argv );
   if ( ERROR_SUCCESS != rv ) {
-    printf("Failed to process command line pptions.\n");
+    printf("Failed to process command line options.\n");
     goto END;
   }
 
@@ -886,6 +1381,37 @@ int32_t __cdecl main( int32_t argc, char* argv[] )
   }
 
 END:
+
+  // write the status
+  if (error_array.empty())
+  {
+      if (status_file_pointer)
+      {
+          fprintf_s(status_file_pointer, "Run status : Success\n");
+          fprintf_s(status_file_pointer, "Result file location : %s\n", report_file.c_str());
+      }
+  }
+  else
+  {
+      if (status_file_pointer)
+      {
+          fprintf_s(status_file_pointer, "Run status : Partially Successful\n");
+          fprintf_s(status_file_pointer, "Result file location : %s\n", report_file.c_str());
+
+          fprintf_s(status_file_pointer, "Errors :\n");
+
+          for (const auto& e : error_array)
+          {
+              fprintf_s(status_file_pointer, "%s\n", e.c_str());
+          }
+          
+      }
+  }
+  if (status_file_pointer)
+  {
+      fclose(status_file_pointer);
+  }
+
   return rv;
 }
 
