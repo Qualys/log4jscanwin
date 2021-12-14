@@ -1,39 +1,35 @@
-// CVE-2021-44228-Scan.cpp : This file contains the 'main' function. Program execution begins and ends there.
+// CVE-2021-44228-Scan.cpp : This file contains the 'main' function. Program
+// execution begins and ends there.
 //
 
 #include <windows.h>
+#include <dbghelp.h>
 #include <stdint.h>
 #include <time.h>
-#include <iostream>
-#include <vector>
-#include <string>
-#include <strsafe.h>
-#include <DbgHelp.h>
 
-#include "zlib/zlib.h"
+#include <iostream>
+#include <string>
+#include <vector>
+
 #include "minizip/unzip.h"
-#include "rapidjson/document.h"     
+#include "rapidjson/document.h"
+#include "rapidjson/prettywriter.h"
 #include "rapidjson/stringbuffer.h"
 #include "rapidjson/writer.h"
-#include "rapidjson/prettywriter.h"
+#include "zlib/zlib.h"
 
-
-#define ARGX3(s1,s2,s3) (!stricmp(argv[i], s1)||!stricmp(argv[i], s2)||!stricmp(argv[i], s3))
+#define ARGX3(s1, s2, s3) \
+  (!stricmp(argv[i], s1) || !stricmp(argv[i], s2) || !stricmp(argv[i], s3))
 #define ARG(S) ARGX3("-" #S, "--" #S, "/" #S)
-#define ARGPARAMCOUNT(X) ((i+X) <= (argc-1))
+#define ARGPARAMCOUNT(X) ((i + X) <= (argc - 1))
 
-#define SAFE_CLOSE_HANDLE(x)        do{if((x) && INVALID_HANDLE_VALUE != (x)) \
-                                      {::CloseHandle(x); (x)=INVALID_HANDLE_VALUE;}}\
-                                    while(FALSE)
-
-constexpr char* qualys_program_data_locaton = "%programdata%\\Qualys";
-constexpr char* result_sig_output = "log4j_findings.out";
-constexpr char* status_file = "status.txt";
-
-FILE* status_file_pointer = nullptr;
-std::string report_file;
-
-std::vector<std::string> error_array;
+#define SAFE_CLOSE_HANDLE(x)                  \
+  do {                                        \
+    if ((x) && INVALID_HANDLE_VALUE != (x)) { \
+      ::CloseHandle(x);                       \
+      (x) = INVALID_HANDLE_VALUE;             \
+    }                                         \
+  } while (FALSE)
 
 class CReportSummary {
  public:
@@ -60,7 +56,6 @@ class CReportSummary {
   }
 };
 
-
 class CReportVunerabilities {
  public:
   std::string file;
@@ -76,10 +71,13 @@ class CReportVunerabilities {
   bool detectedVulnerableVersion;
   std::string cveStatus;
 
-  CReportVunerabilities( std::string file, std::string manifestVersion, std::string manifestVendor, bool detectedLog4j,
-                         bool detectedLog4j1x, bool detectedLog4j2x, bool detectedJNDILookupClass, bool detectedLog4jManifest,
-                         std::string log4jVersion, std::string log4jVendor, bool detectedVulnerableVersion, std::string cveStatus )
-  {
+  CReportVunerabilities(std::string file, std::string manifestVersion,
+                        std::string manifestVendor, bool detectedLog4j,
+                        bool detectedLog4j1x, bool detectedLog4j2x,
+                        bool detectedJNDILookupClass,
+                        bool detectedLog4jManifest, std::string log4jVersion,
+                        std::string log4jVendor, bool detectedVulnerableVersion,
+                        std::string cveStatus) {
     this->file = file;
     this->manifestVersion = manifestVersion;
     this->manifestVendor = manifestVendor;
@@ -94,7 +92,6 @@ class CReportVunerabilities {
     this->cveStatus = cveStatus;
   }
 };
-
 
 class CCommandLineOptions {
  public:
@@ -127,44 +124,46 @@ class CCommandLineOptions {
   }
 };
 
+constexpr char* qualys_program_data_locaton = "%ProgramData%\\Qualys";
+constexpr char* report_sig_output_file = "log4j_findings.out";
+constexpr char* report_sig_status_file = "status.txt";
+
+FILE* status_file = nullptr;
+std::vector<std::string> error_array;
 
 CCommandLineOptions cmdline_options;
 CReportSummary repSummary;
 std::vector<CReportVunerabilities> repVulns;
 
-
-bool UncompressContents( unzFile zf, std::string& str ) {
+bool UncompressContents(unzFile zf, std::string& str) {
   int32_t rv = ERROR_SUCCESS;
   char buf[4096];
 
-  rv = unzOpenCurrentFile( zf );
-  if ( UNZ_OK == rv ) {
-    do
-    {
-      memset( buf, 0, sizeof(buf) );
-      rv = unzReadCurrentFile( zf, buf, sizeof(buf) );
+  rv = unzOpenCurrentFile(zf);
+  if (UNZ_OK == rv) {
+    do {
+      memset(buf, 0, sizeof(buf));
+      rv = unzReadCurrentFile(zf, buf, sizeof(buf));
       if (rv < 0 || rv == 0) break;
-      str.append( buf, rv );
+      str.append(buf, rv);
     } while (rv > 0);
-    unzCloseCurrentFile( zf );
+    unzCloseCurrentFile(zf);
   }
 
   return true;
 }
-
 
 bool SanitizeContents(std::string& str) {
   std::string::iterator iter = str.begin();
   while (iter != str.end()) {
-      if (*iter == '\r') {
-          iter = str.erase(iter);
-      } else {
-          ++iter;
-      }
+    if (*iter == '\r') {
+      iter = str.erase(iter);
+    } else {
+      ++iter;
+    }
   }
   return true;
 }
-
 
 bool StripWhitespace(std::string& str) {
   while (1) {
@@ -174,19 +173,19 @@ bool StripWhitespace(std::string& str) {
     str.erase(0, 1);
   }
 
-  int n = (int) str.length();
-  while (n>0) {
-    if (!isascii(str[n-1])) break;
-    if (!isspace(str[n-1])) break;
+  int n = (int)str.length();
+  while (n > 0) {
+    if (!isascii(str[n - 1])) break;
+    if (!isspace(str[n - 1])) break;
     n--;
   }
-  str.erase(n, str.length()-n);
+  str.erase(n, str.length() - n);
   return true;
 }
 
-
-bool GetDictionaryValue( std::string& dict, std::string name, std::string defaultValue, std::string& value ) {
-  if ( std::string::npos != dict.find(name.c_str(), 0) ) {
+bool GetDictionaryValue(std::string& dict, std::string name,
+                        std::string defaultValue, std::string& value) {
+  if (std::string::npos != dict.find(name.c_str(), 0)) {
     size_t pos = dict.find(name.c_str(), 0);
     size_t eol = dict.find("\n", pos);
     value = dict.substr(pos + name.size(), eol - (pos + name.size()));
@@ -196,31 +195,346 @@ bool GetDictionaryValue( std::string& dict, std::string name, std::string defaul
   return false;
 }
 
+bool DirectoryExists(const char* dirPath) {
+  if (dirPath == NULL) {
+    return false;
+  }
+  DWORD fileAttr = GetFileAttributes(dirPath);
+  return (fileAttr != INVALID_FILE_ATTRIBUTES &&
+          (fileAttr & FILE_ATTRIBUTE_DIRECTORY));
+}
 
-bool Log4jVersionCheck( std::string version ) {
-  int major = atoi( version.c_str() );
-  if ( major < 2 ) return false;
+std::string GetScanUtilityDirectory() {
+  char path[MAX_PATH] = {0};
+  std::string utility_dir;
+  if (GetModuleFileName(NULL, path, _countof(path))) {
+    utility_dir = path;
+    std::string::size_type pos = std::string(utility_dir).find_last_of("\\");
+    utility_dir = utility_dir.substr(0, pos);
+  }
+  return utility_dir;
+}
 
-  int minor = atoi( version.substr( version.find( ".", 0 ) + 1, version.rfind( ".", version.size() ) ).c_str() );
-  if ( minor >= 15 ) return false;
+bool ExpandEnvironmentVariables(const char* source, std::string& destination) {
+  try {
+    DWORD dwReserve = ExpandEnvironmentStrings(source, NULL, 0);
+    if (dwReserve == 0) {
+      return false;
+    }
+    destination.resize(dwReserve);
+    DWORD dwWritten = ExpandEnvironmentStrings(source, &destination[0],
+                                               (DWORD)destination.size());
+    if (dwWritten == 0) {
+      return false;
+    }
+    // dwWritten includes the null terminating character
+    destination.resize(dwWritten - 1);
+  } catch (std::bad_alloc&) {
+    return false;
+  }
+  return true;
+}
 
-  int revision = atoi( version.substr( version.rfind( ".", version.size() ) + 1, version.size() - ( version.rfind( ".", version.size() ) ) ).c_str() );
-  if ( revision >= 2 ) return false;
+std::string GetReportDirectory() {
+  std::string destination_dir;
+  std::string report_dir;
+  if (ExpandEnvironmentVariables(qualys_program_data_locaton,
+                                 destination_dir)) {
+    if (DirectoryExists(destination_dir.c_str())) {
+      report_dir = destination_dir;
+    }
+  }
+  if (report_dir.empty()) {
+    report_dir = GetScanUtilityDirectory();
+  }
+  return report_dir;
+}
+
+std::string GetSignatureReportFilename() {
+  return GetReportDirectory() + "\\" + report_sig_output_file;
+}
+
+std::string GetSignatureStatusFilename() {
+  return GetReportDirectory() + "\\" + report_sig_status_file;
+}
+
+int LogStatusMessage(const char* fmt, ...) {
+  int retval = 0;
+  va_list ap;
+
+  if (fmt == NULL) return 0;
+
+  va_start(ap, fmt);
+  retval = vfprintf(stdout, fmt, ap);
+  va_end(ap);
+  fwprintf(stdout, L"\n");
+
+  if (status_file) {
+    va_start(ap, fmt);
+    retval = vfprintf(status_file, fmt, ap);
+    va_end(ap);
+    fwprintf(status_file, L"\n");
+    fflush(status_file);
+  }
+
+  return retval;
+}
+
+int DumpGenericException(const char* szExceptionDescription,
+                         DWORD dwExceptionCode, PVOID pExceptionAddress) {
+  LogStatusMessage(
+      "Unhandled Exception Detected - Reason: %s (0x%x) at address 0x%p\n\n",
+      szExceptionDescription, dwExceptionCode, pExceptionAddress);
+  return 0;
+}
+
+int DumpExceptionRecord(PEXCEPTION_POINTERS pExPtrs) {
+  PVOID pExceptionAddress = pExPtrs->ExceptionRecord->ExceptionAddress;
+  DWORD dwExceptionCode = pExPtrs->ExceptionRecord->ExceptionCode;
+
+  switch (dwExceptionCode) {
+    case 0xE06D7363:
+      DumpGenericException("Out Of Memory (C++ Exception)", dwExceptionCode,
+                           pExceptionAddress);
+      break;
+    case EXCEPTION_ACCESS_VIOLATION:
+      char szStatus[256];
+      char szSubStatus[256];
+      strcpy_s(szStatus, "Access Violation");
+      strcpy_s(szSubStatus, "");
+      if (pExPtrs->ExceptionRecord->NumberParameters == 2) {
+        switch (pExPtrs->ExceptionRecord->ExceptionInformation[0]) {
+          case 0:  // read attempt
+            sprintf_s(szSubStatus, "read attempt to address 0x%p",
+                      (void*)pExPtrs->ExceptionRecord->ExceptionInformation[1]);
+            break;
+          case 1:  // write attempt
+            sprintf_s(szSubStatus, "write attempt to address 0x%p",
+                      (void*)pExPtrs->ExceptionRecord->ExceptionInformation[1]);
+            break;
+        }
+      }
+      LogStatusMessage(
+          "Unhandled Exception Detected - Reason: % s(0x % x) at address 0x % "
+          "p % s\n\n",
+          szStatus, dwExceptionCode, pExceptionAddress, szSubStatus);
+      break;
+    case EXCEPTION_DATATYPE_MISALIGNMENT:
+      DumpGenericException("Data Type Misalignment", dwExceptionCode,
+                           pExceptionAddress);
+      break;
+    case EXCEPTION_BREAKPOINT:
+      DumpGenericException("Breakpoint Encountered", dwExceptionCode,
+                           pExceptionAddress);
+      break;
+    case EXCEPTION_SINGLE_STEP:
+      DumpGenericException("Single Instruction Executed", dwExceptionCode,
+                           pExceptionAddress);
+      break;
+    case EXCEPTION_ARRAY_BOUNDS_EXCEEDED:
+      DumpGenericException("Array Bounds Exceeded", dwExceptionCode,
+                           pExceptionAddress);
+      break;
+    case EXCEPTION_FLT_DENORMAL_OPERAND:
+      DumpGenericException("Float Denormal Operand", dwExceptionCode,
+                           pExceptionAddress);
+      break;
+    case EXCEPTION_FLT_DIVIDE_BY_ZERO:
+      DumpGenericException("Divide by Zero", dwExceptionCode,
+                           pExceptionAddress);
+      break;
+    case EXCEPTION_FLT_INEXACT_RESULT:
+      DumpGenericException("Float Inexact Result", dwExceptionCode,
+                           pExceptionAddress);
+      break;
+    case EXCEPTION_FLT_INVALID_OPERATION:
+      DumpGenericException("Float Invalid Operation", dwExceptionCode,
+                           pExceptionAddress);
+      break;
+    case EXCEPTION_FLT_OVERFLOW:
+      DumpGenericException("Float Overflow", dwExceptionCode,
+                           pExceptionAddress);
+      break;
+    case EXCEPTION_FLT_STACK_CHECK:
+      DumpGenericException("Float Stack Check", dwExceptionCode,
+                           pExceptionAddress);
+      break;
+    case EXCEPTION_FLT_UNDERFLOW:
+      DumpGenericException("Float Underflow", dwExceptionCode,
+                           pExceptionAddress);
+      break;
+    case EXCEPTION_INT_DIVIDE_BY_ZERO:
+      DumpGenericException("Integer Divide by Zero", dwExceptionCode,
+                           pExceptionAddress);
+      break;
+    case EXCEPTION_INT_OVERFLOW:
+      DumpGenericException("Integer Overflow", dwExceptionCode,
+                           pExceptionAddress);
+      break;
+    case EXCEPTION_PRIV_INSTRUCTION:
+      DumpGenericException("Privileged Instruction", dwExceptionCode,
+                           pExceptionAddress);
+      break;
+    case EXCEPTION_IN_PAGE_ERROR:
+      DumpGenericException("In Page Error", dwExceptionCode, pExceptionAddress);
+      break;
+    case EXCEPTION_ILLEGAL_INSTRUCTION:
+      DumpGenericException("Illegal Instruction", dwExceptionCode,
+                           pExceptionAddress);
+      break;
+    case EXCEPTION_NONCONTINUABLE_EXCEPTION:
+      DumpGenericException("Noncontinuable Exception", dwExceptionCode,
+                           pExceptionAddress);
+      break;
+    case EXCEPTION_STACK_OVERFLOW:
+      DumpGenericException("Stack Overflow", dwExceptionCode,
+                           pExceptionAddress);
+      break;
+    case EXCEPTION_INVALID_DISPOSITION:
+      DumpGenericException("Invalid Disposition", dwExceptionCode,
+                           pExceptionAddress);
+      break;
+    case EXCEPTION_GUARD_PAGE:
+      DumpGenericException("Guard Page Violation", dwExceptionCode,
+                           pExceptionAddress);
+      break;
+    case EXCEPTION_INVALID_HANDLE:
+      DumpGenericException("Invalid Handle", dwExceptionCode,
+                           pExceptionAddress);
+      break;
+    case CONTROL_C_EXIT:
+      DumpGenericException("Ctrl+C Exit", dwExceptionCode, pExceptionAddress);
+      break;
+    default:
+      DumpGenericException("Unknown exception", dwExceptionCode,
+                           pExceptionAddress);
+      break;
+  }
+
+  return 0;
+}
+
+LONG CALLBACK CatchUnhandledExceptionFilter(PEXCEPTION_POINTERS pExPtrs) {
+  CHAR szMiniDumpFileName[MAX_PATH];
+  HANDLE hDumpFile = NULL;
+  SYSTEMTIME sysTime;
+  SECURITY_ATTRIBUTES saMiniDumpSecurity;
+
+  LogStatusMessage("Run status : Failed\n");
+
+  // Attempt to dump an unhandled exception banner just in case things are
+  // so bad that a minidump cannot be created.
+  DumpExceptionRecord(pExPtrs);
+
+  // Create a directory to dump the minidump files into
+  SecureZeroMemory(&saMiniDumpSecurity, sizeof(saMiniDumpSecurity));
+  saMiniDumpSecurity.nLength = sizeof(saMiniDumpSecurity);
+  saMiniDumpSecurity.bInheritHandle = FALSE;
+
+  // Construct a valid minidump filename that will be unique.
+  // Use the '.mdmp' extension so it'll be recognize by the Windows debugging
+  // tools.
+  GetLocalTime(&sysTime);
+  sprintf_s(szMiniDumpFileName,
+            "%s\\%0.2d%0.2d%0.4d%d%0.2d%0.2d%0.4d.mdmp",
+            GetScanUtilityDirectory().c_str(),
+            sysTime.wMonth,
+            sysTime.wDay,
+            sysTime.wYear,
+            sysTime.wHour,
+            sysTime.wMinute,
+            sysTime.wSecond,
+            sysTime.wMilliseconds);
+
+  LogStatusMessage("Creating minidump file %s with crash details.\n",
+                   szMiniDumpFileName);
+
+  // Create the file to dump the minidump data into...
+  //
+  hDumpFile = CreateFile(szMiniDumpFileName, GENERIC_WRITE, NULL, NULL,
+                         CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+
+  if (hDumpFile != INVALID_HANDLE_VALUE) {
+    MINIDUMP_EXCEPTION_INFORMATION eiMinidumpInfo;
+    SecureZeroMemory(&eiMinidumpInfo, sizeof(eiMinidumpInfo));
+    eiMinidumpInfo.ThreadId = GetCurrentThreadId();
+    eiMinidumpInfo.ExceptionPointers = pExPtrs;
+    eiMinidumpInfo.ClientPointers = FALSE;
+
+    //
+    // Write the Mini Dump to disk
+    //
+    if (!MiniDumpWriteDump(
+            GetCurrentProcess(), GetCurrentProcessId(), hDumpFile,
+            (MINIDUMP_TYPE)(MiniDumpNormal |
+                            MiniDumpWithPrivateReadWriteMemory |
+                            MiniDumpWithDataSegs | MiniDumpWithHandleData |
+                            MiniDumpWithFullMemoryInfo |
+                            MiniDumpWithThreadInfo |
+                            MiniDumpWithUnloadedModules |
+                            MiniDumpWithIndirectlyReferencedMemory),
+            &eiMinidumpInfo, NULL, NULL)) {
+      // Either the state of the process is beyond our ability to be able
+      // to scape together a usable dump file or we are on XP/2k3 and
+      // not all of the dump flags are supported.  Retry using dump flags
+      // that are supported by XP.
+      //
+      if (!MiniDumpWriteDump(
+              GetCurrentProcess(), GetCurrentProcessId(), hDumpFile,
+              (MINIDUMP_TYPE)(MiniDumpNormal |
+                              MiniDumpWithPrivateReadWriteMemory |
+                              MiniDumpWithDataSegs | MiniDumpWithHandleData),
+              &eiMinidumpInfo, NULL, NULL)) {
+        // Well out XP/2k3 compatible list of parameters didn't work, it
+        // doesn't look like we will be able to get anything useful.
+        //
+        // Close things down and delete the file if it exists.
+        //
+        SAFE_CLOSE_HANDLE(hDumpFile);
+        DeleteFile(szMiniDumpFileName);
+
+        LogStatusMessage("Failed to create minidump file %s.\n", szMiniDumpFileName);
+      }
+    }
+
+    SAFE_CLOSE_HANDLE(hDumpFile);
+  }
+
+  TerminateProcess(GetCurrentProcess(),
+                   pExPtrs->ExceptionRecord->ExceptionCode);
+  return 0;
+}
+
+bool Log4jVersionCheck(std::string version) {
+  int major = atoi(version.c_str());
+  if (major < 2) return false;
+
+  int minor = atoi(
+      version
+          .substr(version.find(".", 0) + 1, version.rfind(".", version.size()))
+          .c_str());
+  if (minor >= 15) return false;
+
+  int revision =
+      atoi(version
+               .substr(version.rfind(".", version.size()) + 1,
+                       version.size() - (version.rfind(".", version.size())))
+               .c_str());
+  if (revision >= 2) return false;
 
   return true;
 }
 
-
-int32_t ScanFileArchive( std::string file, std::string alternate ) {
+int32_t ScanFileArchive(std::string file, std::string alternate) {
   int32_t rv = ERROR_SUCCESS;
   unsigned long bytesWritten = 0;
   unzFile zf = NULL;
   unz_file_info64 file_info;
   char* p = NULL;
   char buf[256];
-  char filename[_MAX_PATH+1];
-  char tmpPath[_MAX_PATH+1];
-  char tmpFilename[_MAX_PATH+1];
+  char filename[_MAX_PATH + 1];
+  char tmpPath[_MAX_PATH + 1];
+  char tmpFilename[_MAX_PATH + 1];
   bool foundLog4j = false;
   bool foundLog4j1x = false;
   bool foundLog4j2x = false;
@@ -242,240 +556,239 @@ int32_t ScanFileArchive( std::string file, std::string alternate ) {
   std::string log4jVendor;
   std::string log4jVersion;
 
-
-  if ( !alternate.empty() ) {
-    zf = unzOpen64( alternate.c_str() );
+  if (!alternate.empty()) {
+    zf = unzOpen64(alternate.c_str());
   } else {
-    zf = unzOpen64( file.c_str() );
+    zf = unzOpen64(file.c_str());
   }
-  if ( NULL != zf ) {
-
+  if (NULL != zf) {
     //
     // Check to see if there is evidence of Log4j being in the archive
     //
-    rv = unzGoToFirstFile( zf );
-    if ( UNZ_OK == rv )
-    {
-      do
-      {
-        rv = unzGetCurrentFileInfo64( zf, &file_info, filename, _countof(filename), NULL, 0, NULL, 0 );
+    rv = unzGoToFirstFile(zf);
+    if (UNZ_OK == rv) {
+      do {
+        rv = unzGetCurrentFileInfo64(zf, &file_info, filename,
+                                     _countof(filename), NULL, 0, NULL, 0);
 
-        if ( UNZ_OK == rv )
-        {
-
-          p = strstr( filename, "org/apache/log4j" );
-          if ( NULL != p ) {
+        if (UNZ_OK == rv) {
+          p = strstr(filename, "org/apache/log4j");
+          if (NULL != p) {
             foundLog4j = true;
             foundLog4j1x = true;
           }
-          p = strstr( filename, "org/apache/logging/log4j" );
-          if ( NULL != p ) {
+          p = strstr(filename, "org/apache/logging/log4j");
+          if (NULL != p) {
             foundLog4j = true;
             foundLog4j2x = true;
           }
-          if ( 0 == stricmp( filename, "org/apache/logging/log4j/core/lookup/JndiLookup.class" ) ) {
+          if (0 ==
+              stricmp(
+                  filename,
+                  "org/apache/logging/log4j/core/lookup/JndiLookup.class")) {
             foundJNDILookupClass = true;
           }
-          if ( 0 == stricmp( filename, "META-INF/maven/log4j/log4j/pom.properties" ) ) {
+          if (0 ==
+              stricmp(filename, "META-INF/maven/log4j/log4j/pom.properties")) {
             foundLog4j1xPOM = true;
-            UncompressContents( zf, pomLog4j1x );
+            UncompressContents(zf, pomLog4j1x);
           }
-          p = strstr( filename, "META-INF/maven/org.apache.logging.log4j" );
-          if ( NULL != p ) {
-            if ( 0 == stricmp( filename, "META-INF/maven/org.apache.logging.log4j/log4j-core/pom.properties" ) ) {
+          p = strstr(filename, "META-INF/maven/org.apache.logging.log4j");
+          if (NULL != p) {
+            if (0 == stricmp(filename,
+                             "META-INF/maven/org.apache.logging.log4j/"
+                             "log4j-core/pom.properties")) {
               foundLog4j2xCorePOM = true;
-              UncompressContents( zf, pomLog4j2xCore );
+              UncompressContents(zf, pomLog4j2xCore);
             } else {
-              p = strstr( filename, "/pom.properties" );
-              if ( NULL != p ) {
+              p = strstr(filename, "/pom.properties");
+              if (NULL != p) {
                 foundLog4j2xPOM = true;
-                UncompressContents( zf, pomLog4j2x );
+                UncompressContents(zf, pomLog4j2x);
               }
             }
           }
-          if ( 0 == stricmp( filename, "META-INF/MANIFEST.MF" ) ) {
+          if (0 == stricmp(filename, "META-INF/MANIFEST.MF")) {
             foundManifest = true;
-            UncompressContents( zf, manifest );
+            UncompressContents(zf, manifest);
           }
 
           //
           // Add Support for nested archive files
           //
-          p = &filename[0] + ( strlen(filename) - 4 );
-          if ( (0 == stricmp( p, ".jar" )) || (0 == stricmp( p, ".war" )) || (0 == stricmp( p, ".ear" )) || (0 == stricmp( p, ".zip" )) ) {
-
-            if ( 0 == stricmp( p, ".jar" ) ) {
-               repSummary.scannedJARs++;
+          p = &filename[0] + (strlen(filename) - 4);
+          if ((0 == stricmp(p, ".jar")) || (0 == stricmp(p, ".war")) ||
+              (0 == stricmp(p, ".ear")) || (0 == stricmp(p, ".zip"))) {
+            if (0 == stricmp(p, ".jar")) {
+              repSummary.scannedJARs++;
             }
-            if ( 0 == stricmp( p, ".war" ) ) {
-               repSummary.scannedWARs++;
+            if (0 == stricmp(p, ".war")) {
+              repSummary.scannedWARs++;
             }
-            if ( 0 == stricmp( p, ".ear" ) ) {
-               repSummary.scannedEARs++;
+            if (0 == stricmp(p, ".ear")) {
+              repSummary.scannedEARs++;
             }
-            if ( 0 == stricmp( p, ".zip" ) ) {
-               repSummary.scannedZIPs++;
+            if (0 == stricmp(p, ".zip")) {
+              repSummary.scannedZIPs++;
             }
 
-            GetTempPath( _countof(tmpPath), tmpPath );
-            GetTempFileName( tmpPath, "qua", 0, tmpFilename );
+            GetTempPath(_countof(tmpPath), tmpPath);
+            GetTempFileName(tmpPath, "qua", 0, tmpFilename);
 
-            HANDLE h = CreateFile( tmpFilename,
-                                   GENERIC_READ | GENERIC_WRITE,
-                                   NULL,
-                                   NULL,
-                                   CREATE_ALWAYS,
-                                   FILE_ATTRIBUTE_TEMPORARY,
-                                   NULL );
+            HANDLE h =
+                CreateFile(tmpFilename, GENERIC_READ | GENERIC_WRITE, NULL,
+                           NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_TEMPORARY, NULL);
 
-            if ( h != INVALID_HANDLE_VALUE ) {
-
-              rv = unzOpenCurrentFile( zf );
-              if ( UNZ_OK == rv ) {
-                do
-                {
-                  memset( buf, 0, sizeof(buf) );
-                  rv = unzReadCurrentFile( zf, buf, sizeof(buf) );
+            if (h != INVALID_HANDLE_VALUE) {
+              rv = unzOpenCurrentFile(zf);
+              if (UNZ_OK == rv) {
+                do {
+                  memset(buf, 0, sizeof(buf));
+                  rv = unzReadCurrentFile(zf, buf, sizeof(buf));
                   if (rv < 0 || rv == 0) break;
-                  WriteFile( h, buf, rv, &bytesWritten, NULL );
+                  WriteFile(h, buf, rv, &bytesWritten, NULL);
                 } while (rv > 0);
-                unzCloseCurrentFile( zf );
-
+                unzCloseCurrentFile(zf);
               }
-              CloseHandle( h );
+              CloseHandle(h);
 
               std::string masked_filename = file + "!" + filename;
               std::string alternate_filename = tmpFilename;
 
-              ScanFileArchive( masked_filename, alternate_filename );
+              ScanFileArchive(masked_filename, alternate_filename);
 
-              DeleteFile( alternate_filename.c_str() );
+              DeleteFile(alternate_filename.c_str());
             }
           }
         }
 
-        rv = unzGoToNextFile( zf );
-      } while ( UNZ_OK == rv );
+        rv = unzGoToNextFile(zf);
+      } while (UNZ_OK == rv);
     }
 
-    unzClose( zf );
+    unzClose(zf);
   }
 
   //
-  // If we have detected some evidence of Log4j then lets check to see if we can detect 
-  // CVE-2021-44228
+  // If we have detected some evidence of Log4j then lets check to see if we can
+  // detect CVE-2021-44228
   //
-  if ( foundLog4j ) {
+  if (foundLog4j) {
     std::string cveStatus;
 
-    SanitizeContents( pomLog4j1x );
-    SanitizeContents( pomLog4j2xCore );
-    SanitizeContents( pomLog4j2x );
-    SanitizeContents( manifest );
+    SanitizeContents(pomLog4j1x);
+    SanitizeContents(pomLog4j2xCore);
+    SanitizeContents(pomLog4j2x);
+    SanitizeContents(manifest);
 
-    if ( foundLog4j1x ) {
-      GetDictionaryValue( pomLog4j1x, "artifactId=", "Unknown", log4jVendor );
-      GetDictionaryValue( pomLog4j1x, "version=", "Unknown", log4jVersion );
+    if (foundLog4j1x) {
+      GetDictionaryValue(pomLog4j1x, "artifactId=", "Unknown", log4jVendor);
+      GetDictionaryValue(pomLog4j1x, "version=", "Unknown", log4jVersion);
     }
-    if ( foundLog4j2x ) {
-      if ( foundLog4j2xCorePOM ) {
-        GetDictionaryValue( pomLog4j2xCore, "artifactId=", "Unknown", log4jVendor );
-        GetDictionaryValue( pomLog4j2xCore, "version=", "Unknown", log4jVersion );
+    if (foundLog4j2x) {
+      if (foundLog4j2xCorePOM) {
+        GetDictionaryValue(pomLog4j2xCore, "artifactId=", "Unknown",
+                           log4jVendor);
+        GetDictionaryValue(pomLog4j2xCore, "version=", "Unknown", log4jVersion);
       } else {
-        GetDictionaryValue( pomLog4j2x, "artifactId=", "Unknown", log4jVendor );
-        GetDictionaryValue( pomLog4j2x, "version=", "Unknown", log4jVersion );
+        GetDictionaryValue(pomLog4j2x, "artifactId=", "Unknown", log4jVendor);
+        GetDictionaryValue(pomLog4j2x, "version=", "Unknown", log4jVersion);
       }
     }
 
-    if ( foundManifest ) {
-      foundManifestVendor = GetDictionaryValue( manifest, "Implementation-Vendor-Id:", "Unknown", manifestVendor);
-      if ( !foundManifestVendor ) {
-        foundManifestVendor = GetDictionaryValue( manifest, "Bundle-Vendor:", "Unknown", manifestVendor);
+    if (foundManifest) {
+      foundManifestVendor = GetDictionaryValue(
+          manifest, "Implementation-Vendor-Id:", "Unknown", manifestVendor);
+      if (!foundManifestVendor) {
+        foundManifestVendor = GetDictionaryValue(
+            manifest, "Bundle-Vendor:", "Unknown", manifestVendor);
       }
-      foundManifestVersion = GetDictionaryValue( manifest, "Implementation-Version:", "Unknown", manifestVersion );
-      if ( !foundManifestVersion ) {
-        foundManifestVersion = GetDictionaryValue( manifest, "Bundle-Version:", "Unknown", manifestVersion );
+      foundManifestVersion = GetDictionaryValue(
+          manifest, "Implementation-Version:", "Unknown", manifestVersion);
+      if (!foundManifestVersion) {
+        foundManifestVersion = GetDictionaryValue(
+            manifest, "Bundle-Version:", "Unknown", manifestVersion);
       }
 
-      StripWhitespace( manifestVendor );
-      StripWhitespace( manifestVersion );
+      StripWhitespace(manifestVendor);
+      StripWhitespace(manifestVersion);
 
-      if ( foundManifestVendor ) {
-        if (  std::string::npos != manifestVendor.find("log4j", 0) ) {
+      if (foundManifestVendor) {
+        if (std::string::npos != manifestVendor.find("log4j", 0)) {
           foundLog4jManifest = true;
         }
-        if (  std::string::npos != manifestVendor.find("org.apache.logging.log4j", 0) ) {
+        if (std::string::npos !=
+            manifestVendor.find("org.apache.logging.log4j", 0)) {
           foundLog4jManifest = true;
         }
       }
     }
 
-    if ( foundLog4j1xPOM || foundLog4j2xPOM || foundLog4j2xCorePOM ) {
-      if ( Log4jVersionCheck( log4jVersion ) ) {
+    if (foundLog4j1xPOM || foundLog4j2xPOM || foundLog4j2xCorePOM) {
+      if (Log4jVersionCheck(log4jVersion)) {
         foundVulnerableVersion = true;
       }
     }
 
-    if ( foundLog4j2x && foundJNDILookupClass && foundVulnerableVersion ) {
+    if (foundLog4j2x && foundJNDILookupClass && foundVulnerableVersion) {
       repSummary.foundVunerabilities++;
       cveStatus = "Potentially Vulnerable";
-    } else if ( !foundJNDILookupClass && !foundManifestVendor && !foundManifestVersion ) {
+    } else if (!foundJNDILookupClass && !foundManifestVendor &&
+               !foundManifestVersion) {
       cveStatus = "N/A";
-    } else if ( !foundJNDILookupClass && foundLog4j2x && foundLog4jManifest ) {
+    } else if (!foundJNDILookupClass && foundLog4j2x && foundLog4jManifest) {
       cveStatus = "Mitigated";
-    } else if ( foundJNDILookupClass && foundLog4j2x && !foundVulnerableVersion ) {
+    } else if (foundJNDILookupClass && foundLog4j2x &&
+               !foundVulnerableVersion) {
       cveStatus = "Mitigated";
-    } else if ( !foundJNDILookupClass && foundLog4j1x && !foundVulnerableVersion ) {
+    } else if (!foundJNDILookupClass && foundLog4j1x &&
+               !foundVulnerableVersion) {
       cveStatus = "N/A";
     } else {
       cveStatus = "Unknown";
     }
 
-    repVulns.push_back( 
-      CReportVunerabilities( file, manifestVersion, manifestVendor, foundLog4j, foundLog4j1x, foundLog4j2x, foundJNDILookupClass,
-                             foundLog4jManifest, log4jVersion, log4jVendor, foundVulnerableVersion, cveStatus )
-    );
+    repVulns.push_back(CReportVunerabilities(
+        file, manifestVersion, manifestVendor, foundLog4j, foundLog4j1x,
+        foundLog4j2x, foundJNDILookupClass, foundLog4jManifest, log4jVersion,
+        log4jVendor, foundVulnerableVersion, cveStatus));
 
-    if ( !cmdline_options.no_logo ) {
-      printf( "Log4j Found: '%s' ( Manifest Vendor: %s, Manifest Version: %s, JDNI Class: %s, Log4j Vendor: %s, Log4j Version: %s, CVE Status: %s )\n",
-              file.c_str(),
-              manifestVendor.c_str(),
-              manifestVersion.c_str(),
-              foundJNDILookupClass ? "Found" : "NOT Found",
-              log4jVendor.c_str(),
-              log4jVersion.c_str(),
-              cveStatus.c_str() );
+    if (!cmdline_options.no_logo) {
+      printf(
+          "Log4j Found: '%s' ( Manifest Vendor: %s, Manifest Version: %s, JDNI "
+          "Class: %s, Log4j Vendor: %s, Log4j Version: %s, CVE Status: %s )\n",
+          file.c_str(), manifestVendor.c_str(), manifestVersion.c_str(),
+          foundJNDILookupClass ? "Found" : "NOT Found", log4jVendor.c_str(),
+          log4jVersion.c_str(), cveStatus.c_str());
     }
   }
 
   return rv;
 }
 
-
-int32_t ScanFile( std::string file ) {
+int32_t ScanFile(std::string file) {
   int32_t rv = ERROR_SUCCESS;
   char drive[_MAX_DRIVE];
   char dir[_MAX_DIR];
   char fname[_MAX_FNAME];
   char ext[_MAX_EXT];
 
-  if ( 0 == _splitpath_s( file.c_str(), drive, dir, fname, ext ) ) {
-
-    if ( 0 == stricmp( ext, ".jar" ) ) {
-       repSummary.scannedJARs++;
-       rv = ScanFileArchive( file, "" );
+  if (0 == _splitpath_s(file.c_str(), drive, dir, fname, ext)) {
+    if (0 == stricmp(ext, ".jar")) {
+      repSummary.scannedJARs++;
+      rv = ScanFileArchive(file, "");
     }
-    if ( 0 == stricmp( ext, ".war" ) ) {
-       repSummary.scannedWARs++;
-       rv = ScanFileArchive( file, "" );
+    if (0 == stricmp(ext, ".war")) {
+      repSummary.scannedWARs++;
+      rv = ScanFileArchive(file, "");
     }
-    if ( 0 == stricmp( ext, ".ear" ) ) {
-       repSummary.scannedEARs++;
-       rv = ScanFileArchive( file, "" );
+    if (0 == stricmp(ext, ".ear")) {
+      repSummary.scannedEARs++;
+      rv = ScanFileArchive(file, "");
     }
-    if ( 0 == stricmp( ext, ".zip" ) ) {
-       repSummary.scannedZIPs++;
-       rv = ScanFileArchive( file, "" );
+    if (0 == stricmp(ext, ".zip")) {
+      repSummary.scannedZIPs++;
+      rv = ScanFileArchive(file, "");
     }
 
   } else {
@@ -485,199 +798,204 @@ int32_t ScanFile( std::string file ) {
   return rv;
 }
 
-
-int32_t ScanDirectory( std::string directory ) {
+int32_t ScanDirectory(std::string directory) {
   int32_t rv = ERROR_SUCCESS;
   std::string search = directory + std::string("*.*");
   WIN32_FIND_DATA FindFileData;
   HANDLE hFind;
 
-   hFind = FindFirstFile( search.c_str(), &FindFileData );
-   if ( hFind == INVALID_HANDLE_VALUE ) 
-   {
-     rv = GetLastError();
-   } 
-   else 
-   {
-     do {
+  hFind = FindFirstFile(search.c_str(), &FindFileData);
+  if (hFind == INVALID_HANDLE_VALUE) {
+    rv = GetLastError();
+  } else {
+    do {
+      std::string filename(FindFileData.cFileName);
 
-       std::string filename( FindFileData.cFileName );
+      if ((filename.size() == 1) && (filename == ".")) continue;
+      if ((filename.size() == 2) && (filename == "..")) continue;
+      if ((FindFileData.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) ==
+          FILE_ATTRIBUTE_REPARSE_POINT)
+        continue;
+      if ((FindFileData.dwFileAttributes & FILE_ATTRIBUTE_DEVICE) ==
+          FILE_ATTRIBUTE_DEVICE)
+        continue;
+      if ((FindFileData.dwFileAttributes & FILE_ATTRIBUTE_OFFLINE) ==
+          FILE_ATTRIBUTE_OFFLINE)
+        continue;
+      if ((FindFileData.dwFileAttributes & FILE_ATTRIBUTE_TEMPORARY) ==
+          FILE_ATTRIBUTE_TEMPORARY)
+        continue;
+      if ((FindFileData.dwFileAttributes & FILE_ATTRIBUTE_VIRTUAL) ==
+          FILE_ATTRIBUTE_VIRTUAL)
+        continue;
 
-       if ( (filename.size() == 1) && (filename == ".") ) continue;
-       if ( (filename.size() == 2) && (filename == "..") ) continue;
-       if ( (FindFileData.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) == FILE_ATTRIBUTE_REPARSE_POINT ) continue;
-       if ( (FindFileData.dwFileAttributes & FILE_ATTRIBUTE_DEVICE) == FILE_ATTRIBUTE_DEVICE ) continue;
-       if ( (FindFileData.dwFileAttributes & FILE_ATTRIBUTE_OFFLINE) == FILE_ATTRIBUTE_OFFLINE ) continue;
-       if ( (FindFileData.dwFileAttributes & FILE_ATTRIBUTE_TEMPORARY) == FILE_ATTRIBUTE_TEMPORARY ) continue;
-       if ( (FindFileData.dwFileAttributes & FILE_ATTRIBUTE_VIRTUAL) == FILE_ATTRIBUTE_VIRTUAL ) continue;
+      if ((FindFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ==
+          FILE_ATTRIBUTE_DIRECTORY) {
+        repSummary.scannedDirectories++;
 
-       if ( (FindFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY ) {
-         repSummary.scannedDirectories++;
+        std::string dir =
+            directory + std::string(FindFileData.cFileName) + std::string("\\");
+        rv = ScanDirectory(dir);
+        if (ERROR_SUCCESS != rv) {
+          if (cmdline_options.verbose) {
+            printf("Failed to process directory '%s' (rv: %d)\n", dir.c_str(),
+                   rv);
+          }
+          if (rv != -100) {
+            char err[1024] = {};
+            sprintf_s(err, "Failed to process directory '%s' (rv: %d)",
+                      dir.c_str(), rv);
 
-         std::string dir = directory + std::string(FindFileData.cFileName) + std::string("\\");
-         rv = ScanDirectory( dir );
-         if ( ERROR_SUCCESS != rv ) {
-           if ( cmdline_options.verbose ) {
-             printf( "Failed to process directory '%s' (rv: %d)\n", dir.c_str(), rv );
-           }
-           if (rv != -100)
-           {
-               char err[1024] = {};
-               sprintf_s(err, "Failed to process directory '%s' (rv: %d)", dir.c_str(), rv);
+            error_array.push_back(err);
+          }
+        }
 
-               error_array.push_back(err);
-           }
-           
-         }
+        // TODO: Look for suspect directory structures containing raw log4j java
+        // classes
+        //
 
-         // TODO: Look for suspect directory structures containing raw log4j java classes
-         //
+      } else {
+        repSummary.scannedFiles++;
 
-       } else {
-         repSummary.scannedFiles++;
+        std::string file = directory + std::string(FindFileData.cFileName);
+        rv = ScanFile(file);
+        if (ERROR_SUCCESS != rv) {
+          if (cmdline_options.verbose) {
+            printf("Failed to process file '%s' (rv: %d)\n", file.c_str(), rv);
+          }
+          if (rv != -100) {
+            char err[1024] = {};
+            sprintf_s(err, "Failed to process file '%s' (rv: %d)\n",
+                      file.c_str(), rv);
 
-         std::string file = directory + std::string( FindFileData.cFileName );
-         rv = ScanFile( file );
-         if ( ERROR_SUCCESS != rv ) {
-           if ( cmdline_options.verbose ) {
-             printf( "Failed to process file '%s' (rv: %d)\n", file.c_str(), rv );
-           }
-           if (rv != -100)
-           {
-               char err[1024] = {};
-               sprintf_s(err, "Failed to process file '%s' (rv: %d)\n", file.c_str(), rv);
+            error_array.push_back(err);
+          }
+        }
+      }
 
-               error_array.push_back(err);
-           }
-           
-         }
-
-       }
-
-     } while ( FindNextFile(hFind, &FindFileData) );
-     FindClose( hFind );
-   }
+    } while (FindNextFile(hFind, &FindFileData));
+    FindClose(hFind);
+  }
 
   return rv;
 }
-
 
 int32_t ScanLocalDrives() {
   int32_t rv = ERROR_SUCCESS;
   DWORD rt = 0;
   char drives[256];
 
-  strcpy_s( drives, "" );
-  rt = GetLogicalDriveStrings( _countof(drives), drives );
-  for ( uint32_t i = 0; i < rt; i += 4 ) {
+  strcpy_s(drives, "");
+  rt = GetLogicalDriveStrings(_countof(drives), drives);
+  for (uint32_t i = 0; i < rt; i += 4) {
     char* drive = &drives[i];
-    DWORD type = GetDriveType( drive );
-    if ( (DRIVE_FIXED == type) || (DRIVE_RAMDISK == type) ) {
-      ScanDirectory( drive );
+    DWORD type = GetDriveType(drive);
+    if ((DRIVE_FIXED == type) || (DRIVE_RAMDISK == type)) {
+      ScanDirectory(drive);
     }
   }
 
   return rv;
 }
-
 
 int32_t ScanNetworkDrives() {
   int32_t rv = ERROR_SUCCESS;
   DWORD rt = 0;
   char drives[256];
 
-  strcpy_s( drives, "" );
-  rt = GetLogicalDriveStrings( _countof(drives), drives );
-  for ( uint32_t i = 0; i < rt; i += 4 ) {
+  strcpy_s(drives, "");
+  rt = GetLogicalDriveStrings(_countof(drives), drives);
+  for (uint32_t i = 0; i < rt; i += 4) {
     char* drive = &drives[i];
-    DWORD type = GetDriveType( drive );
-    if ( DRIVE_REMOTE == type ) {
-      ScanDirectory( drive );
+    DWORD type = GetDriveType(drive);
+    if (DRIVE_REMOTE == type) {
+      ScanDirectory(drive);
     }
   }
 
   return rv;
 }
 
-
-int32_t GenerateReportSummary( rapidjson::Document& doc ) {
+int32_t GenerateReportSummary(rapidjson::Document& doc) {
   int32_t rv = ERROR_SUCCESS;
 
-  rapidjson::Value vScanDate( rapidjson::kStringType );
-  rapidjson::Value vScanDuration( rapidjson::kNumberType );
-  rapidjson::Value vScannedFiles( rapidjson::kNumberType );
-  rapidjson::Value vScannedDirectories( rapidjson::kNumberType );
-  rapidjson::Value vScannedJARs( rapidjson::kNumberType );
-  rapidjson::Value vScannedWARs( rapidjson::kNumberType );
-  rapidjson::Value vScannedEARs( rapidjson::kNumberType );
-  rapidjson::Value vScannedZIPs( rapidjson::kNumberType );
-  rapidjson::Value vVulnerabilitiesFound( rapidjson::kNumberType );
-  rapidjson::Value oSummary( rapidjson::kObjectType );
+  rapidjson::Value vScanDate(rapidjson::kStringType);
+  rapidjson::Value vScanDuration(rapidjson::kNumberType);
+  rapidjson::Value vScannedFiles(rapidjson::kNumberType);
+  rapidjson::Value vScannedDirectories(rapidjson::kNumberType);
+  rapidjson::Value vScannedJARs(rapidjson::kNumberType);
+  rapidjson::Value vScannedWARs(rapidjson::kNumberType);
+  rapidjson::Value vScannedEARs(rapidjson::kNumberType);
+  rapidjson::Value vScannedZIPs(rapidjson::kNumberType);
+  rapidjson::Value vVulnerabilitiesFound(rapidjson::kNumberType);
+  rapidjson::Value oSummary(rapidjson::kObjectType);
 
-  char         buf[64] = { 0 };
-  struct tm*   tm = NULL;
+  char buf[64] = {0};
+  struct tm* tm = NULL;
 
   tm = localtime((time_t*)&repSummary.scanStart);
-  strftime(buf, _countof(buf)-1, "%FT%T%z", tm);
+  strftime(buf, _countof(buf) - 1, "%FT%T%z", tm);
 
-  vScanDate.SetString( &buf[0], doc.GetAllocator() );
-  vScanDuration.SetInt64( repSummary.scanEnd - repSummary.scanStart );
-  vScannedFiles.SetInt64( repSummary.scannedFiles );
-  vScannedDirectories.SetInt64( repSummary.scannedDirectories );
-  vScannedJARs.SetInt64( repSummary.scannedJARs );
-  vScannedWARs.SetInt64( repSummary.scannedWARs );
-  vScannedEARs.SetInt64( repSummary.scannedEARs );
-  vScannedZIPs.SetInt64( repSummary.scannedZIPs );
-  vVulnerabilitiesFound.SetInt64( repSummary.foundVunerabilities );
+  vScanDate.SetString(&buf[0], doc.GetAllocator());
+  vScanDuration.SetInt64(repSummary.scanEnd - repSummary.scanStart);
+  vScannedFiles.SetInt64(repSummary.scannedFiles);
+  vScannedDirectories.SetInt64(repSummary.scannedDirectories);
+  vScannedJARs.SetInt64(repSummary.scannedJARs);
+  vScannedWARs.SetInt64(repSummary.scannedWARs);
+  vScannedEARs.SetInt64(repSummary.scannedEARs);
+  vScannedZIPs.SetInt64(repSummary.scannedZIPs);
+  vVulnerabilitiesFound.SetInt64(repSummary.foundVunerabilities);
 
   oSummary.AddMember("scanDuration", vScanDuration, doc.GetAllocator());
   oSummary.AddMember("scannedFiles", vScannedFiles, doc.GetAllocator());
-  oSummary.AddMember("scannedDirectories", vScannedDirectories, doc.GetAllocator());
+  oSummary.AddMember("scannedDirectories", vScannedDirectories,
+                     doc.GetAllocator());
   oSummary.AddMember("scannedJARs", vScannedJARs, doc.GetAllocator());
   oSummary.AddMember("scannedWARs", vScannedWARs, doc.GetAllocator());
   oSummary.AddMember("scannedEARs", vScannedEARs, doc.GetAllocator());
   oSummary.AddMember("scannedZIPs", vScannedZIPs, doc.GetAllocator());
-  oSummary.AddMember("vulnerabilitiesFound", vVulnerabilitiesFound, doc.GetAllocator());
+  oSummary.AddMember("vulnerabilitiesFound", vVulnerabilitiesFound,
+                     doc.GetAllocator());
 
   doc.AddMember("scanSummary", oSummary, doc.GetAllocator());
 
   return rv;
 }
 
-
-int32_t GenerateReportDetail( rapidjson::Document& doc ) {
+int32_t GenerateReportDetail(rapidjson::Document& doc) {
   int32_t rv = ERROR_SUCCESS;
-  rapidjson::Value oDetails( rapidjson::kArrayType );
+  rapidjson::Value oDetails(rapidjson::kArrayType);
 
-  for ( size_t i = 0; i < repVulns.size(); i++ ) {
+  for (size_t i = 0; i < repVulns.size(); i++) {
     CReportVunerabilities vuln = repVulns[i];
 
-    rapidjson::Value vFile( rapidjson::kStringType );
-    rapidjson::Value vManifestVendor( rapidjson::kStringType );
-    rapidjson::Value vManifestVersion( rapidjson::kStringType );
-    rapidjson::Value vDetectedLog4j( rapidjson::kTrueType );
-    rapidjson::Value vDetectedLog4j1x( rapidjson::kTrueType );
-    rapidjson::Value vDetectedLog4j2x( rapidjson::kTrueType );
-    rapidjson::Value vDetectedJNDILookupClass( rapidjson::kTrueType );
-    rapidjson::Value vDetectedLog4jManifest( rapidjson::kTrueType );
-    rapidjson::Value vLog4jVendor( rapidjson::kStringType );
-    rapidjson::Value vLog4jVersion( rapidjson::kStringType );
-    rapidjson::Value vDetectedVulnerableVersion( rapidjson::kTrueType );
-    rapidjson::Value vCVEStatus( rapidjson::kStringType );
-    rapidjson::Value oDetail( rapidjson::kObjectType );
+    rapidjson::Value vFile(rapidjson::kStringType);
+    rapidjson::Value vManifestVendor(rapidjson::kStringType);
+    rapidjson::Value vManifestVersion(rapidjson::kStringType);
+    rapidjson::Value vDetectedLog4j(rapidjson::kTrueType);
+    rapidjson::Value vDetectedLog4j1x(rapidjson::kTrueType);
+    rapidjson::Value vDetectedLog4j2x(rapidjson::kTrueType);
+    rapidjson::Value vDetectedJNDILookupClass(rapidjson::kTrueType);
+    rapidjson::Value vDetectedLog4jManifest(rapidjson::kTrueType);
+    rapidjson::Value vLog4jVendor(rapidjson::kStringType);
+    rapidjson::Value vLog4jVersion(rapidjson::kStringType);
+    rapidjson::Value vDetectedVulnerableVersion(rapidjson::kTrueType);
+    rapidjson::Value vCVEStatus(rapidjson::kStringType);
+    rapidjson::Value oDetail(rapidjson::kObjectType);
 
-    vFile.SetString( vuln.file.c_str(), doc.GetAllocator() );
-    vManifestVendor.SetString( vuln.manifestVendor.c_str(), doc.GetAllocator() );
-    vManifestVersion.SetString( vuln.manifestVersion.c_str(), doc.GetAllocator() );
-    vDetectedLog4j.SetBool( vuln.detectedLog4j );
-    vDetectedLog4j1x.SetBool( vuln.detectedLog4j1x );
-    vDetectedLog4j2x.SetBool( vuln.detectedLog4j2x );
-    vDetectedJNDILookupClass.SetBool( vuln.detectedJNDILookupClass );
-    vDetectedLog4jManifest.SetBool( vuln.detectedLog4jManifest );
-    vLog4jVendor.SetString( vuln.log4jVendor.c_str(), doc.GetAllocator() );
-    vLog4jVersion.SetString( vuln.log4jVersion.c_str(), doc.GetAllocator() );
-    vDetectedVulnerableVersion.SetBool( vuln.detectedVulnerableVersion );
-    vCVEStatus.SetString( vuln.cveStatus.c_str(), doc.GetAllocator() );
+    vFile.SetString(vuln.file.c_str(), doc.GetAllocator());
+    vManifestVendor.SetString(vuln.manifestVendor.c_str(), doc.GetAllocator());
+    vManifestVersion.SetString(vuln.manifestVersion.c_str(),
+                               doc.GetAllocator());
+    vDetectedLog4j.SetBool(vuln.detectedLog4j);
+    vDetectedLog4j1x.SetBool(vuln.detectedLog4j1x);
+    vDetectedLog4j2x.SetBool(vuln.detectedLog4j2x);
+    vDetectedJNDILookupClass.SetBool(vuln.detectedJNDILookupClass);
+    vDetectedLog4jManifest.SetBool(vuln.detectedLog4jManifest);
+    vLog4jVendor.SetString(vuln.log4jVendor.c_str(), doc.GetAllocator());
+    vLog4jVersion.SetString(vuln.log4jVersion.c_str(), doc.GetAllocator());
+    vDetectedVulnerableVersion.SetBool(vuln.detectedVulnerableVersion);
+    vCVEStatus.SetString(vuln.cveStatus.c_str(), doc.GetAllocator());
 
     oDetail.AddMember("file", vFile, doc.GetAllocator());
     oDetail.AddMember("manifestVendor", vManifestVendor, doc.GetAllocator());
@@ -685,11 +1003,14 @@ int32_t GenerateReportDetail( rapidjson::Document& doc ) {
     oDetail.AddMember("detectedLog4j", vDetectedLog4j, doc.GetAllocator());
     oDetail.AddMember("detectedLog4j1x", vDetectedLog4j1x, doc.GetAllocator());
     oDetail.AddMember("detectedLog4j2x", vDetectedLog4j2x, doc.GetAllocator());
-    oDetail.AddMember("detectedJNDILookupClass", vDetectedJNDILookupClass, doc.GetAllocator());
-    oDetail.AddMember("detectedLog4jManifest", vDetectedLog4jManifest, doc.GetAllocator());
+    oDetail.AddMember("detectedJNDILookupClass", vDetectedJNDILookupClass,
+                      doc.GetAllocator());
+    oDetail.AddMember("detectedLog4jManifest", vDetectedLog4jManifest,
+                      doc.GetAllocator());
     oDetail.AddMember("log4jVendor", vLog4jVendor, doc.GetAllocator());
     oDetail.AddMember("log4jVersion", vLog4jVersion, doc.GetAllocator());
-    oDetail.AddMember("detectedVulnerableVersion", vDetectedVulnerableVersion, doc.GetAllocator());
+    oDetail.AddMember("detectedVulnerableVersion", vDetectedVulnerableVersion,
+                      doc.GetAllocator());
     oDetail.AddMember("cveStatus", vCVEStatus, doc.GetAllocator());
 
     oDetails.PushBack(oDetail, doc.GetAllocator());
@@ -699,7 +1020,6 @@ int32_t GenerateReportDetail( rapidjson::Document& doc ) {
   return rv;
 }
 
-
 int32_t GenerateJSONReport() {
   int32_t rv = ERROR_SUCCESS;
   rapidjson::Document doc;
@@ -707,10 +1027,10 @@ int32_t GenerateJSONReport() {
 
   doc.Parse("{}");
 
-  GenerateReportSummary( doc );
-  GenerateReportDetail( doc );
+  GenerateReportSummary(doc);
+  GenerateReportDetail(doc);
 
-  if ( cmdline_options.reportPretty ) {
+  if (cmdline_options.reportPretty) {
     rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(buffer);
     doc.Accept(writer);
   } else {
@@ -722,153 +1042,61 @@ int32_t GenerateJSONReport() {
   return rv;
 }
 
-
-bool DirectoryExists(const char* dirPath)
-{
-    if (dirPath == NULL)
-        return false;
-
-    DWORD fileAttr = GetFileAttributes(dirPath);
-    return (fileAttr != INVALID_FILE_ATTRIBUTES && (fileAttr & FILE_ATTRIBUTE_DIRECTORY));
-}
-
-
-bool ExpandEnvironmentVariables(const char* source, std::string& destination)
-{
-    try {
-
-        DWORD dwReserve = ExpandEnvironmentStrings(source, NULL, 0);
-        if (dwReserve == 0)
-        {
-            return false;
-        }
-
-        destination.resize(dwReserve);
-
-        DWORD dwWritten = ExpandEnvironmentStrings(source, &destination[0], (DWORD)destination.size());
-        if (dwWritten == 0)
-        {
-            return false;
-        }
-
-        // dwWritten includes the null terminating character
-        destination.resize(dwWritten - 1);
-
-    }
-    catch (std::bad_alloc&) {
-        return false;
-    }
-
-    return true;
-}
-
-std::string GetResultFile(bool signature_output = false)
-{
-    std::string destination_dir;
-    std::string report_file_path;
-    bool create_result_in_qualys_location = false;
-
-    if (ExpandEnvironmentVariables(qualys_program_data_locaton, destination_dir))
-    {
-        if (DirectoryExists(destination_dir.c_str()))
-        {
-            if (signature_output)
-            {
-                report_file_path = destination_dir + "\\" + result_sig_output;
-            }
-            else
-            {
-                report_file_path = destination_dir + "\\" + status_file;
-            }
-
-            create_result_in_qualys_location = true;
-        }
-    }
-
-    if (create_result_in_qualys_location == false)
-    {
-        // get path to scan utility
-        char path[MAX_PATH] = { 0 };
-        GetModuleFileName(NULL, path, MAX_PATH);
-
-        report_file_path = path;
-
-        std::wstring::size_type pos = std::string(report_file_path).find_last_of("\\");
-        report_file_path = report_file_path.substr(0, pos);
-
-        if (signature_output)
-        {
-            report_file_path = report_file_path + "\\" + result_sig_output;
-        }
-        else
-        {
-            report_file_path = report_file_path + "\\" + status_file;
-        }
-        
-    }
-    
-    return report_file_path;
-}
-
 int32_t GenerateSignatureReport() {
   int32_t rv = ERROR_SUCCESS;
-  
+
   // signature output should go into a file always
   // 1. First check if %programdata%\Qualys\QualysAgent exist
   // 2. If not exist then current direcotry will be used
-  report_file = GetResultFile(true);
 
-  FILE* result_file = nullptr;
-  fopen_s(&result_file, report_file.c_str(), "w+");
+  FILE* signature_file = nullptr;
+  fopen_s(&signature_file, GetSignatureReportFilename().c_str(), "w+");
 
-  if (result_file)
-  {
-      for (size_t i = 0; i < repVulns.size(); i++) {
-          CReportVunerabilities vuln = repVulns[i];
+  if (signature_file) {
+    for (size_t i = 0; i < repVulns.size(); i++) {
+      CReportVunerabilities vuln = repVulns[i];
 
-          fprintf_s(result_file, "Manifest Vendor: %s, Manifest Version: %s, JDNI Class: %s, Log4j Vendor: %s, Log4j Version: %s, CVE Status: %s\n",
-              vuln.manifestVendor.c_str(),
-              vuln.manifestVersion.c_str(),
-              vuln.detectedJNDILookupClass ? "Found" : "NOT Found",
-              vuln.log4jVendor.c_str(),
-              vuln.log4jVersion.c_str(),
-              vuln.cveStatus.c_str()
-          );
-          fprintf_s(result_file, "Path=%s\n", vuln.file.c_str());
-          fprintf_s(result_file, "%s %s\n", vuln.log4jVendor.c_str(), vuln.log4jVersion.c_str());
-          fprintf_s(result_file, "------------------------------------------------------------------------\n");
+      fprintf_s(signature_file,
+                "Source: Manifest Vendor: %s, Manifest Version: %s, JDNI Class: %s, Log4j Vendor: %s, Log4j Version: %s, CVE Status: %s\n",
+                vuln.manifestVendor.c_str(),
+                vuln.manifestVersion.c_str(),
+                vuln.detectedJNDILookupClass ? "Found" : "NOT Found",
+                vuln.log4jVendor.c_str(),
+                vuln.log4jVersion.c_str(),
+                vuln.cveStatus.c_str());
+      fprintf_s(signature_file, "JNDI-Class: JNDI Class %s\n", vuln.detectedJNDILookupClass ? "Found" : "NOT Found");
+      fprintf_s(signature_file, "CVE-Status: %s\n", vuln.cveStatus.c_str());
+      fprintf_s(signature_file, "Path=%s\n", vuln.file.c_str());
+      fprintf_s(signature_file, "%s %s\n", vuln.log4jVendor.c_str(),
+                vuln.log4jVersion.c_str());
+      fprintf_s(signature_file,
+                "------------------------------------------------------------------------\n");
+    }
 
-      }
+    fclose(signature_file);
+  } else {
+    for (size_t i = 0; i < repVulns.size(); i++) {
+      CReportVunerabilities vuln = repVulns[i];
 
-      fclose(result_file);
+      printf("Source: Manifest Vendor: %s, Manifest Version: %s, JDNI Class: %s, Log4j Vendor: %s, Log4j Version: %s, CVE Status: %s\n",
+             vuln.manifestVendor.c_str(),
+             vuln.manifestVersion.c_str(),
+             vuln.detectedJNDILookupClass ? "Found" : "NOT Found",
+             vuln.log4jVendor.c_str(),
+             vuln.log4jVersion.c_str(),
+             vuln.cveStatus.c_str());
+      printf("JNDI-Class: JNDI Class %s\n", vuln.detectedJNDILookupClass ? "Found" : "NOT Found");
+      printf("CVE-Status: %s\n", vuln.cveStatus.c_str());
+      printf("Path=%s\n", vuln.file.c_str());
+      printf("%s %s\n", vuln.log4jVendor.c_str(), vuln.log4jVersion.c_str());
+      printf("------------------------------------------------------------------------\n");
+    }
   }
-  else
-  {
-      for (size_t i = 0; i < repVulns.size(); i++) {
-          CReportVunerabilities vuln = repVulns[i];
-
-          printf("Manifest Vendor: %s, Manifest Version: %s, JDNI Class: %s, Log4j Vendor: %s, Log4j Version: %s, CVE Status: %s\n",
-              vuln.manifestVendor.c_str(),
-              vuln.manifestVersion.c_str(),
-              vuln.detectedJNDILookupClass ? "Found" : "NOT Found",
-              vuln.log4jVendor.c_str(),
-              vuln.log4jVersion.c_str(),
-              vuln.cveStatus.c_str()
-          );
-          printf("Path=%s\n", vuln.file.c_str());
-          printf("%s %s\n", vuln.log4jVendor.c_str(), vuln.log4jVersion.c_str());
-          printf("------------------------------------------------------------------------\n");
-
-      }
-
-      report_file.clear();
-  } 
 
   return rv;
 }
 
-
-int32_t PrintHelp( _In_ int32_t argc, _In_ char* argv[] ) {
+int32_t PrintHelp(_In_ int32_t argc, _In_ char* argv[]) {
   int32_t rv = ERROR_SUCCESS;
 
   printf("/scan\n");
@@ -890,38 +1118,37 @@ int32_t PrintHelp( _In_ int32_t argc, _In_ char* argv[] ) {
   return rv;
 }
 
-
-int32_t ProcessCommandLineOptions( int32_t argc, char* argv[] ) {
+int32_t ProcessCommandLineOptions(int32_t argc, char* argv[]) {
   int32_t rv = ERROR_SUCCESS;
 
-  for ( int32_t i=1; i<argc; i++ ) {
-    if ( 0 ) {
-    } else if ( ARG(scan) ) {
+  for (int32_t i = 1; i < argc; i++) {
+    if (0) {
+    } else if (ARG(scan)) {
       cmdline_options.scanLocalDrives = true;
-    } else if ( ARG(scan_network) ) {
+    } else if (ARG(scan_network)) {
       cmdline_options.scanNetworkDrives = true;
-    } else if ( ARG(scan_file) && ARGPARAMCOUNT(1) ) {
+    } else if (ARG(scan_file) && ARGPARAMCOUNT(1)) {
       cmdline_options.scanFile = true;
-      cmdline_options.file = argv[i+1];
-    } else if ( ARG(scan_directory) && ARGPARAMCOUNT(1) ) {
+      cmdline_options.file = argv[i + 1];
+    } else if (ARG(scan_directory) && ARGPARAMCOUNT(1)) {
       cmdline_options.scanDirectory = true;
-      cmdline_options.directory = argv[i+1];
-    } else if ( ARG(report) ) {
+      cmdline_options.directory = argv[i + 1];
+    } else if (ARG(report)) {
       cmdline_options.no_logo = true;
       cmdline_options.report = true;
-    } else if ( ARG(report_pretty) ) {
+    } else if (ARG(report_pretty)) {
       cmdline_options.no_logo = true;
       cmdline_options.report = true;
       cmdline_options.reportPretty = true;
-    } else if ( ARG(report_sig) ) {
+    } else if (ARG(report_sig)) {
       cmdline_options.no_logo = true;
       cmdline_options.report = true;
       cmdline_options.reportSig = true;
-    } else if ( ARG(nologo) ) {
+    } else if (ARG(nologo)) {
       cmdline_options.no_logo = true;
-    } else if ( ARG(v) || ARG(verbose) ) {
+    } else if (ARG(v) || ARG(verbose)) {
       cmdline_options.verbose = true;
-    } else if ( ARG(h) || ARG(help) ) {
+    } else if (ARG(h) || ARG(help)) {
       cmdline_options.help = true;
     }
   }
@@ -929,14 +1156,16 @@ int32_t ProcessCommandLineOptions( int32_t argc, char* argv[] ) {
   //
   // Check to make sure the directory path is normalized
   //
-  if ( cmdline_options.scanDirectory ) {
-    if ( 0 == cmdline_options.directory.substr(0, 1).compare("\"") ) {
-      cmdline_options.directory.erase( 0, 1 );
+  if (cmdline_options.scanDirectory) {
+    if ((0 == cmdline_options.directory.substr(0, 1).compare("\"")) ||
+        (0 == cmdline_options.directory.substr(0, 1).compare("'"))) {
+      cmdline_options.directory.erase(0, 1);
     }
-    if ( 0 == cmdline_options.directory.substr(cmdline_options.directory.size() - 1, 1).compare("\"") ) {
-      cmdline_options.directory.erase( cmdline_options.directory.size() - 1, 1 );
+    if ((0 == cmdline_options.directory.substr(cmdline_options.directory.size() - 1, 1).compare("\"")) ||
+        (0 == cmdline_options.directory.substr(cmdline_options.directory.size() - 1, 1).compare("'"))) {
+      cmdline_options.directory.erase(cmdline_options.directory.size() - 1, 1);
     }
-    if ( 0 != cmdline_options.directory.substr(cmdline_options.directory.size() - 1, 1).compare("\\") ) {
+    if (0 != cmdline_options.directory.substr(cmdline_options.directory.size() - 1, 1).compare("\\")) {
       cmdline_options.directory += "\\";
     }
   }
@@ -944,436 +1173,134 @@ int32_t ProcessCommandLineOptions( int32_t argc, char* argv[] ) {
   return rv;
 }
 
-std::string GetUtilityDir()
-{
-    // get path to scan utility
-    char path[MAX_PATH] = { 0 };
-    std::string utility_dir;
-    if (GetModuleFileName(NULL, path, MAX_PATH))
-    {
-        utility_dir = path;
-
-        std::wstring::size_type pos = std::string(utility_dir).find_last_of("\\");
-        utility_dir = utility_dir.substr(0, pos);
-    }
-
-    return utility_dir;
-}
-
-// Provide a generic way to format exceptions
-//
-int QualysDumpGenericException(const char* szExceptionDescription, DWORD dwExceptionCode, PVOID pExceptionAddress) {
-
-    printf("Unhandled Exception Detected - Reason: %s (0x%x) at address 0x%p\n\n",
-        szExceptionDescription,
-        dwExceptionCode,
-        pExceptionAddress);
-
-    if (status_file_pointer)
-    {
-        fprintf_s(status_file_pointer, "Unhandled Exception Detected - Reason: %s (0x%x) at address 0x%p\n\n",
-            szExceptionDescription,
-            dwExceptionCode,
-            pExceptionAddress);        
-    }   
-
-    return 0;
-}
-
-// Dump the exception code record to the trace log in a human readable form.
-//
-int QualysDumpExceptionRecord(PEXCEPTION_POINTERS pExPtrs) {
-    PVOID          pExceptionAddress = pExPtrs->ExceptionRecord->ExceptionAddress;
-    DWORD          dwExceptionCode = pExPtrs->ExceptionRecord->ExceptionCode;
-
-    std::string status_file = GetResultFile(false);
-    fopen_s(&status_file_pointer, status_file.c_str(), "a");
-
-    if (status_file_pointer)
-    {
-        fprintf_s(status_file_pointer, "Run status : Failed\n");
-        fflush(status_file_pointer);
-    }
-
-    switch (dwExceptionCode) {
-    case 0xE06D7363:
-        QualysDumpGenericException("Out Of Memory (C++ Exception)", dwExceptionCode, pExceptionAddress);
-        break;
-    case EXCEPTION_ACCESS_VIOLATION:
-        char        wszStatus[256];
-        char        wszSubStatus[256];
-        StringCchPrintfEx(wszStatus, 256, NULL, NULL, STRSAFE_NULL_ON_FAILURE, "Access Violation");
-        StringCchPrintfEx(wszSubStatus, 256, NULL, NULL, STRSAFE_NULL_ON_FAILURE, "");
-        if (pExPtrs->ExceptionRecord->NumberParameters == 2) {
-            switch (pExPtrs->ExceptionRecord->ExceptionInformation[0]) {
-            case 0: // read attempt
-                StringCchPrintfEx(
-                    wszSubStatus, 256,
-                    NULL, NULL, STRSAFE_NULL_ON_FAILURE,
-                    "read attempt to address 0x%p",
-                    pExPtrs->ExceptionRecord->ExceptionInformation[1]
-                );
-                break;
-            case 1: // write attempt
-                StringCchPrintfEx(
-                    wszSubStatus, 256,
-                    NULL, NULL, STRSAFE_NULL_ON_FAILURE,
-                    "write attempt to address 0x%p",
-                    pExPtrs->ExceptionRecord->ExceptionInformation[1]
-                );
-                break;
-            }
-        }
-        printf("Unhandled Exception Detected - Reason: % s(0x % x) at address 0x % p % s\n\n",
-            wszStatus,
-            dwExceptionCode,
-            pExceptionAddress,
-            wszSubStatus);
-
-        if (status_file_pointer)
-        {
-            fprintf_s(status_file_pointer, "Unhandled Exception Detected - Reason: %s (0x%x) at address 0x%p %s\n\n",
-                wszStatus,
-                dwExceptionCode,
-                pExceptionAddress,
-                wszSubStatus);
-        }
-        break;
-    case EXCEPTION_DATATYPE_MISALIGNMENT:
-        QualysDumpGenericException("Data Type Misalignment", dwExceptionCode, pExceptionAddress);
-        break;
-    case EXCEPTION_BREAKPOINT:
-        QualysDumpGenericException("Breakpoint Encountered", dwExceptionCode, pExceptionAddress);
-        break;
-    case EXCEPTION_SINGLE_STEP:
-        QualysDumpGenericException("Single Instruction Executed", dwExceptionCode, pExceptionAddress);
-        break;
-    case EXCEPTION_ARRAY_BOUNDS_EXCEEDED:
-        QualysDumpGenericException("Array Bounds Exceeded", dwExceptionCode, pExceptionAddress);
-        break;
-    case EXCEPTION_FLT_DENORMAL_OPERAND:
-        QualysDumpGenericException("Float Denormal Operand", dwExceptionCode, pExceptionAddress);
-        break;
-    case EXCEPTION_FLT_DIVIDE_BY_ZERO:
-        QualysDumpGenericException("Divide by Zero", dwExceptionCode, pExceptionAddress);
-        break;
-    case EXCEPTION_FLT_INEXACT_RESULT:
-        QualysDumpGenericException("Float Inexact Result", dwExceptionCode, pExceptionAddress);
-        break;
-    case EXCEPTION_FLT_INVALID_OPERATION:
-        QualysDumpGenericException("Float Invalid Operation", dwExceptionCode, pExceptionAddress);
-        break;
-    case EXCEPTION_FLT_OVERFLOW:
-        QualysDumpGenericException("Float Overflow", dwExceptionCode, pExceptionAddress);
-        break;
-    case EXCEPTION_FLT_STACK_CHECK:
-        QualysDumpGenericException("Float Stack Check", dwExceptionCode, pExceptionAddress);
-        break;
-    case EXCEPTION_FLT_UNDERFLOW:
-        QualysDumpGenericException("Float Underflow", dwExceptionCode, pExceptionAddress);
-        break;
-    case EXCEPTION_INT_DIVIDE_BY_ZERO:
-        QualysDumpGenericException("Integer Divide by Zero", dwExceptionCode, pExceptionAddress);
-        break;
-    case EXCEPTION_INT_OVERFLOW:
-        QualysDumpGenericException("Integer Overflow", dwExceptionCode, pExceptionAddress);
-        break;
-    case EXCEPTION_PRIV_INSTRUCTION:
-        QualysDumpGenericException("Privileged Instruction", dwExceptionCode, pExceptionAddress);
-        break;
-    case EXCEPTION_IN_PAGE_ERROR:
-        QualysDumpGenericException("In Page Error", dwExceptionCode, pExceptionAddress);
-        break;
-    case EXCEPTION_ILLEGAL_INSTRUCTION:
-        QualysDumpGenericException("Illegal Instruction", dwExceptionCode, pExceptionAddress);
-        break;
-    case EXCEPTION_NONCONTINUABLE_EXCEPTION:
-        QualysDumpGenericException("Noncontinuable Exception", dwExceptionCode, pExceptionAddress);
-        break;
-    case EXCEPTION_STACK_OVERFLOW:
-        QualysDumpGenericException("Stack Overflow", dwExceptionCode, pExceptionAddress);
-        break;
-    case EXCEPTION_INVALID_DISPOSITION:
-        QualysDumpGenericException("Invalid Disposition", dwExceptionCode, pExceptionAddress);
-        break;
-    case EXCEPTION_GUARD_PAGE:
-        QualysDumpGenericException("Guard Page Violation", dwExceptionCode, pExceptionAddress);
-        break;
-    case EXCEPTION_INVALID_HANDLE:
-        QualysDumpGenericException("Invalid Handle", dwExceptionCode, pExceptionAddress);
-        break;
-    case CONTROL_C_EXIT:
-        QualysDumpGenericException("Ctrl+C Exit", dwExceptionCode, pExceptionAddress);
-        break;
-    default:
-        QualysDumpGenericException("Unknown exception", dwExceptionCode, pExceptionAddress);
-        break;
-    }
-
-    return 0;
-}
-
-LONG CALLBACK QualysCatchUnhandledExceptionFilter(PEXCEPTION_POINTERS pExPtrs) {
-    CHAR wszBuffer[MAX_PATH];
-    CHAR wszMiniDumpFileName[MAX_PATH];
-    HANDLE hDumpFile = NULL;
-    SYSTEMTIME sysTime;
-    SECURITY_ATTRIBUTES saMiniDumpSecurity;
-
-    std::string status_file = GetResultFile(false);
-
-    fopen_s(&status_file_pointer, status_file.c_str(), "a");
-
-    if (status_file_pointer)
-    {
-        fprintf_s(status_file_pointer, "Run status : Failed\n");
-        fflush(status_file_pointer);
-    }
-
-    // Attempt to dump an unhandled exception banner just in case things are
-    // so bad that a minidump cannot be created.
-    QualysDumpExceptionRecord(pExPtrs);
-
-    // Create a directory to dump the minidump files into
-    SecureZeroMemory(&saMiniDumpSecurity, sizeof(saMiniDumpSecurity));
-    saMiniDumpSecurity.nLength = sizeof(saMiniDumpSecurity);
-    saMiniDumpSecurity.bInheritHandle = FALSE;
-
-    // Construct a valid minidump filename that will be unique.
-    // Use the '.mdmp' extension so it'll be recognize by the Windows debugging
-    // tools.
-    GetLocalTime(&sysTime);
-    StringCchPrintfEx(
-        wszMiniDumpFileName,
-        MAX_PATH,
-        NULL,
-        NULL,
-        STRSAFE_NULL_ON_FAILURE,
-        "%s\\%0.2d%0.2d%0.4d%d%0.2d%0.2d%0.4d.mdmp",
-        GetUtilityDir().c_str(),
-        sysTime.wMonth,
-        sysTime.wDay,
-        sysTime.wYear,
-        sysTime.wHour,
-        sysTime.wMinute,
-        sysTime.wSecond,
-        sysTime.wMilliseconds
-    );
-
-    printf("Creating minidump file %s with crash details.\n",
-        wszMiniDumpFileName);
-
-    // Create the file to dump the minidump data into...
-    //
-    hDumpFile = CreateFile(
-        wszMiniDumpFileName,
-        GENERIC_WRITE,
-        NULL,
-        NULL,
-        CREATE_ALWAYS,
-        FILE_ATTRIBUTE_NORMAL,
-        NULL
-    );
-
-    if (hDumpFile != INVALID_HANDLE_VALUE)
-    {
-        MINIDUMP_EXCEPTION_INFORMATION eiMinidumpInfo;
-        SecureZeroMemory(&eiMinidumpInfo, sizeof(eiMinidumpInfo));
-        eiMinidumpInfo.ThreadId = GetCurrentThreadId();
-        eiMinidumpInfo.ExceptionPointers = pExPtrs;
-        eiMinidumpInfo.ClientPointers = FALSE;
-
-        //
-        // Write the Mini Dump to disk
-        //
-        if (!MiniDumpWriteDump(GetCurrentProcess(),
-            GetCurrentProcessId(),
-            hDumpFile,
-            (MINIDUMP_TYPE)(
-                MiniDumpNormal |
-                MiniDumpWithPrivateReadWriteMemory |
-                MiniDumpWithDataSegs |
-                MiniDumpWithHandleData |
-                MiniDumpWithFullMemoryInfo |
-                MiniDumpWithThreadInfo |
-                MiniDumpWithUnloadedModules |
-                MiniDumpWithIndirectlyReferencedMemory),
-            &eiMinidumpInfo,
-            NULL,
-            NULL))
-        {
-
-            // Either the state of the process is beyond our ability to be able
-            // to scape together a usable dump file or we are on XP/2k3 and
-            // not all of the dump flags are supported.  Retry using dump flags
-            // that are supported by XP.
-            //
-            if (!MiniDumpWriteDump(GetCurrentProcess(),
-                GetCurrentProcessId(),
-                hDumpFile,
-                (MINIDUMP_TYPE)(
-                    MiniDumpNormal |
-                    MiniDumpWithPrivateReadWriteMemory |
-                    MiniDumpWithDataSegs |
-                    MiniDumpWithHandleData),
-                &eiMinidumpInfo,
-                NULL,
-                NULL))
-            {
-
-                // Well out XP/2k3 compatible list of parameters didn't work, it
-                // doesn't look like we will be able to get anything useful.
-                //
-                // Close things down and delete the file if it exists.
-                //
-                SAFE_CLOSE_HANDLE(hDumpFile);
-                DeleteFile(wszMiniDumpFileName);
-
-                printf("Failed to create minidump file %s.\n",
-                    wszMiniDumpFileName);
-            }
-        }
-
-        SAFE_CLOSE_HANDLE(hDumpFile);
-    }
-
-    TerminateProcess(GetCurrentProcess(), pExPtrs->ExceptionRecord->ExceptionCode);
-    return 0;
-}
-
-int32_t __cdecl main( int32_t argc, char* argv[] )
-{
-   // See function header for QualysCatchUnhandledExceptionFilter
-   //
-   SetUnhandledExceptionFilter(QualysCatchUnhandledExceptionFilter);
-
+int32_t __cdecl main(int32_t argc, char* argv[]) {
   int32_t rv = ERROR_SUCCESS;
 
-  std::string status_file = GetResultFile(false);
-  
-  fopen_s(&status_file_pointer, status_file.c_str(), "w+");
-
-  if (status_file_pointer)
-  {
-      SYSTEMTIME sysTime;
-      GetLocalTime(&sysTime);
-
-      char logPartDateTime[28] = {};
-
-      int charCount;
-
-      charCount = sprintf_s(logPartDateTime, "%02d/%02d/%04d %d:%02d:%02d.%04d",
-          sysTime.wMonth,
-          sysTime.wDay,
-          sysTime.wYear,
-          sysTime.wHour,
-          sysTime.wMinute,
-          sysTime.wSecond,
-          sysTime.wMilliseconds);
-
-      fprintf_s(status_file_pointer, "Scan start time : %s\n", logPartDateTime);
-
-      fflush(status_file_pointer);
-  }
-  
+  SetUnhandledExceptionFilter(CatchUnhandledExceptionFilter);
 
 #ifndef _WIN64
-  using typeWow64DisableWow64FsRedirection = BOOL(WINAPI*) (PVOID OlValue);
-  typeWow64DisableWow64FsRedirection Wow64DisableWow64FsRedirection;    
+  using typeWow64DisableWow64FsRedirection = BOOL(WINAPI*)(PVOID OlValue);
+  typeWow64DisableWow64FsRedirection Wow64DisableWow64FsRedirection;
   BOOL bIs64BitWindows = FALSE;
   PVOID pHandle;
 
   if (!IsWow64Process(GetCurrentProcess(), &bIs64BitWindows)) {
-      printf("Failed to determine if process is running as WoW64.\n");
-      goto END;
+    printf("Failed to determine if process is running as WoW64.\n");
+    goto END;
   }
-  
-  if (bIs64BitWindows) {
-      Wow64DisableWow64FsRedirection = (typeWow64DisableWow64FsRedirection)GetProcAddress(GetModuleHandle("Kernel32.DLL"), "Wow64DisableWow64FsRedirection");
 
-      if (Wow64DisableWow64FsRedirection) {
-          Wow64DisableWow64FsRedirection(&pHandle);
-      }
+  if (bIs64BitWindows) {
+    Wow64DisableWow64FsRedirection =
+        (typeWow64DisableWow64FsRedirection)GetProcAddress(
+            GetModuleHandle("Kernel32.DLL"), "Wow64DisableWow64FsRedirection");
+
+    if (Wow64DisableWow64FsRedirection) {
+      Wow64DisableWow64FsRedirection(&pHandle);
+    }
   }
 #endif
 
-  rv = ProcessCommandLineOptions( argc, argv );
-  if ( ERROR_SUCCESS != rv ) {
+  rv = ProcessCommandLineOptions(argc, argv);
+  if (ERROR_SUCCESS != rv) {
     printf("Failed to process command line options.\n");
     goto END;
   }
 
-  if ( !cmdline_options.no_logo ) {
+  if (!cmdline_options.no_logo) {
     printf("Qualys CVE-2021-44228 Log4j Vulnerability Scanner 1.2.5\n");
     printf("https://www.qualys.com/\n\n");
   }
 
-  if ( cmdline_options.help ) {
+  if (cmdline_options.help) {
     PrintHelp(argc, argv);
     goto END;
   }
 
-  if ( !cmdline_options.scanLocalDrives &&
-       !cmdline_options.scanNetworkDrives &&
-       !cmdline_options.scanDirectory &&
-       !cmdline_options.scanFile )
-  {
+  if (!cmdline_options.scanLocalDrives && !cmdline_options.scanNetworkDrives &&
+      !cmdline_options.scanDirectory && !cmdline_options.scanFile) {
     cmdline_options.scanLocalDrives = true;
+  }
+
+  if (cmdline_options.reportSig) {
+    fopen_s(&status_file, GetSignatureStatusFilename().c_str(), "w");
   }
 
   repSummary.scanStart = time(0);
 
-  if ( cmdline_options.scanLocalDrives ) {
-    if ( !cmdline_options.no_logo ) {
-      printf( "Scanning Local Drives...\n" );
+  if (!cmdline_options.reportSig) {
+    char buf[64] = {0};
+    struct tm* tm = NULL;
+
+    tm = localtime((time_t*)&repSummary.scanStart);
+    strftime(buf, _countof(buf) - 1, "%FT%T%z", tm);
+
+    LogStatusMessage("Scan start time : %s\n", buf);
+  }
+
+
+  if (cmdline_options.scanLocalDrives) {
+    if (!cmdline_options.no_logo) {
+      printf("Scanning Local Drives...\n");
     }
     ScanLocalDrives();
   }
 
-  if ( cmdline_options.scanNetworkDrives ) {
-    if ( !cmdline_options.no_logo ) {
-      printf( "Scanning Network Drives...\n" );
+  if (cmdline_options.scanNetworkDrives) {
+    if (!cmdline_options.no_logo) {
+      printf("Scanning Network Drives...\n");
     }
     ScanNetworkDrives();
   }
 
-  if ( cmdline_options.scanDirectory ) {
-    if ( !cmdline_options.no_logo ) {
-      printf( "Scanning '%s'...\n", cmdline_options.directory.c_str() );
+  if (cmdline_options.scanDirectory) {
+    if (!cmdline_options.no_logo) {
+      printf("Scanning '%s'...\n", cmdline_options.directory.c_str());
     }
     ScanDirectory(cmdline_options.directory);
   }
 
-  if ( cmdline_options.scanFile ) {
-    if ( !cmdline_options.no_logo ) {
-      printf( "Scanning '%s'...\n", cmdline_options.file.c_str() );
+  if (cmdline_options.scanFile) {
+    if (!cmdline_options.no_logo) {
+      printf("Scanning '%s'...\n", cmdline_options.file.c_str());
     }
     ScanFile(cmdline_options.file);
   }
 
   repSummary.scanEnd = time(0);
 
-  if ( !cmdline_options.no_logo ) {
-    char         buf[64] = { 0 };
-    struct tm*   tm = NULL;
+  if (!cmdline_options.reportSig) {
+    char buf[64] = {0};
+    struct tm* tm = NULL;
 
-    tm = localtime((time_t*)&repSummary.scanStart);
-    strftime(buf, _countof(buf)-1, "%FT%T%z", tm);
+    tm = localtime((time_t*)&repSummary.scanEnd);
+    strftime(buf, _countof(buf) - 1, "%FT%T%z", tm);
 
-    printf( "\nScan Summary:\n");
-    printf( "\tScan Date:\t\t %s\n", buf );
-    printf( "\tScan Duration:\t\t %lld Seconds\n", repSummary.scanEnd - repSummary.scanStart );
-    printf( "\tFiles Scanned:\t\t %lld\n", repSummary.scannedFiles );
-    printf( "\tDirectories Scanned:\t %lld\n", repSummary.scannedDirectories );
-    printf( "\tJAR(s) Scanned:\t\t %lld\n", repSummary.scannedJARs );
-    printf( "\tWAR(s) Scanned:\t\t %lld\n", repSummary.scannedWARs );
-    printf( "\tEAR(s) Scanned:\t\t %lld\n", repSummary.scannedEARs );
-    printf( "\tZIP(s) Scanned:\t\t %lld\n", repSummary.scannedZIPs );
-    printf( "\tVulnerabilities Found:\t %lld\n", repSummary.foundVunerabilities );
+    LogStatusMessage("\nScan end time : %s\n", buf);
   }
 
-  if ( cmdline_options.report ) {
-    if ( !cmdline_options.reportSig ) {
+
+  if (!cmdline_options.no_logo) {
+    char buf[64] = {0};
+    struct tm* tm = NULL;
+
+    tm = localtime((time_t*)&repSummary.scanStart);
+    strftime(buf, _countof(buf) - 1, "%FT%T%z", tm);
+
+    printf("\nScan Summary:\n");
+    printf("\tScan Date:\t\t %s\n", buf);
+    printf("\tScan Duration:\t\t %lld Seconds\n",
+           repSummary.scanEnd - repSummary.scanStart);
+    printf("\tFiles Scanned:\t\t %lld\n", repSummary.scannedFiles);
+    printf("\tDirectories Scanned:\t %lld\n", repSummary.scannedDirectories);
+    printf("\tJAR(s) Scanned:\t\t %lld\n", repSummary.scannedJARs);
+    printf("\tWAR(s) Scanned:\t\t %lld\n", repSummary.scannedWARs);
+    printf("\tEAR(s) Scanned:\t\t %lld\n", repSummary.scannedEARs);
+    printf("\tZIP(s) Scanned:\t\t %lld\n", repSummary.scannedZIPs);
+    printf("\tVulnerabilities Found:\t %lld\n", repSummary.foundVunerabilities);
+  }
+
+  if (cmdline_options.report) {
+    if (!cmdline_options.reportSig) {
       GenerateJSONReport();
     } else {
       GenerateSignatureReport();
@@ -1382,36 +1309,23 @@ int32_t __cdecl main( int32_t argc, char* argv[] )
 
 END:
 
-  // write the status
-  if (error_array.empty())
-  {
-      if (status_file_pointer)
-      {
-          fprintf_s(status_file_pointer, "Run status : Success\n");
-          fprintf_s(status_file_pointer, "Result file location : %s\n", report_file.c_str());
-      }
-  }
-  else
-  {
-      if (status_file_pointer)
-      {
-          fprintf_s(status_file_pointer, "Run status : Partially Successful\n");
-          fprintf_s(status_file_pointer, "Result file location : %s\n", report_file.c_str());
+  if (cmdline_options.reportSig) {
+    if (error_array.empty()) {
+      LogStatusMessage("Run status : Success\n");
+      LogStatusMessage("Result file location : %s\n", GetSignatureReportFilename().c_str());
+    } else {
+      LogStatusMessage("Run status : Partially Successful\n");
+      LogStatusMessage("Result file location : %s\n", GetSignatureReportFilename().c_str());
 
-          fprintf_s(status_file_pointer, "Errors :\n");
-
-          for (const auto& e : error_array)
-          {
-              fprintf_s(status_file_pointer, "%s\n", e.c_str());
-          }
-          
+      LogStatusMessage("Errors :\n");
+      for (const auto& e : error_array) {
+        LogStatusMessage("%s\n", e.c_str());
       }
+    }
   }
-  if (status_file_pointer)
-  {
-      fclose(status_file_pointer);
+  if (status_file) {
+    fclose(status_file);
   }
 
   return rv;
 }
-
