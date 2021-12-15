@@ -69,7 +69,8 @@ class CReportVunerabilities {
   bool detectedLog4jManifest;
   std::string log4jVersion;
   std::string log4jVendor;
-  bool detectedVulnerableVersion;
+  bool cve202144228Mitigated;
+  bool cve202145046Mitigated;
   std::string cveStatus;
 
   CReportVunerabilities(std::string file, std::string manifestVersion,
@@ -77,8 +78,8 @@ class CReportVunerabilities {
                         bool detectedLog4j1x, bool detectedLog4j2x,
                         bool detectedJNDILookupClass,
                         bool detectedLog4jManifest, std::string log4jVersion,
-                        std::string log4jVendor, bool detectedVulnerableVersion,
-                        std::string cveStatus) {
+                        std::string log4jVendor, bool cve202144228Mitigated,
+                        bool cve202145046Mitigated, std::string cveStatus) {
     this->file = file;
     this->manifestVersion = manifestVersion;
     this->manifestVendor = manifestVendor;
@@ -89,7 +90,8 @@ class CReportVunerabilities {
     this->detectedLog4jManifest = detectedLog4jManifest;
     this->log4jVersion = log4jVersion;
     this->log4jVendor = log4jVendor;
-    this->detectedVulnerableVersion = detectedVulnerableVersion;
+    this->cve202144228Mitigated = cve202144228Mitigated;
+    this->cve202145046Mitigated = cve202145046Mitigated;
     this->cveStatus = cveStatus;
   }
 };
@@ -521,18 +523,26 @@ LONG CALLBACK CatchUnhandledExceptionFilter(PEXCEPTION_POINTERS pExPtrs) {
   return 0;
 }
 
-bool Log4jVersionCheck(std::string version) {
-  int major = atoi(version.c_str());
-  if (major < 2) return false;
+bool ParseVersion(std::string version, int& major, int& minor, int& build) {
+  return ( 0 != sscanf(version.c_str(), "%d.%d.%d", &major, &minor, &build) );
+}
 
-  int minor = atoi(version.substr(version.find(".", 0) + 1, version.rfind(".", version.size()))
-          .c_str());
-  if (minor >= 15) return false;
+bool IsCVE202144228Mitigated(std::string version) {
+  int major = 0, minor = 0, build = 0;
+  if (ParseVersion(version, major, minor, build)) {
+    if ((major == 2) && (minor == 12) && (build == 2)) return true;
+    if ((major == 2) && (minor >= 15)) return true;
+  }
+  return false;
+}
 
-  int revision = atoi(version.substr(version.rfind(".", version.size()) + 1, version.size() - (version.rfind(".", version.size()))).c_str());
-  if (revision >= 2) return false;
-
-  return true;
+bool IsCVE202145046Mitigated(std::string version) {
+  int major = 0, minor = 0, build = 0;
+  if (ParseVersion(version, major, minor, build)) {
+    if ((major == 2) && (minor == 12) && (build == 2)) return true;
+    if ((major == 2) && (minor >= 15)) return true;
+  }
+  return false;
 }
 
 int32_t ScanFileArchive(std::wstring file, std::wstring alternate) {
@@ -556,7 +566,8 @@ int32_t ScanFileArchive(std::wstring file, std::wstring alternate) {
   bool        foundManifestVendor = false;
   bool        foundManifestVersion = false;
   bool        foundLog4jManifest = false;
-  bool        foundVulnerableVersion = false;
+  bool        cve202144228Mitigated = false;
+  bool        cve202145046Mitigated = false;
   std::string manifest;
   std::string pomLog4j1x;
   std::string pomLog4j2x;
@@ -581,8 +592,7 @@ int32_t ScanFileArchive(std::wstring file, std::wstring alternate) {
     rv = unzGoToFirstFile(zf);
     if (UNZ_OK == rv) {
       do {
-        rv = unzGetCurrentFileInfo64(zf, &file_info, filename,
-                                     _countof(filename), NULL, 0, NULL, 0);
+        rv = unzGetCurrentFileInfo64(zf, &file_info, filename, _countof(filename), NULL, 0, NULL, 0);
 
         if (UNZ_OK == rv) {
           p = strstr(filename, "org/apache/log4j");
@@ -596,9 +606,7 @@ int32_t ScanFileArchive(std::wstring file, std::wstring alternate) {
             foundLog4j2x = true;
           }
           if (0 ==
-              stricmp(
-                  filename,
-                  "org/apache/logging/log4j/core/lookup/JndiLookup.class")) {
+              stricmp(filename, "org/apache/logging/log4j/core/lookup/JndiLookup.class")) {
             foundJNDILookupClass = true;
           }
           if (0 ==
@@ -608,9 +616,7 @@ int32_t ScanFileArchive(std::wstring file, std::wstring alternate) {
           }
           p = strstr(filename, "META-INF/maven/org.apache.logging.log4j");
           if (NULL != p) {
-            if (0 == stricmp(filename,
-                             "META-INF/maven/org.apache.logging.log4j/"
-                             "log4j-core/pom.properties")) {
+            if (0 == stricmp(filename, "META-INF/maven/org.apache.logging.log4j/log4j-core/pom.properties")) {
               foundLog4j2xCorePOM = true;
               UncompressContents(zf, pomLog4j2xCore);
             } else {
@@ -682,6 +688,10 @@ int32_t ScanFileArchive(std::wstring file, std::wstring alternate) {
     unzClose(zf);
   }
 
+  // Reset error conditiomn, unzGoToNextFile returns a non-zero error code to break from loop
+  //
+  rv = ERROR_SUCCESS;
+
   //
   // If we have detected some evidence of Log4j then lets check to see if we can
   // detect CVE-2021-44228
@@ -700,8 +710,7 @@ int32_t ScanFileArchive(std::wstring file, std::wstring alternate) {
     }
     if (foundLog4j2x) {
       if (foundLog4j2xCorePOM) {
-        GetDictionaryValue(pomLog4j2xCore, "artifactId=", "Unknown",
-                           log4jVendor);
+        GetDictionaryValue(pomLog4j2xCore, "artifactId=", "Unknown", log4jVendor);
         GetDictionaryValue(pomLog4j2xCore, "version=", "Unknown", log4jVersion);
       } else {
         GetDictionaryValue(pomLog4j2x, "artifactId=", "Unknown", log4jVendor);
@@ -710,17 +719,13 @@ int32_t ScanFileArchive(std::wstring file, std::wstring alternate) {
     }
 
     if (foundManifest) {
-      foundManifestVendor = GetDictionaryValue(
-          manifest, "Implementation-Vendor-Id:", "Unknown", manifestVendor);
+      foundManifestVendor = GetDictionaryValue(manifest, "Implementation-Vendor-Id:", "Unknown", manifestVendor);
       if (!foundManifestVendor) {
-        foundManifestVendor = GetDictionaryValue(
-            manifest, "Bundle-Vendor:", "Unknown", manifestVendor);
+        foundManifestVendor = GetDictionaryValue(manifest, "Bundle-Vendor:", "Unknown", manifestVendor);
       }
-      foundManifestVersion = GetDictionaryValue(
-          manifest, "Implementation-Version:", "Unknown", manifestVersion);
+      foundManifestVersion = GetDictionaryValue(manifest, "Implementation-Version:", "Unknown", manifestVersion);
       if (!foundManifestVersion) {
-        foundManifestVersion = GetDictionaryValue(
-            manifest, "Bundle-Version:", "Unknown", manifestVersion);
+        foundManifestVersion = GetDictionaryValue(manifest, "Bundle-Version:", "Unknown", manifestVersion);
       }
 
       StripWhitespace(manifestVendor);
@@ -738,30 +743,34 @@ int32_t ScanFileArchive(std::wstring file, std::wstring alternate) {
     }
 
     if (foundLog4j1xPOM || foundLog4j2xPOM || foundLog4j2xCorePOM) {
-      if (Log4jVersionCheck(log4jVersion)) {
-        foundVulnerableVersion = true;
-      }
+      cve202144228Mitigated = IsCVE202144228Mitigated(log4jVersion);
+      cve202145046Mitigated = IsCVE202145046Mitigated(log4jVersion);
     }
 
-    if (foundLog4j2x && foundJNDILookupClass && foundVulnerableVersion) {
+    if (foundLog4j2x && foundJNDILookupClass && (!cve202144228Mitigated || !cve202145046Mitigated)) {
       repSummary.foundVunerabilities++;
-      cveStatus = "Potentially Vulnerable";
+      cveStatus = "Potentially Vulnerable (";
+      cveStatus += !cve202144228Mitigated ? " CVE-2021-44228: Found" : " CVE-2021-44228: NOT Found";
+      cveStatus += !cve202145046Mitigated ? " CVE-2021-45046: Found" : " CVE-2021-45046: NOT Found";
+      cveStatus += " )";
     } else if (!foundJNDILookupClass && !foundManifestVendor && !foundManifestVersion) {
       cveStatus = "N/A";
     } else if (!foundJNDILookupClass && foundLog4j2x && foundLog4jManifest) {
       cveStatus = "Mitigated";
-    } else if (foundJNDILookupClass && foundLog4j2x && !foundVulnerableVersion) {
+    } else if (foundJNDILookupClass && foundLog4j2x && cve202144228Mitigated && cve202145046Mitigated) {
       cveStatus = "Mitigated";
-    } else if (!foundJNDILookupClass && foundLog4j1x && !foundVulnerableVersion) {
+    } else if (!foundJNDILookupClass && foundLog4j1x) {
       cveStatus = "N/A";
     } else {
       cveStatus = "Unknown";
     }
 
-    repVulns.push_back(CReportVunerabilities(
-        W2A(file), manifestVersion, manifestVendor, foundLog4j, foundLog4j1x, foundLog4j2x,
-        foundJNDILookupClass, foundLog4jManifest, log4jVersion, log4jVendor, foundVulnerableVersion,
-        cveStatus));
+    if ( (!cve202144228Mitigated || !cve202145046Mitigated) ) {
+      repVulns.push_back(CReportVunerabilities(
+          W2A(file), manifestVersion, manifestVendor, foundLog4j, foundLog4j1x, foundLog4j2x,
+          foundJNDILookupClass, foundLog4jManifest, log4jVersion, log4jVendor, cve202144228Mitigated,
+          cve202145046Mitigated, cveStatus));
+    }
 
     if (!cmdline_options.no_logo) {
       wprintf(L"Log4j Found: '%s' ( Manifest Vendor: %S, Manifest Version: %S, JDNI Class: %s, Log4j Vendor: %S, Log4j Version: %S, CVE Status: %S )\n",
@@ -797,7 +806,6 @@ int32_t ScanFile(std::wstring file) {
       repSummary.scannedZIPs++;
       rv = ScanFileArchive(file, L"");
     }
-
   } else {
     rv = errno;
   }
@@ -965,7 +973,8 @@ int32_t GenerateReportDetail(rapidjson::Document& doc) {
     rapidjson::Value vDetectedLog4jManifest(rapidjson::kTrueType);
     rapidjson::Value vLog4jVendor(rapidjson::kStringType);
     rapidjson::Value vLog4jVersion(rapidjson::kStringType);
-    rapidjson::Value vDetectedVulnerableVersion(rapidjson::kTrueType);
+    rapidjson::Value vCVE202144228Mitigated(rapidjson::kTrueType);
+    rapidjson::Value vCVE202145046Mitigated(rapidjson::kTrueType);
     rapidjson::Value vCVEStatus(rapidjson::kStringType);
     rapidjson::Value oDetail(rapidjson::kObjectType);
 
@@ -979,7 +988,8 @@ int32_t GenerateReportDetail(rapidjson::Document& doc) {
     vDetectedLog4jManifest.SetBool(vuln.detectedLog4jManifest);
     vLog4jVendor.SetString(vuln.log4jVendor.c_str(), doc.GetAllocator());
     vLog4jVersion.SetString(vuln.log4jVersion.c_str(), doc.GetAllocator());
-    vDetectedVulnerableVersion.SetBool(vuln.detectedVulnerableVersion);
+    vCVE202144228Mitigated.SetBool(vuln.cve202144228Mitigated);
+    vCVE202144228Mitigated.SetBool(vuln.cve202145046Mitigated);
     vCVEStatus.SetString(vuln.cveStatus.c_str(), doc.GetAllocator());
 
     oDetail.AddMember("file", vFile, doc.GetAllocator());
@@ -988,14 +998,12 @@ int32_t GenerateReportDetail(rapidjson::Document& doc) {
     oDetail.AddMember("detectedLog4j", vDetectedLog4j, doc.GetAllocator());
     oDetail.AddMember("detectedLog4j1x", vDetectedLog4j1x, doc.GetAllocator());
     oDetail.AddMember("detectedLog4j2x", vDetectedLog4j2x, doc.GetAllocator());
-    oDetail.AddMember("detectedJNDILookupClass", vDetectedJNDILookupClass,
-                      doc.GetAllocator());
-    oDetail.AddMember("detectedLog4jManifest", vDetectedLog4jManifest,
-                      doc.GetAllocator());
+    oDetail.AddMember("detectedJNDILookupClass", vDetectedJNDILookupClass, doc.GetAllocator());
+    oDetail.AddMember("detectedLog4jManifest", vDetectedLog4jManifest, doc.GetAllocator());
     oDetail.AddMember("log4jVendor", vLog4jVendor, doc.GetAllocator());
     oDetail.AddMember("log4jVersion", vLog4jVersion, doc.GetAllocator());
-    oDetail.AddMember("detectedVulnerableVersion", vDetectedVulnerableVersion,
-                      doc.GetAllocator());
+    oDetail.AddMember("cve202144228Mitigated", vCVE202144228Mitigated, doc.GetAllocator());
+    oDetail.AddMember("vcve202144228Mitigated", vCVE202144228Mitigated, doc.GetAllocator());
     oDetail.AddMember("cveStatus", vCVEStatus, doc.GetAllocator());
 
     oDetails.PushBack(oDetail, doc.GetAllocator());
@@ -1049,8 +1057,6 @@ int32_t GenerateSignatureReport() {
                 vuln.log4jVendor.c_str(),
                 vuln.log4jVersion.c_str(),
                 vuln.cveStatus.c_str());
-      fprintf_s(signature_file, "JNDI-Class: JNDI Class %s\n", vuln.detectedJNDILookupClass ? "Found" : "NOT Found");
-      fprintf_s(signature_file, "CVE-Status: %s\n", vuln.cveStatus.c_str());
       fprintf_s(signature_file, "Path=%s\n", vuln.file.c_str());
       fprintf_s(signature_file, "%s %s\n", vuln.log4jVendor.c_str(),
                 vuln.log4jVersion.c_str());
@@ -1069,8 +1075,6 @@ int32_t GenerateSignatureReport() {
              vuln.log4jVendor.c_str(),
              vuln.log4jVersion.c_str(),
              vuln.cveStatus.c_str());
-      printf("JNDI-Class: JNDI Class %s\n", vuln.detectedJNDILookupClass ? "Found" : "NOT Found");
-      printf("CVE-Status: %s\n", vuln.cveStatus.c_str());
       printf("Path=%s\n", vuln.file.c_str());
       printf("%s %s\n", vuln.log4jVendor.c_str(), vuln.log4jVersion.c_str());
       printf("------------------------------------------------------------------------\n");
@@ -1090,13 +1094,13 @@ int32_t PrintHelp(int32_t argc, wchar_t* argv[]) {
   printf("/scan_directory \"C:\\Some\\Path\"\n");
   printf("  Scan a specific directory for vunerable JAR, WAR, EAR, ZIP files used by various Java applications.\n");
   printf("/scan_file \"C:\\Some\\Path\\Some.jar\"\n");
-  printf("  Scan a specific file for CVE-2021-44228.\n");
+  printf("  Scan a specific file for CVE-2021-44228/CVE-2021-45046.\n");
   printf("/report\n");
-  printf("  Generate a JSON report of possible detections of CVE-2021-44228.\n");
+  printf("  Generate a JSON report of possible detections of CVE-2021-44228/CVE-2021-45046.\n");
   printf("/report_pretty\n");
-  printf("  Generate a human readable JSON report of possible detections of CVE-2021-44228.\n");
+  printf("  Generate a human readable JSON report of possible detections of CVE-2021-44228/CVE-2021-45046.\n");
   printf("/report_sig\n");
-  printf("  Generate a signature report of possible detections of CVE-2021-44228.\n");
+  printf("  Generate a signature report of possible detections of CVE-2021-44228/CVE-2021-45046.\n");
   printf("\n");
 
   return rv;
@@ -1192,7 +1196,7 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
   }
 
   if (!cmdline_options.no_logo) {
-    printf("Qualys CVE-2021-44228 Log4j Vulnerability Scanner 1.2.7\n");
+    printf("Qualys Log4j Vulnerability Scanner (CVE-2021-44228/CVE-2021-45046) 1.2.9\n");
     printf("https://www.qualys.com/\n\n");
   }
 
