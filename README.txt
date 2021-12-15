@@ -5,7 +5,7 @@ IN NO EVENT SHALL THESE SCRIPTS BE DEEMED TO BE CLOUD SERVICES AS PROVIDED BY QU
 Description:
 The Log4jScanner.exe utility helps to detect CVE-2021-44228 and CVE-2021-45046 vulnerability (log4j 2.15.0). 
 The utility will scan the entire hard drive(s) including archives (and nested JARs) for the Java class that indicates the Java application contains a vulnerable log4j library. The utility will output its results to a console.
-Qualys has added a new QID (1234) that is designed to look for the results of this scan and mark the asset as vulnerable if the vulnerable log4j library was found. Please refer to this blog to learn more.
+Qualys has added a new QID (376160) that is designed to look for the results of this scan and mark the asset as vulnerable if the vulnerable log4j library was found.
 
 
 Usage - 
