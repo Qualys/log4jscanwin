@@ -1187,7 +1187,7 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
   }
 
   if (!cmdline_options.no_logo) {
-    printf("Qualys Log4j Vulnerability Scanner (CVE-2021-44228/CVE-2021-45046) 1.2.10\n");
+    printf("Qualys Log4j Vulnerability Scanner (CVE-2021-44228/CVE-2021-45046) 1.2.11\n");
     printf("https://www.qualys.com/\n\n");
   }
 
