@@ -1009,7 +1009,7 @@ int32_t GenerateReportDetail(DocumentW& doc) {
     oDetail.AddMember(L"log4jVendor", vLog4jVendor, doc.GetAllocator());
     oDetail.AddMember(L"log4jVersion", vLog4jVersion, doc.GetAllocator());
     oDetail.AddMember(L"cve202144228Mitigated", vCVE202144228Mitigated, doc.GetAllocator());
-    oDetail.AddMember(L"vcve202144228Mitigated", vCVE202144228Mitigated, doc.GetAllocator());
+    oDetail.AddMember(L"cve202144228Mitigated", vCVE202144228Mitigated, doc.GetAllocator());
     oDetail.AddMember(L"cveStatus", vCVEStatus, doc.GetAllocator());
 
     oDetails.PushBack(oDetail, doc.GetAllocator());
