@@ -779,7 +779,7 @@ int32_t ScanFileArchive(std::wstring file, std::wstring alternate) {
     }
 
     if (!cmdline_options.no_logo) {
-      wprintf(L"Log4j Found: '%s' ( Manifest Vendor: %S, Manifest Version: %S, JDNI Class: %s, Log4j Vendor: %S, Log4j Version: %S, CVE Status: %S )\n",
+      wprintf(L"Log4j Found: '%s' ( Manifest Vendor: %S, Manifest Version: %S, JNDI Class: %s, Log4j Vendor: %S, Log4j Version: %S, CVE Status: %S )\n",
               file.c_str(), manifestVendor.c_str(), manifestVersion.c_str(), foundJNDILookupClass ? L"Found" : L"NOT Found", log4jVendor.c_str(),
               log4jVersion.c_str(), cveStatus.c_str());
     }
@@ -1056,7 +1056,7 @@ int32_t GenerateSignatureReport() {
       CReportVunerabilities vuln = repVulns[i];
 
       fwprintf_s(signature_file,
-                 L"Source: Manifest Vendor: %s, Manifest Version: %s, JDNI Class: %s, Log4j Vendor: %s, Log4j Version: %s, CVE Status: %s\n",
+                 L"Source: Manifest Vendor: %s, Manifest Version: %s, JNDI Class: %s, Log4j Vendor: %s, Log4j Version: %s, CVE Status: %s\n",
                  vuln.manifestVendor.c_str(),
                  vuln.manifestVersion.c_str(),
                  vuln.detectedJNDILookupClass ? L"Found" : L"NOT Found",
