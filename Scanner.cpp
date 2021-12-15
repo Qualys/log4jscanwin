@@ -6,6 +6,9 @@
 #include <dbghelp.h>
 #include <stdint.h>
 #include <time.h>
+#include <stdio.h>
+#include <fcntl.h>
+#include <io.h>
 
 #include <iostream>
 #include <string>
@@ -1077,19 +1080,19 @@ int32_t GenerateSignatureReport() {
 int32_t PrintHelp(int32_t argc, wchar_t* argv[]) {
   int32_t rv = ERROR_SUCCESS;
 
-  printf("/scan\n");
-  printf("  Scan local drives for vulnerable JAR, WAR, EAR, ZIP files used by various Java applications.\n");
-  printf("/scan_directory \"C:\\Some\\Path\"\n");
-  printf("  Scan a specific directory for vulnerable JAR, WAR, EAR, ZIP files used by various Java applications.\n");
-  printf("/scan_file \"C:\\Some\\Path\\Some.jar\"\n");
-  printf("  Scan a specific file for CVE-2021-44228/CVE-2021-45046.\n");
-  printf("/report\n");
-  printf("  Generate a JSON report of possible detections of CVE-2021-44228/CVE-2021-45046.\n");
-  printf("/report_pretty\n");
-  printf("  Generate a human readable JSON report of possible detections of CVE-2021-44228/CVE-2021-45046.\n");
-  printf("/report_sig\n");
-  printf("  Generate a signature report of possible detections of CVE-2021-44228/CVE-2021-45046.\n");
-  printf("\n");
+  wprintf(L"/scan\n");
+  wprintf(L"  Scan local drives for vulnerable JAR, WAR, EAR, ZIP files used by various Java applications.\n");
+  wprintf(L"/scan_directory \"C:\\Some\\Path\"\n");
+  wprintf(L"  Scan a specific directory for vulnerable JAR, WAR, EAR, ZIP files used by various Java applications.\n");
+  wprintf(L"/scan_file \"C:\\Some\\Path\\Some.jar\"\n");
+  wprintf(L"  Scan a specific file for CVE-2021-44228/CVE-2021-45046.\n");
+  wprintf(L"/report\n");
+  wprintf(L"  Generate a JSON report of possible detections of CVE-2021-44228/CVE-2021-45046.\n");
+  wprintf(L"/report_pretty\n");
+  wprintf(L"  Generate a human readable JSON report of possible detections of CVE-2021-44228/CVE-2021-45046.\n");
+  wprintf(L"/report_sig\n");
+  wprintf(L"  Generate a signature report of possible detections of CVE-2021-44228/CVE-2021-45046.\n");
+  wprintf(L"\n");
 
   return rv;
 }
@@ -1151,7 +1154,7 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
   int32_t rv = ERROR_SUCCESS;
 
   SetUnhandledExceptionFilter(CatchUnhandledExceptionFilter);
-  setlocale(LC_ALL, ".UTF8");
+  _setmode(_fileno(stdout), _O_U16TEXT);
 
 #ifndef _WIN64
   using typeWow64DisableWow64FsRedirection = BOOL(WINAPI*)(PVOID OlValue);
@@ -1160,7 +1163,7 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
   PVOID pHandle;
 
   if (!IsWow64Process(GetCurrentProcess(), &bIs64BitWindows)) {
-    printf("Failed to determine if process is running as WoW64.\n");
+    wprintf(L"Failed to determine if process is running as WoW64.\n");
     goto END;
   }
 
@@ -1177,13 +1180,13 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
 
   rv = ProcessCommandLineOptions(argc, argv);
   if (ERROR_SUCCESS != rv) {
-    printf("Failed to process command line options.\n");
+    wprintf(L"Failed to process command line options.\n");
     goto END;
   }
 
   if (!cmdline_options.no_logo) {
-    printf("Qualys Log4j Vulnerability Scanner (CVE-2021-44228/CVE-2021-45046) 1.2.16\n");
-    printf("https://www.qualys.com/\n\n");
+    wprintf(L"Qualys Log4j Vulnerability Scanner (CVE-2021-44228/CVE-2021-45046) 1.2.16\n");
+    wprintf(L"https://www.qualys.com/\n\n");
   }
 
   if (cmdline_options.help) {
@@ -1255,23 +1258,22 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
 
 
   if (!cmdline_options.no_logo) {
-    char buf[64] = {0};
+    wchar_t buf[64] = {0};
     struct tm* tm = NULL;
 
-    tm = localtime((time_t*)&repSummary.scanStart);
-    strftime(buf, _countof(buf) - 1, "%FT%T%z", tm);
+    tm = localtime((time_t*)&repSummary.scanEnd);
+    wcsftime(buf, _countof(buf) - 1, L"%FT%T%z", tm);
 
-    printf("\nScan Summary:\n");
-    printf("\tScan Date:\t\t %s\n", buf);
-    printf("\tScan Duration:\t\t %lld Seconds\n",
-           repSummary.scanEnd - repSummary.scanStart);
-    printf("\tFiles Scanned:\t\t %lld\n", repSummary.scannedFiles);
-    printf("\tDirectories Scanned:\t %lld\n", repSummary.scannedDirectories);
-    printf("\tJAR(s) Scanned:\t\t %lld\n", repSummary.scannedJARs);
-    printf("\tWAR(s) Scanned:\t\t %lld\n", repSummary.scannedWARs);
-    printf("\tEAR(s) Scanned:\t\t %lld\n", repSummary.scannedEARs);
-    printf("\tZIP(s) Scanned:\t\t %lld\n", repSummary.scannedZIPs);
-    printf("\tVulnerabilities Found:\t %lld\n", repSummary.foundVunerabilities);
+    wprintf(L"\nScan Summary:\n");
+    wprintf(L"\tScan Date:\t\t %s\n", buf);
+    wprintf(L"\tScan Duration:\t\t %lld Seconds\n", repSummary.scanEnd - repSummary.scanStart);
+    wprintf(L"\tFiles Scanned:\t\t %lld\n", repSummary.scannedFiles);
+    wprintf(L"\tDirectories Scanned:\t %lld\n", repSummary.scannedDirectories);
+    wprintf(L"\tJAR(s) Scanned:\t\t %lld\n", repSummary.scannedJARs);
+    wprintf(L"\tWAR(s) Scanned:\t\t %lld\n", repSummary.scannedWARs);
+    wprintf(L"\tEAR(s) Scanned:\t\t %lld\n", repSummary.scannedEARs);
+    wprintf(L"\tZIP(s) Scanned:\t\t %lld\n", repSummary.scannedZIPs);
+    wprintf(L"\tVulnerabilities Found:\t %lld\n", repSummary.foundVunerabilities);
   }
 
   if (cmdline_options.report) {
