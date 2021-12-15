@@ -43,14 +43,13 @@ Log4j Found: 'D:\temp\log4j-core-2.15.0.jar' ( Manifest Vendor: org.apache.loggi
 Log4j Found: 'D:\temp\log4j-core-2.16.0.jar' ( Manifest Vendor: org.apache.logging.log4j, Manifest Version: 2.16.0, JNDI Class: Found, Log4j Vendor: log4j-core, Log4j Version: 2.16.0, CVE Status: Mitigated )
 Log4j Found: 'D:\temp\log4j-iostreams-2.15.0.jar' ( Manifest Vendor: org.apache.logging.log4j, Manifest Version: 2.15.0, JNDI Class: NOT Found, Log4j Vendor: log4j-iostreams, Log4j Version: 2.15.0, CVE Status: Mitigated )
 Log4j Found: 'D:\temp\org.apache.log4j_1.2.15.v201012070815.jar' ( Manifest Vendor: %PLUGIN_PROVIDER, Manifest Version: 1.2.15.v201012070815, JNDI Class: NOT Found, Log4j Vendor: Unknown, Log4j Version: Unknown, CVE Status: N/A )
-Log4j Found: 'D:\temp\qAgent-web-service-public-3.3.0.0-SNAPSHOT.jar' ( Manifest Vendor: com.qualys.qAgent, Manifest Version: 3.3.0.0-SNAPSHOT, JNDI Class: NOT Found, Log4j Vendor: log4j, Log4j Version: 1.2.16, CVE Status: N/A )
 
 Scan Summary:
         Scan Date:               2021-12-15T08:55:32-0800
         Scan Duration:           8 Seconds
         Files Scanned:           67
         Directories Scanned:     6
-        JAR(s) Scanned:          11
+        JAR(s) Scanned:          10
         WAR(s) Scanned:          0
         EAR(s) Scanned:          0
         ZIP(s) Scanned:          3
