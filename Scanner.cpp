@@ -1080,8 +1080,6 @@ int32_t PrintHelp(int32_t argc, wchar_t* argv[]) {
 
   printf("/scan\n");
   printf("  Scan local drives for vunerable JAR, WAR, EAR, ZIP files used by various Java applications.\n");
-  printf("/scan_network\n");
-  printf("  Scan network drives for vunerable JAR, WAR, EAR, ZIP files used by various Java applications.\n");
   printf("/scan_directory \"C:\\Some\\Path\"\n");
   printf("  Scan a specific directory for vunerable JAR, WAR, EAR, ZIP files used by various Java applications.\n");
   printf("/scan_file \"C:\\Some\\Path\\Some.jar\"\n");
@@ -1104,8 +1102,6 @@ int32_t ProcessCommandLineOptions(int32_t argc, wchar_t* argv[]) {
     if (0) {
     } else if (ARG(scan)) {
       cmdline_options.scanLocalDrives = true;
-    } else if (ARG(scan_network)) {
-      cmdline_options.scanNetworkDrives = true;
     } else if (ARG(scan_file) && ARGPARAMCOUNT(1)) {
       cmdline_options.scanFile = true;
       cmdline_options.file = argv[i + 1];
@@ -1187,7 +1183,7 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
   }
 
   if (!cmdline_options.no_logo) {
-    printf("Qualys Log4j Vulnerability Scanner (CVE-2021-44228/CVE-2021-45046) 1.2.12\n");
+    printf("Qualys Log4j Vulnerability Scanner (CVE-2021-44228/CVE-2021-45046) 1.2.14\n");
     printf("https://www.qualys.com/\n\n");
   }
 
