@@ -547,7 +547,7 @@ bool IsCVE202145046Mitigated(std::string version) {
   int major = 0, minor = 0, build = 0;
   if (ParseVersion(version, major, minor, build)) {
     if ((major == 2) && (minor == 12) && (build == 2)) return true;
-    if ((major == 2) && (minor >= 15)) return true;
+    if ((major == 2) && (minor > 15)) return true;
   }
   return false;
 }
