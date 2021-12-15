@@ -1056,13 +1056,12 @@ int32_t GenerateSignatureReport() {
       CReportVunerabilities vuln = repVulns[i];
 
       fwprintf_s(signature_file,
-                 L"Source: Manifest Vendor: %s, Manifest Version: %s, JNDI Class: %s, Log4j Vendor: %s, Log4j Version: %s, CVE Status: %s\n",
+                 L"Source: Manifest Vendor: %s, Manifest Version: %s, JNDI Class: %s, Log4j Vendor: %s, Log4j Version: %s\n",
                  vuln.manifestVendor.c_str(),
                  vuln.manifestVersion.c_str(),
                  vuln.detectedJNDILookupClass ? L"Found" : L"NOT Found",
                  vuln.log4jVendor.c_str(),
-                 vuln.log4jVersion.c_str(),
-                 vuln.cveStatus.c_str());
+                 vuln.log4jVersion.c_str());
       fwprintf_s(signature_file, L"Path=%s\n", vuln.file.c_str());
       fwprintf_s(signature_file, L"%s %s\n", vuln.log4jVendor.c_str(),
                 vuln.log4jVersion.c_str());
