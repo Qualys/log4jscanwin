@@ -1049,7 +1049,7 @@ int32_t GenerateSignatureReport() {
   // 2. If not exist then current direcotry will be used
 
   FILE* signature_file = nullptr;
-  _wfopen_s(&signature_file, GetSignatureReportFilename().c_str(), L"w+");
+  _wfopen_s(&signature_file, GetSignatureReportFilename().c_str(), L"w+, ccs=UTF-8");
 
   if (signature_file) {
     for (size_t i = 0; i < repVulns.size(); i++) {
@@ -1156,7 +1156,7 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
   int32_t rv = ERROR_SUCCESS;
 
   SetUnhandledExceptionFilter(CatchUnhandledExceptionFilter);
-  setlocale(LC_ALL, "");
+  setlocale(LC_ALL, ".UTF8");
 
 #ifndef _WIN64
   using typeWow64DisableWow64FsRedirection = BOOL(WINAPI*)(PVOID OlValue);
