@@ -32,6 +32,13 @@
     }                                         \
   } while (FALSE)
 
+
+using DocumentW = rapidjson::GenericDocument<rapidjson::UTF16<>>;
+using ValueW = rapidjson::GenericValue<rapidjson::UTF16<>>;
+using WriterW = rapidjson::Writer<rapidjson::StringBuffer, rapidjson::UTF16<>, rapidjson::UTF8<>>;
+using PrettyWriterW = rapidjson::PrettyWriter<rapidjson::StringBuffer, rapidjson::UTF16<>, rapidjson::UTF8<>>;
+
+
 class CReportSummary {
  public:
   uint64_t scannedFiles;
@@ -59,27 +66,27 @@ class CReportSummary {
 
 class CReportVunerabilities {
  public:
-  std::string file;
-  std::string manifestVersion;
-  std::string manifestVendor;
+  std::wstring file;
+  std::wstring manifestVersion;
+  std::wstring manifestVendor;
   bool detectedLog4j;
   bool detectedLog4j1x;
   bool detectedLog4j2x;
   bool detectedJNDILookupClass;
   bool detectedLog4jManifest;
-  std::string log4jVersion;
-  std::string log4jVendor;
+  std::wstring log4jVersion;
+  std::wstring log4jVendor;
   bool cve202144228Mitigated;
   bool cve202145046Mitigated;
-  std::string cveStatus;
+  std::wstring cveStatus;
 
-  CReportVunerabilities(std::string file, std::string manifestVersion,
-                        std::string manifestVendor, bool detectedLog4j,
+  CReportVunerabilities(std::wstring file, std::wstring manifestVersion,
+                        std::wstring manifestVendor, bool detectedLog4j,
                         bool detectedLog4j1x, bool detectedLog4j2x,
                         bool detectedJNDILookupClass,
-                        bool detectedLog4jManifest, std::string log4jVersion,
-                        std::string log4jVendor, bool cve202144228Mitigated,
-                        bool cve202145046Mitigated, std::string cveStatus) {
+                        bool detectedLog4jManifest, std::wstring log4jVersion,
+                        std::wstring log4jVendor, bool cve202144228Mitigated,
+                        bool cve202145046Mitigated, std::wstring cveStatus) {
     this->file = file;
     this->manifestVersion = manifestVersion;
     this->manifestVendor = manifestVendor;
@@ -755,9 +762,9 @@ int32_t ScanFileArchive(std::wstring file, std::wstring alternate) {
       cveStatus += " )";
 
       repVulns.push_back(CReportVunerabilities(
-          W2A(file), manifestVersion, manifestVendor, foundLog4j, foundLog4j1x, foundLog4j2x,
-          foundJNDILookupClass, foundLog4jManifest, log4jVersion, log4jVendor, cve202144228Mitigated,
-          cve202145046Mitigated, cveStatus));
+          file, A2W(manifestVersion), A2W(manifestVendor), foundLog4j, foundLog4j1x, foundLog4j2x,
+          foundJNDILookupClass, foundLog4jManifest, A2W(log4jVersion), A2W(log4jVendor), cve202144228Mitigated,
+          cve202145046Mitigated, A2W(cveStatus)));
 
     } else if (!foundJNDILookupClass && !foundManifestVendor && !foundManifestVersion) {
       cveStatus = "N/A";
@@ -909,25 +916,25 @@ int32_t ScanNetworkDrives() {
   return rv;
 }
 
-int32_t GenerateReportSummary(rapidjson::Document& doc) {
+int32_t GenerateReportSummary(DocumentW& doc) {
   int32_t rv = ERROR_SUCCESS;
 
-  rapidjson::Value vScanDate(rapidjson::kStringType);
-  rapidjson::Value vScanDuration(rapidjson::kNumberType);
-  rapidjson::Value vScannedFiles(rapidjson::kNumberType);
-  rapidjson::Value vScannedDirectories(rapidjson::kNumberType);
-  rapidjson::Value vScannedJARs(rapidjson::kNumberType);
-  rapidjson::Value vScannedWARs(rapidjson::kNumberType);
-  rapidjson::Value vScannedEARs(rapidjson::kNumberType);
-  rapidjson::Value vScannedZIPs(rapidjson::kNumberType);
-  rapidjson::Value vVulnerabilitiesFound(rapidjson::kNumberType);
-  rapidjson::Value oSummary(rapidjson::kObjectType);
+  ValueW vScanDate(rapidjson::kStringType);
+  ValueW vScanDuration(rapidjson::kNumberType);
+  ValueW vScannedFiles(rapidjson::kNumberType);
+  ValueW vScannedDirectories(rapidjson::kNumberType);
+  ValueW vScannedJARs(rapidjson::kNumberType);
+  ValueW vScannedWARs(rapidjson::kNumberType);
+  ValueW vScannedEARs(rapidjson::kNumberType);
+  ValueW vScannedZIPs(rapidjson::kNumberType);
+  ValueW vVulnerabilitiesFound(rapidjson::kNumberType);
+  ValueW oSummary(rapidjson::kObjectType);
 
-  char buf[64] = {0};
+  wchar_t buf[64] = {0};
   struct tm* tm = NULL;
 
   tm = localtime((time_t*)&repSummary.scanStart);
-  strftime(buf, _countof(buf) - 1, "%FT%T%z", tm);
+  wcsftime(buf, _countof(buf) - 1, L"%FT%T%z", tm);
 
   vScanDate.SetString(&buf[0], doc.GetAllocator());
   vScanDuration.SetInt64(repSummary.scanEnd - repSummary.scanStart);
@@ -939,43 +946,43 @@ int32_t GenerateReportSummary(rapidjson::Document& doc) {
   vScannedZIPs.SetInt64(repSummary.scannedZIPs);
   vVulnerabilitiesFound.SetInt64(repSummary.foundVunerabilities);
 
-  oSummary.AddMember("scanDuration", vScanDuration, doc.GetAllocator());
-  oSummary.AddMember("scannedFiles", vScannedFiles, doc.GetAllocator());
-  oSummary.AddMember("scannedDirectories", vScannedDirectories,
+  oSummary.AddMember(L"scanDuration", vScanDuration, doc.GetAllocator());
+  oSummary.AddMember(L"scannedFiles", vScannedFiles, doc.GetAllocator());
+  oSummary.AddMember(L"scannedDirectories", vScannedDirectories,
                      doc.GetAllocator());
-  oSummary.AddMember("scannedJARs", vScannedJARs, doc.GetAllocator());
-  oSummary.AddMember("scannedWARs", vScannedWARs, doc.GetAllocator());
-  oSummary.AddMember("scannedEARs", vScannedEARs, doc.GetAllocator());
-  oSummary.AddMember("scannedZIPs", vScannedZIPs, doc.GetAllocator());
-  oSummary.AddMember("vulnerabilitiesFound", vVulnerabilitiesFound,
+  oSummary.AddMember(L"scannedJARs", vScannedJARs, doc.GetAllocator());
+  oSummary.AddMember(L"scannedWARs", vScannedWARs, doc.GetAllocator());
+  oSummary.AddMember(L"scannedEARs", vScannedEARs, doc.GetAllocator());
+  oSummary.AddMember(L"scannedZIPs", vScannedZIPs, doc.GetAllocator());
+  oSummary.AddMember(L"vulnerabilitiesFound", vVulnerabilitiesFound,
                      doc.GetAllocator());
 
-  doc.AddMember("scanSummary", oSummary, doc.GetAllocator());
+  doc.AddMember(L"scanSummary", oSummary, doc.GetAllocator());
 
   return rv;
 }
 
-int32_t GenerateReportDetail(rapidjson::Document& doc) {
+int32_t GenerateReportDetail(DocumentW& doc) {
   int32_t rv = ERROR_SUCCESS;
-  rapidjson::Value oDetails(rapidjson::kArrayType);
+  ValueW oDetails(rapidjson::kArrayType);
 
   for (size_t i = 0; i < repVulns.size(); i++) {
     CReportVunerabilities vuln = repVulns[i];
 
-    rapidjson::Value vFile(rapidjson::kStringType);
-    rapidjson::Value vManifestVendor(rapidjson::kStringType);
-    rapidjson::Value vManifestVersion(rapidjson::kStringType);
-    rapidjson::Value vDetectedLog4j(rapidjson::kTrueType);
-    rapidjson::Value vDetectedLog4j1x(rapidjson::kTrueType);
-    rapidjson::Value vDetectedLog4j2x(rapidjson::kTrueType);
-    rapidjson::Value vDetectedJNDILookupClass(rapidjson::kTrueType);
-    rapidjson::Value vDetectedLog4jManifest(rapidjson::kTrueType);
-    rapidjson::Value vLog4jVendor(rapidjson::kStringType);
-    rapidjson::Value vLog4jVersion(rapidjson::kStringType);
-    rapidjson::Value vCVE202144228Mitigated(rapidjson::kTrueType);
-    rapidjson::Value vCVE202145046Mitigated(rapidjson::kTrueType);
-    rapidjson::Value vCVEStatus(rapidjson::kStringType);
-    rapidjson::Value oDetail(rapidjson::kObjectType);
+    ValueW vFile(rapidjson::kStringType);
+    ValueW vManifestVendor(rapidjson::kStringType);
+    ValueW vManifestVersion(rapidjson::kStringType);
+    ValueW vDetectedLog4j(rapidjson::kTrueType);
+    ValueW vDetectedLog4j1x(rapidjson::kTrueType);
+    ValueW vDetectedLog4j2x(rapidjson::kTrueType);
+    ValueW vDetectedJNDILookupClass(rapidjson::kTrueType);
+    ValueW vDetectedLog4jManifest(rapidjson::kTrueType);
+    ValueW vLog4jVendor(rapidjson::kStringType);
+    ValueW vLog4jVersion(rapidjson::kStringType);
+    ValueW vCVE202144228Mitigated(rapidjson::kTrueType);
+    ValueW vCVE202145046Mitigated(rapidjson::kTrueType);
+    ValueW vCVEStatus(rapidjson::kStringType);
+    ValueW oDetail(rapidjson::kObjectType);
 
     vFile.SetString(vuln.file.c_str(), doc.GetAllocator());
     vManifestVendor.SetString(vuln.manifestVendor.c_str(), doc.GetAllocator());
@@ -991,46 +998,46 @@ int32_t GenerateReportDetail(rapidjson::Document& doc) {
     vCVE202144228Mitigated.SetBool(vuln.cve202145046Mitigated);
     vCVEStatus.SetString(vuln.cveStatus.c_str(), doc.GetAllocator());
 
-    oDetail.AddMember("file", vFile, doc.GetAllocator());
-    oDetail.AddMember("manifestVendor", vManifestVendor, doc.GetAllocator());
-    oDetail.AddMember("manifestVersion", vManifestVersion, doc.GetAllocator());
-    oDetail.AddMember("detectedLog4j", vDetectedLog4j, doc.GetAllocator());
-    oDetail.AddMember("detectedLog4j1x", vDetectedLog4j1x, doc.GetAllocator());
-    oDetail.AddMember("detectedLog4j2x", vDetectedLog4j2x, doc.GetAllocator());
-    oDetail.AddMember("detectedJNDILookupClass", vDetectedJNDILookupClass, doc.GetAllocator());
-    oDetail.AddMember("detectedLog4jManifest", vDetectedLog4jManifest, doc.GetAllocator());
-    oDetail.AddMember("log4jVendor", vLog4jVendor, doc.GetAllocator());
-    oDetail.AddMember("log4jVersion", vLog4jVersion, doc.GetAllocator());
-    oDetail.AddMember("cve202144228Mitigated", vCVE202144228Mitigated, doc.GetAllocator());
-    oDetail.AddMember("vcve202144228Mitigated", vCVE202144228Mitigated, doc.GetAllocator());
-    oDetail.AddMember("cveStatus", vCVEStatus, doc.GetAllocator());
+    oDetail.AddMember(L"file", vFile, doc.GetAllocator());
+    oDetail.AddMember(L"manifestVendor", vManifestVendor, doc.GetAllocator());
+    oDetail.AddMember(L"manifestVersion", vManifestVersion, doc.GetAllocator());
+    oDetail.AddMember(L"detectedLog4j", vDetectedLog4j, doc.GetAllocator());
+    oDetail.AddMember(L"detectedLog4j1x", vDetectedLog4j1x, doc.GetAllocator());
+    oDetail.AddMember(L"detectedLog4j2x", vDetectedLog4j2x, doc.GetAllocator());
+    oDetail.AddMember(L"detectedJNDILookupClass", vDetectedJNDILookupClass, doc.GetAllocator());
+    oDetail.AddMember(L"detectedLog4jManifest", vDetectedLog4jManifest, doc.GetAllocator());
+    oDetail.AddMember(L"log4jVendor", vLog4jVendor, doc.GetAllocator());
+    oDetail.AddMember(L"log4jVersion", vLog4jVersion, doc.GetAllocator());
+    oDetail.AddMember(L"cve202144228Mitigated", vCVE202144228Mitigated, doc.GetAllocator());
+    oDetail.AddMember(L"vcve202144228Mitigated", vCVE202144228Mitigated, doc.GetAllocator());
+    oDetail.AddMember(L"cveStatus", vCVEStatus, doc.GetAllocator());
 
     oDetails.PushBack(oDetail, doc.GetAllocator());
   }
 
-  doc.AddMember("scanDetails", oDetails, doc.GetAllocator());
+  doc.AddMember(L"scanDetails", oDetails, doc.GetAllocator());
   return rv;
 }
 
 int32_t GenerateJSONReport() {
   int32_t rv = ERROR_SUCCESS;
-  rapidjson::Document doc;
+  DocumentW doc;
   rapidjson::StringBuffer buffer;
 
-  doc.Parse("{}");
+  doc.Parse(L"{}");
 
   GenerateReportSummary(doc);
   GenerateReportDetail(doc);
 
   if (cmdline_options.reportPretty) {
-    rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(buffer);
+    PrettyWriterW writer(buffer);
     doc.Accept(writer);
   } else {
-    rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+    WriterW writer(buffer);
     doc.Accept(writer);
   }
 
-  printf("%s", buffer.GetString());
+  wprintf(L"%S", buffer.GetString());
   return rv;
 }
 
@@ -1048,37 +1055,22 @@ int32_t GenerateSignatureReport() {
     for (size_t i = 0; i < repVulns.size(); i++) {
       CReportVunerabilities vuln = repVulns[i];
 
-      fprintf_s(signature_file,
-                "Source: Manifest Vendor: %s, Manifest Version: %s, JDNI Class: %s, Log4j Vendor: %s, Log4j Version: %s, CVE Status: %s\n",
-                vuln.manifestVendor.c_str(),
-                vuln.manifestVersion.c_str(),
-                vuln.detectedJNDILookupClass ? "Found" : "NOT Found",
-                vuln.log4jVendor.c_str(),
-                vuln.log4jVersion.c_str(),
-                vuln.cveStatus.c_str());
-      fprintf_s(signature_file, "Path=%s\n", vuln.file.c_str());
-      fprintf_s(signature_file, "%s %s\n", vuln.log4jVendor.c_str(),
+      fwprintf_s(signature_file,
+                 L"Source: Manifest Vendor: %s, Manifest Version: %s, JDNI Class: %s, Log4j Vendor: %s, Log4j Version: %s, CVE Status: %s\n",
+                 vuln.manifestVendor.c_str(),
+                 vuln.manifestVersion.c_str(),
+                 vuln.detectedJNDILookupClass ? L"Found" : L"NOT Found",
+                 vuln.log4jVendor.c_str(),
+                 vuln.log4jVersion.c_str(),
+                 vuln.cveStatus.c_str());
+      fwprintf_s(signature_file, L"Path=%s\n", vuln.file.c_str());
+      fwprintf_s(signature_file, L"%s %s\n", vuln.log4jVendor.c_str(),
                 vuln.log4jVersion.c_str());
-      fprintf_s(signature_file, "------------------------------------------------------------------------\n");
+      fwprintf_s(signature_file, L"------------------------------------------------------------------------\n");
     }
 
     fclose(signature_file);
-  } else {
-    for (size_t i = 0; i < repVulns.size(); i++) {
-      CReportVunerabilities vuln = repVulns[i];
-
-      printf("Source: Manifest Vendor: %s, Manifest Version: %s, JDNI Class: %s, Log4j Vendor: %s, Log4j Version: %s, CVE Status: %s\n",
-             vuln.manifestVendor.c_str(),
-             vuln.manifestVersion.c_str(),
-             vuln.detectedJNDILookupClass ? "Found" : "NOT Found",
-             vuln.log4jVendor.c_str(),
-             vuln.log4jVersion.c_str(),
-             vuln.cveStatus.c_str());
-      printf("Path=%s\n", vuln.file.c_str());
-      printf("%s %s\n", vuln.log4jVendor.c_str(), vuln.log4jVersion.c_str());
-      printf("------------------------------------------------------------------------\n");
-    }
-  }
+  } 
 
   return rv;
 }
@@ -1164,7 +1156,7 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
   int32_t rv = ERROR_SUCCESS;
 
   SetUnhandledExceptionFilter(CatchUnhandledExceptionFilter);
-  //setlocale(LC_ALL, "");
+  setlocale(LC_ALL, "");
 
 #ifndef _WIN64
   using typeWow64DisableWow64FsRedirection = BOOL(WINAPI*)(PVOID OlValue);
@@ -1195,7 +1187,7 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
   }
 
   if (!cmdline_options.no_logo) {
-    printf("Qualys Log4j Vulnerability Scanner (CVE-2021-44228/CVE-2021-45046) 1.2.9\n");
+    printf("Qualys Log4j Vulnerability Scanner (CVE-2021-44228/CVE-2021-45046) 1.2.10\n");
     printf("https://www.qualys.com/\n\n");
   }
 

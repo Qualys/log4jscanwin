@@ -25,7 +25,7 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="CVE-2021-44228-Scan.rc">
+    <ResourceCompile Include="Log4jScanner.rc">
       <Filter>Resource Files</Filter>
     </ResourceCompile>
   </ItemGroup>
