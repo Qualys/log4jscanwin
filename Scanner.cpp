@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "minizip/unzip.h"
+#include "minizip/iowin32.h"
 #include "rapidjson/document.h"
 #include "rapidjson/prettywriter.h"
 #include "rapidjson/stringbuffer.h"
@@ -19,8 +20,8 @@
 #include "zlib/zlib.h"
 
 #define ARGX3(s1, s2, s3) \
-  (!stricmp(argv[i], s1) || !stricmp(argv[i], s2) || !stricmp(argv[i], s3))
-#define ARG(S) ARGX3("-" #S, "--" #S, "/" #S)
+  (!_wcsicmp(argv[i], s1) || !_wcsicmp(argv[i], s2) || !_wcsicmp(argv[i], s3))
+#define ARG(S) ARGX3(L"-" #S, L"--" #S, L"/" #S)
 #define ARGPARAMCOUNT(X) ((i + X) <= (argc - 1))
 
 #define SAFE_CLOSE_HANDLE(x)                  \
@@ -98,9 +99,9 @@ class CCommandLineOptions {
   bool scanLocalDrives;
   bool scanNetworkDrives;
   bool scanFile;
-  std::string file;
+  std::wstring file;
   bool scanDirectory;
-  std::string directory;
+  std::wstring directory;
   bool report;
   bool reportPretty;
   bool reportSig;
@@ -124,16 +125,32 @@ class CCommandLineOptions {
   }
 };
 
-constexpr char* qualys_program_data_locaton = "%ProgramData%\\Qualys";
-constexpr char* report_sig_output_file = "log4j_findings.out";
-constexpr char* report_sig_status_file = "status.txt";
+constexpr wchar_t* qualys_program_data_locaton = L"%ProgramData%\\Qualys";
+constexpr wchar_t* report_sig_output_file = L"log4j_findings.out";
+constexpr wchar_t* report_sig_status_file = L"status.txt";
 
 FILE* status_file = nullptr;
-std::vector<std::string> error_array;
+std::vector<std::wstring> error_array;
 
 CCommandLineOptions cmdline_options;
 CReportSummary repSummary;
 std::vector<CReportVunerabilities> repVulns;
+
+std::wstring A2W(const std::string& str) {
+  int length_wide = MultiByteToWideChar(CP_ACP, 0, str.data(), -1, NULL, 0);
+  wchar_t *string_wide = static_cast<wchar_t*>(_alloca((length_wide * sizeof(wchar_t)) + sizeof(wchar_t)));
+  MultiByteToWideChar(CP_ACP, 0, str.data(), -1, string_wide, length_wide);
+  std::wstring result(string_wide, length_wide - 1);
+  return result;
+}
+
+std::string W2A(const std::wstring& str) {
+  int length_ansi = WideCharToMultiByte(CP_ACP, 0, str.data(), -1, NULL, 0, NULL, NULL);
+  char* string_ansi = static_cast<char*>(_alloca(length_ansi + sizeof(char)));
+  WideCharToMultiByte(CP_ACP, 0, str.data(), -1, string_ansi, length_ansi, NULL, NULL);
+  std::string result(string_ansi, length_ansi - 1);
+  return result;
+}
 
 bool UncompressContents(unzFile zf, std::string& str) {
   int32_t rv = ERROR_SUCCESS;
@@ -195,7 +212,7 @@ bool GetDictionaryValue(std::string& dict, std::string name,
   return false;
 }
 
-bool DirectoryExists(const char* dirPath) {
+bool DirectoryExists(const wchar_t* dirPath) {
   if (dirPath == NULL) {
     return false;
   }
@@ -204,18 +221,18 @@ bool DirectoryExists(const char* dirPath) {
           (fileAttr & FILE_ATTRIBUTE_DIRECTORY));
 }
 
-std::string GetScanUtilityDirectory() {
-  char path[MAX_PATH] = {0};
-  std::string utility_dir;
+std::wstring GetScanUtilityDirectory() {
+  wchar_t path[MAX_PATH] = {0};
+  std::wstring utility_dir;
   if (GetModuleFileName(NULL, path, _countof(path))) {
     utility_dir = path;
-    std::string::size_type pos = std::string(utility_dir).find_last_of("\\");
+    std::wstring::size_type pos = std::wstring(utility_dir).find_last_of(L"\\");
     utility_dir = utility_dir.substr(0, pos);
   }
   return utility_dir;
 }
 
-bool ExpandEnvironmentVariables(const char* source, std::string& destination) {
+bool ExpandEnvironmentVariables(const wchar_t* source, std::wstring& destination) {
   try {
     DWORD dwReserve = ExpandEnvironmentStrings(source, NULL, 0);
     if (dwReserve == 0) {
@@ -235,9 +252,9 @@ bool ExpandEnvironmentVariables(const char* source, std::string& destination) {
   return true;
 }
 
-std::string GetReportDirectory() {
-  std::string destination_dir;
-  std::string report_dir;
+std::wstring GetReportDirectory() {
+  std::wstring destination_dir;
+  std::wstring report_dir;
   if (ExpandEnvironmentVariables(qualys_program_data_locaton,
                                  destination_dir)) {
     if (DirectoryExists(destination_dir.c_str())) {
@@ -250,28 +267,28 @@ std::string GetReportDirectory() {
   return report_dir;
 }
 
-std::string GetSignatureReportFilename() {
-  return GetReportDirectory() + "\\" + report_sig_output_file;
+std::wstring GetSignatureReportFilename() {
+  return GetReportDirectory() + L"\\" + report_sig_output_file;
 }
 
-std::string GetSignatureStatusFilename() {
-  return GetReportDirectory() + "\\" + report_sig_status_file;
+std::wstring GetSignatureStatusFilename() {
+  return GetReportDirectory() + L"\\" + report_sig_status_file;
 }
 
-int LogStatusMessage(const char* fmt, ...) {
+int LogStatusMessage(const wchar_t* fmt, ...) {
   int retval = 0;
   va_list ap;
 
   if (fmt == NULL) return 0;
 
   va_start(ap, fmt);
-  retval = vfprintf(stdout, fmt, ap);
+  retval = vfwprintf(stdout, fmt, ap);
   va_end(ap);
   fwprintf(stdout, L"\n");
 
   if (status_file) {
     va_start(ap, fmt);
-    retval = vfprintf(status_file, fmt, ap);
+    retval = vfwprintf(status_file, fmt, ap);
     va_end(ap);
     fwprintf(status_file, L"\n");
     fflush(status_file);
@@ -280,10 +297,10 @@ int LogStatusMessage(const char* fmt, ...) {
   return retval;
 }
 
-int DumpGenericException(const char* szExceptionDescription,
+int DumpGenericException(const wchar_t* szExceptionDescription,
                          DWORD dwExceptionCode, PVOID pExceptionAddress) {
   LogStatusMessage(
-      "Unhandled Exception Detected - Reason: %s (0x%x) at address 0x%p\n\n",
+      L"Unhandled Exception Detected - Reason: %s (0x%x) at address 0x%p\n\n",
       szExceptionDescription, dwExceptionCode, pExceptionAddress);
   return 0;
 }
@@ -294,119 +311,118 @@ int DumpExceptionRecord(PEXCEPTION_POINTERS pExPtrs) {
 
   switch (dwExceptionCode) {
     case 0xE06D7363:
-      DumpGenericException("Out Of Memory (C++ Exception)", dwExceptionCode,
+      DumpGenericException(L"Out Of Memory (C++ Exception)", dwExceptionCode,
                            pExceptionAddress);
       break;
     case EXCEPTION_ACCESS_VIOLATION:
-      char szStatus[256];
-      char szSubStatus[256];
-      strcpy_s(szStatus, "Access Violation");
-      strcpy_s(szSubStatus, "");
+      wchar_t szStatus[256];
+      wchar_t szSubStatus[256];
+      wcscpy_s(szStatus, L"Access Violation");
+      wcscpy_s(szSubStatus, L"");
       if (pExPtrs->ExceptionRecord->NumberParameters == 2) {
         switch (pExPtrs->ExceptionRecord->ExceptionInformation[0]) {
           case 0:  // read attempt
-            sprintf_s(szSubStatus, "read attempt to address 0x%p",
-                      (void*)pExPtrs->ExceptionRecord->ExceptionInformation[1]);
+            swprintf_s(szSubStatus, L"read attempt to address 0x%p",
+                       (void*)pExPtrs->ExceptionRecord->ExceptionInformation[1]);
             break;
           case 1:  // write attempt
-            sprintf_s(szSubStatus, "write attempt to address 0x%p",
-                      (void*)pExPtrs->ExceptionRecord->ExceptionInformation[1]);
+            swprintf_s(szSubStatus, L"write attempt to address 0x%p",
+                       (void*)pExPtrs->ExceptionRecord->ExceptionInformation[1]);
             break;
         }
       }
       LogStatusMessage(
-          "Unhandled Exception Detected - Reason: % s(0x % x) at address 0x % "
-          "p % s\n\n",
+          L"Unhandled Exception Detected - Reason: %s(0x%x) at address 0x%p %s\n\n",
           szStatus, dwExceptionCode, pExceptionAddress, szSubStatus);
       break;
     case EXCEPTION_DATATYPE_MISALIGNMENT:
-      DumpGenericException("Data Type Misalignment", dwExceptionCode,
+      DumpGenericException(L"Data Type Misalignment", dwExceptionCode,
                            pExceptionAddress);
       break;
     case EXCEPTION_BREAKPOINT:
-      DumpGenericException("Breakpoint Encountered", dwExceptionCode,
+      DumpGenericException(L"Breakpoint Encountered", dwExceptionCode,
                            pExceptionAddress);
       break;
     case EXCEPTION_SINGLE_STEP:
-      DumpGenericException("Single Instruction Executed", dwExceptionCode,
+      DumpGenericException(L"Single Instruction Executed", dwExceptionCode,
                            pExceptionAddress);
       break;
     case EXCEPTION_ARRAY_BOUNDS_EXCEEDED:
-      DumpGenericException("Array Bounds Exceeded", dwExceptionCode,
+      DumpGenericException(L"Array Bounds Exceeded", dwExceptionCode,
                            pExceptionAddress);
       break;
     case EXCEPTION_FLT_DENORMAL_OPERAND:
-      DumpGenericException("Float Denormal Operand", dwExceptionCode,
+      DumpGenericException(L"Float Denormal Operand", dwExceptionCode,
                            pExceptionAddress);
       break;
     case EXCEPTION_FLT_DIVIDE_BY_ZERO:
-      DumpGenericException("Divide by Zero", dwExceptionCode,
+      DumpGenericException(L"Divide by Zero", dwExceptionCode,
                            pExceptionAddress);
       break;
     case EXCEPTION_FLT_INEXACT_RESULT:
-      DumpGenericException("Float Inexact Result", dwExceptionCode,
+      DumpGenericException(L"Float Inexact Result", dwExceptionCode,
                            pExceptionAddress);
       break;
     case EXCEPTION_FLT_INVALID_OPERATION:
-      DumpGenericException("Float Invalid Operation", dwExceptionCode,
+      DumpGenericException(L"Float Invalid Operation", dwExceptionCode,
                            pExceptionAddress);
       break;
     case EXCEPTION_FLT_OVERFLOW:
-      DumpGenericException("Float Overflow", dwExceptionCode,
+      DumpGenericException(L"Float Overflow", dwExceptionCode,
                            pExceptionAddress);
       break;
     case EXCEPTION_FLT_STACK_CHECK:
-      DumpGenericException("Float Stack Check", dwExceptionCode,
+      DumpGenericException(L"Float Stack Check", dwExceptionCode,
                            pExceptionAddress);
       break;
     case EXCEPTION_FLT_UNDERFLOW:
-      DumpGenericException("Float Underflow", dwExceptionCode,
+      DumpGenericException(L"Float Underflow", dwExceptionCode,
                            pExceptionAddress);
       break;
     case EXCEPTION_INT_DIVIDE_BY_ZERO:
-      DumpGenericException("Integer Divide by Zero", dwExceptionCode,
+      DumpGenericException(L"Integer Divide by Zero", dwExceptionCode,
                            pExceptionAddress);
       break;
     case EXCEPTION_INT_OVERFLOW:
-      DumpGenericException("Integer Overflow", dwExceptionCode,
+      DumpGenericException(L"Integer Overflow", dwExceptionCode,
                            pExceptionAddress);
       break;
     case EXCEPTION_PRIV_INSTRUCTION:
-      DumpGenericException("Privileged Instruction", dwExceptionCode,
+      DumpGenericException(L"Privileged Instruction", dwExceptionCode,
                            pExceptionAddress);
       break;
     case EXCEPTION_IN_PAGE_ERROR:
-      DumpGenericException("In Page Error", dwExceptionCode, pExceptionAddress);
+      DumpGenericException(L"In Page Error", dwExceptionCode, pExceptionAddress);
       break;
     case EXCEPTION_ILLEGAL_INSTRUCTION:
-      DumpGenericException("Illegal Instruction", dwExceptionCode,
+      DumpGenericException(L"Illegal Instruction", dwExceptionCode,
                            pExceptionAddress);
       break;
     case EXCEPTION_NONCONTINUABLE_EXCEPTION:
-      DumpGenericException("Noncontinuable Exception", dwExceptionCode,
+      DumpGenericException(L"Noncontinuable Exception", dwExceptionCode,
                            pExceptionAddress);
       break;
     case EXCEPTION_STACK_OVERFLOW:
-      DumpGenericException("Stack Overflow", dwExceptionCode,
+      DumpGenericException(L"Stack Overflow", dwExceptionCode,
                            pExceptionAddress);
       break;
     case EXCEPTION_INVALID_DISPOSITION:
-      DumpGenericException("Invalid Disposition", dwExceptionCode,
+      DumpGenericException(L"Invalid Disposition", dwExceptionCode,
                            pExceptionAddress);
       break;
     case EXCEPTION_GUARD_PAGE:
-      DumpGenericException("Guard Page Violation", dwExceptionCode,
+      DumpGenericException(L"Guard Page Violation", dwExceptionCode,
                            pExceptionAddress);
       break;
     case EXCEPTION_INVALID_HANDLE:
-      DumpGenericException("Invalid Handle", dwExceptionCode,
+      DumpGenericException(L"Invalid Handle", dwExceptionCode,
                            pExceptionAddress);
       break;
     case CONTROL_C_EXIT:
-      DumpGenericException("Ctrl+C Exit", dwExceptionCode, pExceptionAddress);
+      DumpGenericException(L"Ctrl+C Exit", dwExceptionCode, pExceptionAddress);
       break;
     default:
-      DumpGenericException("Unknown exception", dwExceptionCode,
+      DumpGenericException(L"Unknown exception", dwExceptionCode,
                            pExceptionAddress);
       break;
   }
@@ -415,12 +431,12 @@ int DumpExceptionRecord(PEXCEPTION_POINTERS pExPtrs) {
 }
 
 LONG CALLBACK CatchUnhandledExceptionFilter(PEXCEPTION_POINTERS pExPtrs) {
-  CHAR szMiniDumpFileName[MAX_PATH];
+  WCHAR szMiniDumpFileName[MAX_PATH];
   HANDLE hDumpFile = NULL;
   SYSTEMTIME sysTime;
   SECURITY_ATTRIBUTES saMiniDumpSecurity;
 
-  LogStatusMessage("Run status : Failed\n");
+  LogStatusMessage(L"Run status : Failed\n");
 
   // Attempt to dump an unhandled exception banner just in case things are
   // so bad that a minidump cannot be created.
@@ -435,18 +451,18 @@ LONG CALLBACK CatchUnhandledExceptionFilter(PEXCEPTION_POINTERS pExPtrs) {
   // Use the '.mdmp' extension so it'll be recognize by the Windows debugging
   // tools.
   GetLocalTime(&sysTime);
-  sprintf_s(szMiniDumpFileName,
-            "%s\\%0.2d%0.2d%0.4d%d%0.2d%0.2d%0.4d.mdmp",
-            GetScanUtilityDirectory().c_str(),
-            sysTime.wMonth,
-            sysTime.wDay,
-            sysTime.wYear,
-            sysTime.wHour,
-            sysTime.wMinute,
-            sysTime.wSecond,
-            sysTime.wMilliseconds);
+  swprintf_s(szMiniDumpFileName,
+             L"%s\\%0.2d%0.2d%0.4d%d%0.2d%0.2d%0.4d.mdmp",
+             GetScanUtilityDirectory().c_str(),
+             sysTime.wMonth,
+             sysTime.wDay,
+             sysTime.wYear,
+             sysTime.wHour,
+             sysTime.wMinute,
+             sysTime.wSecond,
+             sysTime.wMilliseconds);
 
-  LogStatusMessage("Creating minidump file %s with crash details.\n",
+  LogStatusMessage(L"Creating minidump file %s with crash details.\n",
                    szMiniDumpFileName);
 
   // Create the file to dump the minidump data into...
@@ -493,7 +509,7 @@ LONG CALLBACK CatchUnhandledExceptionFilter(PEXCEPTION_POINTERS pExPtrs) {
         SAFE_CLOSE_HANDLE(hDumpFile);
         DeleteFile(szMiniDumpFileName);
 
-        LogStatusMessage("Failed to create minidump file %s.\n", szMiniDumpFileName);
+        LogStatusMessage(L"Failed to create minidump file %s.\n", szMiniDumpFileName);
       }
     }
 
@@ -509,44 +525,38 @@ bool Log4jVersionCheck(std::string version) {
   int major = atoi(version.c_str());
   if (major < 2) return false;
 
-  int minor = atoi(
-      version
-          .substr(version.find(".", 0) + 1, version.rfind(".", version.size()))
+  int minor = atoi(version.substr(version.find(".", 0) + 1, version.rfind(".", version.size()))
           .c_str());
   if (minor >= 15) return false;
 
-  int revision =
-      atoi(version
-               .substr(version.rfind(".", version.size()) + 1,
-                       version.size() - (version.rfind(".", version.size())))
-               .c_str());
+  int revision = atoi(version.substr(version.rfind(".", version.size()) + 1, version.size() - (version.rfind(".", version.size()))).c_str());
   if (revision >= 2) return false;
 
   return true;
 }
 
-int32_t ScanFileArchive(std::string file, std::string alternate) {
-  int32_t rv = ERROR_SUCCESS;
+int32_t ScanFileArchive(std::wstring file, std::wstring alternate) {
+  int32_t     rv = ERROR_SUCCESS;
   unsigned long bytesWritten = 0;
-  unzFile zf = NULL;
+  unzFile     zf = NULL;
   unz_file_info64 file_info;
-  char* p = NULL;
-  char buf[256];
-  char filename[_MAX_PATH + 1];
-  char tmpPath[_MAX_PATH + 1];
-  char tmpFilename[_MAX_PATH + 1];
-  bool foundLog4j = false;
-  bool foundLog4j1x = false;
-  bool foundLog4j2x = false;
-  bool foundJNDILookupClass = false;
-  bool foundManifest = false;
-  bool foundLog4j1xPOM = false;
-  bool foundLog4j2xPOM = false;
-  bool foundLog4j2xCorePOM = false;
-  bool foundManifestVendor = false;
-  bool foundManifestVersion = false;
-  bool foundLog4jManifest = false;
-  bool foundVulnerableVersion = false;
+  char*       p = NULL;
+  char        buf[256];
+  char        filename[_MAX_PATH + 1];
+  wchar_t     tmpPath[_MAX_PATH + 1];
+  wchar_t     tmpFilename[_MAX_PATH + 1];
+  bool        foundLog4j = false;
+  bool        foundLog4j1x = false;
+  bool        foundLog4j2x = false;
+  bool        foundJNDILookupClass = false;
+  bool        foundManifest = false;
+  bool        foundLog4j1xPOM = false;
+  bool        foundLog4j2xPOM = false;
+  bool        foundLog4j2xCorePOM = false;
+  bool        foundManifestVendor = false;
+  bool        foundManifestVersion = false;
+  bool        foundLog4jManifest = false;
+  bool        foundVulnerableVersion = false;
   std::string manifest;
   std::string pomLog4j1x;
   std::string pomLog4j2x;
@@ -556,10 +566,13 @@ int32_t ScanFileArchive(std::string file, std::string alternate) {
   std::string log4jVendor;
   std::string log4jVersion;
 
+  zlib_filefunc64_def zfm = { 0 };
+  fill_win32_filefunc64W(&zfm);
+
   if (!alternate.empty()) {
-    zf = unzOpen64(alternate.c_str());
+    zf = unzOpen2_64(alternate.c_str(), &zfm);
   } else {
-    zf = unzOpen64(file.c_str());
+    zf = unzOpen2_64(file.c_str(), &zfm);
   }
   if (NULL != zf) {
     //
@@ -633,7 +646,7 @@ int32_t ScanFileArchive(std::string file, std::string alternate) {
             }
 
             GetTempPath(_countof(tmpPath), tmpPath);
-            GetTempFileName(tmpPath, "qua", 0, tmpFilename);
+            GetTempFileName(tmpPath, L"qua", 0, tmpFilename);
 
             HANDLE h =
                 CreateFile(tmpFilename, GENERIC_READ | GENERIC_WRITE, NULL,
@@ -652,8 +665,8 @@ int32_t ScanFileArchive(std::string file, std::string alternate) {
               }
               CloseHandle(h);
 
-              std::string masked_filename = file + "!" + filename;
-              std::string alternate_filename = tmpFilename;
+              std::wstring masked_filename = file + L"!" + A2W(filename);
+              std::wstring alternate_filename = tmpFilename;
 
               ScanFileArchive(masked_filename, alternate_filename);
 
@@ -733,62 +746,56 @@ int32_t ScanFileArchive(std::string file, std::string alternate) {
     if (foundLog4j2x && foundJNDILookupClass && foundVulnerableVersion) {
       repSummary.foundVunerabilities++;
       cveStatus = "Potentially Vulnerable";
-    } else if (!foundJNDILookupClass && !foundManifestVendor &&
-               !foundManifestVersion) {
+    } else if (!foundJNDILookupClass && !foundManifestVendor && !foundManifestVersion) {
       cveStatus = "N/A";
     } else if (!foundJNDILookupClass && foundLog4j2x && foundLog4jManifest) {
       cveStatus = "Mitigated";
-    } else if (foundJNDILookupClass && foundLog4j2x &&
-               !foundVulnerableVersion) {
+    } else if (foundJNDILookupClass && foundLog4j2x && !foundVulnerableVersion) {
       cveStatus = "Mitigated";
-    } else if (!foundJNDILookupClass && foundLog4j1x &&
-               !foundVulnerableVersion) {
+    } else if (!foundJNDILookupClass && foundLog4j1x && !foundVulnerableVersion) {
       cveStatus = "N/A";
     } else {
       cveStatus = "Unknown";
     }
 
     repVulns.push_back(CReportVunerabilities(
-        file, manifestVersion, manifestVendor, foundLog4j, foundLog4j1x,
-        foundLog4j2x, foundJNDILookupClass, foundLog4jManifest, log4jVersion,
-        log4jVendor, foundVulnerableVersion, cveStatus));
+        W2A(file), manifestVersion, manifestVendor, foundLog4j, foundLog4j1x, foundLog4j2x,
+        foundJNDILookupClass, foundLog4jManifest, log4jVersion, log4jVendor, foundVulnerableVersion,
+        cveStatus));
 
     if (!cmdline_options.no_logo) {
-      printf(
-          "Log4j Found: '%s' ( Manifest Vendor: %s, Manifest Version: %s, JDNI "
-          "Class: %s, Log4j Vendor: %s, Log4j Version: %s, CVE Status: %s )\n",
-          file.c_str(), manifestVendor.c_str(), manifestVersion.c_str(),
-          foundJNDILookupClass ? "Found" : "NOT Found", log4jVendor.c_str(),
-          log4jVersion.c_str(), cveStatus.c_str());
+      wprintf(L"Log4j Found: '%s' ( Manifest Vendor: %S, Manifest Version: %S, JDNI Class: %s, Log4j Vendor: %S, Log4j Version: %S, CVE Status: %S )\n",
+              file.c_str(), manifestVendor.c_str(), manifestVersion.c_str(), foundJNDILookupClass ? L"Found" : L"NOT Found", log4jVendor.c_str(),
+              log4jVersion.c_str(), cveStatus.c_str());
     }
   }
 
   return rv;
 }
 
-int32_t ScanFile(std::string file) {
+int32_t ScanFile(std::wstring file) {
   int32_t rv = ERROR_SUCCESS;
-  char drive[_MAX_DRIVE];
-  char dir[_MAX_DIR];
-  char fname[_MAX_FNAME];
-  char ext[_MAX_EXT];
+  wchar_t drive[_MAX_DRIVE];
+  wchar_t dir[_MAX_DIR];
+  wchar_t fname[_MAX_FNAME];
+  wchar_t ext[_MAX_EXT];
 
-  if (0 == _splitpath_s(file.c_str(), drive, dir, fname, ext)) {
-    if (0 == stricmp(ext, ".jar")) {
+  if (0 == _wsplitpath_s(file.c_str(), drive, dir, fname, ext)) {
+    if (0 == _wcsicmp(ext, L".jar")) {
       repSummary.scannedJARs++;
-      rv = ScanFileArchive(file, "");
+      rv = ScanFileArchive(file, L"");
     }
-    if (0 == stricmp(ext, ".war")) {
+    if (0 == _wcsicmp(ext, L".war")) {
       repSummary.scannedWARs++;
-      rv = ScanFileArchive(file, "");
+      rv = ScanFileArchive(file, L"");
     }
-    if (0 == stricmp(ext, ".ear")) {
+    if (0 == _wcsicmp(ext, L".ear")) {
       repSummary.scannedEARs++;
-      rv = ScanFileArchive(file, "");
+      rv = ScanFileArchive(file, L"");
     }
-    if (0 == stricmp(ext, ".zip")) {
+    if (0 == _wcsicmp(ext, L".zip")) {
       repSummary.scannedZIPs++;
-      rv = ScanFileArchive(file, "");
+      rv = ScanFileArchive(file, L"");
     }
 
   } else {
@@ -798,56 +805,40 @@ int32_t ScanFile(std::string file) {
   return rv;
 }
 
-int32_t ScanDirectory(std::string directory) {
+int32_t ScanDirectory(std::wstring directory) {
   int32_t rv = ERROR_SUCCESS;
-  std::string search = directory + std::string("*.*");
+  std::wstring search = directory + std::wstring(L"*.*");
   WIN32_FIND_DATA FindFileData;
   HANDLE hFind;
+  wchar_t err[1024] = {0};
 
   hFind = FindFirstFile(search.c_str(), &FindFileData);
   if (hFind == INVALID_HANDLE_VALUE) {
     rv = GetLastError();
   } else {
     do {
-      std::string filename(FindFileData.cFileName);
+      std::wstring filename(FindFileData.cFileName);
 
-      if ((filename.size() == 1) && (filename == ".")) continue;
-      if ((filename.size() == 2) && (filename == "..")) continue;
-      if ((FindFileData.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) ==
-          FILE_ATTRIBUTE_REPARSE_POINT)
-        continue;
-      if ((FindFileData.dwFileAttributes & FILE_ATTRIBUTE_DEVICE) ==
-          FILE_ATTRIBUTE_DEVICE)
-        continue;
-      if ((FindFileData.dwFileAttributes & FILE_ATTRIBUTE_OFFLINE) ==
-          FILE_ATTRIBUTE_OFFLINE)
-        continue;
-      if ((FindFileData.dwFileAttributes & FILE_ATTRIBUTE_TEMPORARY) ==
-          FILE_ATTRIBUTE_TEMPORARY)
-        continue;
-      if ((FindFileData.dwFileAttributes & FILE_ATTRIBUTE_VIRTUAL) ==
-          FILE_ATTRIBUTE_VIRTUAL)
-        continue;
+      if ((filename.size() == 1) && (filename == L".")) continue;
+      if ((filename.size() == 2) && (filename == L"..")) continue;
+      if ((FindFileData.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) == FILE_ATTRIBUTE_REPARSE_POINT) continue;
+      if ((FindFileData.dwFileAttributes & FILE_ATTRIBUTE_DEVICE) == FILE_ATTRIBUTE_DEVICE) continue;
+      if ((FindFileData.dwFileAttributes & FILE_ATTRIBUTE_OFFLINE) == FILE_ATTRIBUTE_OFFLINE) continue;
+      if ((FindFileData.dwFileAttributes & FILE_ATTRIBUTE_TEMPORARY) == FILE_ATTRIBUTE_TEMPORARY) continue;
+      if ((FindFileData.dwFileAttributes & FILE_ATTRIBUTE_VIRTUAL) == FILE_ATTRIBUTE_VIRTUAL) continue;
 
-      if ((FindFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ==
-          FILE_ATTRIBUTE_DIRECTORY) {
+      if ((FindFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY) {
         repSummary.scannedDirectories++;
 
-        std::string dir =
-            directory + std::string(FindFileData.cFileName) + std::string("\\");
+        std::wstring dir =
+            directory + std::wstring(FindFileData.cFileName) + std::wstring(L"\\");
         rv = ScanDirectory(dir);
         if (ERROR_SUCCESS != rv) {
           if (cmdline_options.verbose) {
-            printf("Failed to process directory '%s' (rv: %d)\n", dir.c_str(),
-                   rv);
+            wprintf(L"Failed to process directory '%s' (rv: %d)\n", dir.c_str(), rv);
           }
-          if (rv != -100) {
-            char err[1024] = {};
-            sprintf_s(err, "Failed to process directory '%s' (rv: %d)",
-                      dir.c_str(), rv);
-
-            error_array.push_back(err);
-          }
+          swprintf_s(err, L"Failed to process directory '%s' (rv: %d)", dir.c_str(), rv);
+          error_array.push_back(err);
         }
 
         // TODO: Look for suspect directory structures containing raw log4j java
@@ -857,19 +848,14 @@ int32_t ScanDirectory(std::string directory) {
       } else {
         repSummary.scannedFiles++;
 
-        std::string file = directory + std::string(FindFileData.cFileName);
+        std::wstring file = directory + std::wstring(FindFileData.cFileName);
         rv = ScanFile(file);
         if (ERROR_SUCCESS != rv) {
           if (cmdline_options.verbose) {
-            printf("Failed to process file '%s' (rv: %d)\n", file.c_str(), rv);
+            wprintf(L"Failed to process file '%s' (rv: %d)\n", file.c_str(), rv);
           }
-          if (rv != -100) {
-            char err[1024] = {};
-            sprintf_s(err, "Failed to process file '%s' (rv: %d)\n",
-                      file.c_str(), rv);
-
-            error_array.push_back(err);
-          }
+          swprintf_s(err, L"Failed to process file '%s' (rv: %d)\n", file.c_str(), rv);
+          error_array.push_back(err);
         }
       }
 
@@ -883,12 +869,12 @@ int32_t ScanDirectory(std::string directory) {
 int32_t ScanLocalDrives() {
   int32_t rv = ERROR_SUCCESS;
   DWORD rt = 0;
-  char drives[256];
+  wchar_t drives[256];
 
-  strcpy_s(drives, "");
+  wcscpy_s(drives, L"");
   rt = GetLogicalDriveStrings(_countof(drives), drives);
   for (uint32_t i = 0; i < rt; i += 4) {
-    char* drive = &drives[i];
+    wchar_t* drive = &drives[i];
     DWORD type = GetDriveType(drive);
     if ((DRIVE_FIXED == type) || (DRIVE_RAMDISK == type)) {
       ScanDirectory(drive);
@@ -901,12 +887,12 @@ int32_t ScanLocalDrives() {
 int32_t ScanNetworkDrives() {
   int32_t rv = ERROR_SUCCESS;
   DWORD rt = 0;
-  char drives[256];
+  wchar_t drives[256];
 
-  strcpy_s(drives, "");
+  wcscpy_s(drives, L"");
   rt = GetLogicalDriveStrings(_countof(drives), drives);
   for (uint32_t i = 0; i < rt; i += 4) {
-    char* drive = &drives[i];
+    wchar_t* drive = &drives[i];
     DWORD type = GetDriveType(drive);
     if (DRIVE_REMOTE == type) {
       ScanDirectory(drive);
@@ -985,8 +971,7 @@ int32_t GenerateReportDetail(rapidjson::Document& doc) {
 
     vFile.SetString(vuln.file.c_str(), doc.GetAllocator());
     vManifestVendor.SetString(vuln.manifestVendor.c_str(), doc.GetAllocator());
-    vManifestVersion.SetString(vuln.manifestVersion.c_str(),
-                               doc.GetAllocator());
+    vManifestVersion.SetString(vuln.manifestVersion.c_str(), doc.GetAllocator());
     vDetectedLog4j.SetBool(vuln.detectedLog4j);
     vDetectedLog4j1x.SetBool(vuln.detectedLog4j1x);
     vDetectedLog4j2x.SetBool(vuln.detectedLog4j2x);
@@ -1050,7 +1035,7 @@ int32_t GenerateSignatureReport() {
   // 2. If not exist then current direcotry will be used
 
   FILE* signature_file = nullptr;
-  fopen_s(&signature_file, GetSignatureReportFilename().c_str(), "w+");
+  _wfopen_s(&signature_file, GetSignatureReportFilename().c_str(), L"w+");
 
   if (signature_file) {
     for (size_t i = 0; i < repVulns.size(); i++) {
@@ -1069,8 +1054,7 @@ int32_t GenerateSignatureReport() {
       fprintf_s(signature_file, "Path=%s\n", vuln.file.c_str());
       fprintf_s(signature_file, "%s %s\n", vuln.log4jVendor.c_str(),
                 vuln.log4jVersion.c_str());
-      fprintf_s(signature_file,
-                "------------------------------------------------------------------------\n");
+      fprintf_s(signature_file, "------------------------------------------------------------------------\n");
     }
 
     fclose(signature_file);
@@ -1096,7 +1080,7 @@ int32_t GenerateSignatureReport() {
   return rv;
 }
 
-int32_t PrintHelp(_In_ int32_t argc, _In_ char* argv[]) {
+int32_t PrintHelp(int32_t argc, wchar_t* argv[]) {
   int32_t rv = ERROR_SUCCESS;
 
   printf("/scan\n");
@@ -1118,7 +1102,7 @@ int32_t PrintHelp(_In_ int32_t argc, _In_ char* argv[]) {
   return rv;
 }
 
-int32_t ProcessCommandLineOptions(int32_t argc, char* argv[]) {
+int32_t ProcessCommandLineOptions(int32_t argc, wchar_t* argv[]) {
   int32_t rv = ERROR_SUCCESS;
 
   for (int32_t i = 1; i < argc; i++) {
@@ -1157,26 +1141,27 @@ int32_t ProcessCommandLineOptions(int32_t argc, char* argv[]) {
   // Check to make sure the directory path is normalized
   //
   if (cmdline_options.scanDirectory) {
-    if ((0 == cmdline_options.directory.substr(0, 1).compare("\"")) ||
-        (0 == cmdline_options.directory.substr(0, 1).compare("'"))) {
+    if ((0 == cmdline_options.directory.substr(0, 1).compare(L"\"")) ||
+        (0 == cmdline_options.directory.substr(0, 1).compare(L"'"))) {
       cmdline_options.directory.erase(0, 1);
     }
-    if ((0 == cmdline_options.directory.substr(cmdline_options.directory.size() - 1, 1).compare("\"")) ||
-        (0 == cmdline_options.directory.substr(cmdline_options.directory.size() - 1, 1).compare("'"))) {
+    if ((0 == cmdline_options.directory.substr(cmdline_options.directory.size() - 1, 1).compare(L"\"")) ||
+        (0 == cmdline_options.directory.substr(cmdline_options.directory.size() - 1, 1).compare(L"'"))) {
       cmdline_options.directory.erase(cmdline_options.directory.size() - 1, 1);
     }
-    if (0 != cmdline_options.directory.substr(cmdline_options.directory.size() - 1, 1).compare("\\")) {
-      cmdline_options.directory += "\\";
+    if (0 != cmdline_options.directory.substr(cmdline_options.directory.size() - 1, 1).compare(L"\\")) {
+      cmdline_options.directory += L"\\";
     }
   }
 
   return rv;
 }
 
-int32_t __cdecl main(int32_t argc, char* argv[]) {
+int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
   int32_t rv = ERROR_SUCCESS;
 
   SetUnhandledExceptionFilter(CatchUnhandledExceptionFilter);
+  //setlocale(LC_ALL, "");
 
 #ifndef _WIN64
   using typeWow64DisableWow64FsRedirection = BOOL(WINAPI*)(PVOID OlValue);
@@ -1207,7 +1192,7 @@ int32_t __cdecl main(int32_t argc, char* argv[]) {
   }
 
   if (!cmdline_options.no_logo) {
-    printf("Qualys CVE-2021-44228 Log4j Vulnerability Scanner 1.2.5\n");
+    printf("Qualys CVE-2021-44228 Log4j Vulnerability Scanner 1.2.7\n");
     printf("https://www.qualys.com/\n\n");
   }
 
@@ -1222,46 +1207,46 @@ int32_t __cdecl main(int32_t argc, char* argv[]) {
   }
 
   if (cmdline_options.reportSig) {
-    fopen_s(&status_file, GetSignatureStatusFilename().c_str(), "w");
+    _wfopen_s(&status_file, GetSignatureStatusFilename().c_str(), L"w+");
   }
 
   repSummary.scanStart = time(0);
 
   if (!cmdline_options.reportSig) {
-    char buf[64] = {0};
+    wchar_t buf[64] = {0};
     struct tm* tm = NULL;
 
-    tm = localtime((time_t*)&repSummary.scanStart);
-    strftime(buf, _countof(buf) - 1, "%FT%T%z", tm);
+    tm = localtime((time_t*)&repSummary.scanEnd);
+    wcsftime(buf, _countof(buf) - 1, L"%FT%T%z", tm);
 
-    LogStatusMessage("Scan start time : %s\n", buf);
+    LogStatusMessage(L"Scan start time : %s\n", buf);
   }
 
 
   if (cmdline_options.scanLocalDrives) {
     if (!cmdline_options.no_logo) {
-      printf("Scanning Local Drives...\n");
+      wprintf(L"Scanning Local Drives...\n");
     }
     ScanLocalDrives();
   }
 
   if (cmdline_options.scanNetworkDrives) {
     if (!cmdline_options.no_logo) {
-      printf("Scanning Network Drives...\n");
+      wprintf(L"Scanning Network Drives...\n");
     }
     ScanNetworkDrives();
   }
 
   if (cmdline_options.scanDirectory) {
     if (!cmdline_options.no_logo) {
-      printf("Scanning '%s'...\n", cmdline_options.directory.c_str());
+      wprintf(L"Scanning '%s'...\n", cmdline_options.directory.c_str());
     }
     ScanDirectory(cmdline_options.directory);
   }
 
   if (cmdline_options.scanFile) {
     if (!cmdline_options.no_logo) {
-      printf("Scanning '%s'...\n", cmdline_options.file.c_str());
+      wprintf(L"Scanning '%s'...\n", cmdline_options.file.c_str());
     }
     ScanFile(cmdline_options.file);
   }
@@ -1269,13 +1254,13 @@ int32_t __cdecl main(int32_t argc, char* argv[]) {
   repSummary.scanEnd = time(0);
 
   if (!cmdline_options.reportSig) {
-    char buf[64] = {0};
+    wchar_t buf[64] = {0};
     struct tm* tm = NULL;
 
     tm = localtime((time_t*)&repSummary.scanEnd);
-    strftime(buf, _countof(buf) - 1, "%FT%T%z", tm);
+    wcsftime(buf, _countof(buf) - 1, L"%FT%T%z", tm);
 
-    LogStatusMessage("\nScan end time : %s\n", buf);
+    LogStatusMessage(L"\nScan end time : %s\n", buf);
   }
 
 
@@ -1311,15 +1296,15 @@ END:
 
   if (cmdline_options.reportSig) {
     if (error_array.empty()) {
-      LogStatusMessage("Run status : Success\n");
-      LogStatusMessage("Result file location : %s\n", GetSignatureReportFilename().c_str());
+      LogStatusMessage(L"Run status : Success\n");
+      LogStatusMessage(L"Result file location : %s\n", GetSignatureReportFilename().c_str());
     } else {
-      LogStatusMessage("Run status : Partially Successful\n");
-      LogStatusMessage("Result file location : %s\n", GetSignatureReportFilename().c_str());
+      LogStatusMessage(L"Run status : Partially Successful\n");
+      LogStatusMessage(L"Result file location : %s\n", GetSignatureReportFilename().c_str());
 
-      LogStatusMessage("Errors :\n");
+      LogStatusMessage(L"Errors :\n");
       for (const auto& e : error_array) {
-        LogStatusMessage("%s\n", e.c_str());
+        LogStatusMessage(L"%s\n", e.c_str());
       }
     }
   }
