@@ -1215,11 +1215,11 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
 
   repSummary.scanStart = time(0);
 
-  if (!cmdline_options.reportSig) {
+  if (cmdline_options.reportSig) {
     wchar_t buf[64] = {0};
     struct tm* tm = NULL;
 
-    tm = localtime((time_t*)&repSummary.scanEnd);
+    tm = localtime((time_t*)&repSummary.scanStart);
     wcsftime(buf, _countof(buf) - 1, L"%FT%T%z", tm);
 
     LogStatusMessage(L"Scan start time : %s\n", buf);
@@ -1256,7 +1256,7 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
 
   repSummary.scanEnd = time(0);
 
-  if (!cmdline_options.reportSig) {
+  if (cmdline_options.reportSig) {
     wchar_t buf[64] = {0};
     struct tm* tm = NULL;
 
