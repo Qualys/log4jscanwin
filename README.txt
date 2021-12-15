@@ -3,7 +3,7 @@ THIS SCRIPT IS PROVIDED TO YOU "AS IS." TO THE EXTENT PERMITTED BY LAW, QUALYS H
 IN NO EVENT SHALL THESE SCRIPTS BE DEEMED TO BE CLOUD SERVICES AS PROVIDED BY QUALYS
 
 Description:
-The Log4jScanner.exe utility helps to detect CVE-2021-44228 and CVE-2021-45046 vulnerability (log4j 2.15.0). 
+The Log4jScanner.exe utility helps to detect CVE-2021-44228 and CVE-2021-45046 vulnerabilities.
 The utility will scan the entire hard drive(s) including archives (and nested JARs) for the Java class that indicates the Java application contains a vulnerable log4j library. The utility will output its results to a console.
 Qualys has added a new QID (376160) that is designed to look for the results of this scan and mark the asset as vulnerable if the vulnerable log4j library was found.
 
@@ -23,10 +23,13 @@ Usage -
 /report_sig
   Generate a signature report of possible detections of CVE-2021-44228 and CVE-2021-45046.
 
-Sample Usage - The following command helps you scan local drives for vulnerable JAR, WAR, EAR, and ZIP. It will generate human-readable JSON report as output
+Sample Usage - The following command helps you scan local drives for vulnerable JAR, WAR, EAR, and ZIP.
 Log4jScanner.exe /scan
 
-Sample Output - The following output shows detection with CVE Status: Potentially Vulnerable ( CVE-2021-44228: NOT Found CVE-2021-45046: Found )
+Sample Usage - The following command helps you scan local drives for vulnerable files and writes a signature report to C:\ProgramData\Qualys
+Log4jScanner.exe /scan /report_sig
+
+Sample Output - The following output shows detection:
 
 Qualys Log4j Vulnerability Scanner (CVE-2021-44228/CVE-2021-45046) 1.2.16
 https://www.qualys.com/
