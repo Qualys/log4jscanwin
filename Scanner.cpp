@@ -1177,7 +1177,7 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
   if (bIs64BitWindows) {
     Wow64DisableWow64FsRedirection =
         (typeWow64DisableWow64FsRedirection)GetProcAddress(
-            GetModuleHandle("Kernel32.DLL"), "Wow64DisableWow64FsRedirection");
+            GetModuleHandle(L"Kernel32.DLL"), "Wow64DisableWow64FsRedirection");
 
     if (Wow64DisableWow64FsRedirection) {
       Wow64DisableWow64FsRedirection(&pHandle);
