@@ -753,6 +753,12 @@ int32_t ScanFileArchive(std::wstring file, std::wstring alternate) {
       cveStatus += !cve202144228Mitigated ? " CVE-2021-44228: Found" : " CVE-2021-44228: NOT Found";
       cveStatus += !cve202145046Mitigated ? " CVE-2021-45046: Found" : " CVE-2021-45046: NOT Found";
       cveStatus += " )";
+
+      repVulns.push_back(CReportVunerabilities(
+          W2A(file), manifestVersion, manifestVendor, foundLog4j, foundLog4j1x, foundLog4j2x,
+          foundJNDILookupClass, foundLog4jManifest, log4jVersion, log4jVendor, cve202144228Mitigated,
+          cve202145046Mitigated, cveStatus));
+
     } else if (!foundJNDILookupClass && !foundManifestVendor && !foundManifestVersion) {
       cveStatus = "N/A";
     } else if (!foundJNDILookupClass && foundLog4j2x && foundLog4jManifest) {
@@ -763,13 +769,6 @@ int32_t ScanFileArchive(std::wstring file, std::wstring alternate) {
       cveStatus = "N/A";
     } else {
       cveStatus = "Unknown";
-    }
-
-    if ( (!cve202144228Mitigated || !cve202145046Mitigated) ) {
-      repVulns.push_back(CReportVunerabilities(
-          W2A(file), manifestVersion, manifestVendor, foundLog4j, foundLog4j1x, foundLog4j2x,
-          foundJNDILookupClass, foundLog4jManifest, log4jVersion, log4jVendor, cve202144228Mitigated,
-          cve202145046Mitigated, cveStatus));
     }
 
     if (!cmdline_options.no_logo) {
