@@ -1079,9 +1079,9 @@ int32_t PrintHelp(int32_t argc, wchar_t* argv[]) {
   int32_t rv = ERROR_SUCCESS;
 
   printf("/scan\n");
-  printf("  Scan local drives for vunerable JAR, WAR, EAR, ZIP files used by various Java applications.\n");
+  printf("  Scan local drives for vulnerable JAR, WAR, EAR, ZIP files used by various Java applications.\n");
   printf("/scan_directory \"C:\\Some\\Path\"\n");
-  printf("  Scan a specific directory for vunerable JAR, WAR, EAR, ZIP files used by various Java applications.\n");
+  printf("  Scan a specific directory for vulnerable JAR, WAR, EAR, ZIP files used by various Java applications.\n");
   printf("/scan_file \"C:\\Some\\Path\\Some.jar\"\n");
   printf("  Scan a specific file for CVE-2021-44228/CVE-2021-45046.\n");
   printf("/report\n");
