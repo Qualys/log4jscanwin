@@ -26,10 +26,10 @@ Qualys customers should use the following to run the tool on any asset they want
 ```
 
 Sample Usage - The following command helps you scan local drives for vulnerable JAR, WAR, EAR, and ZIP.
-Log4jScanner.exe /scan
+> Log4jScanner.exe /scan
 
 Sample Usage - The following command helps you scan local drives for vulnerable files and writes a signature report to C:\ProgramData\Qualys
-Log4jScanner.exe /scan /report_sig
+> Log4jScanner.exe /scan /report_sig
 
 # Output - The following output shows detection
 ```
