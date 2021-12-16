@@ -10,7 +10,7 @@ Qualys customers should use the following to run the tool on any asset they want
  Log4jScanner.exe /scan /report_sig
 
 # Usage
-
+```
 /scan
   Scan local drives for vulnerable JAR, WAR, EAR, and ZIP files used by various Java applications.
 /scan_directory "C:\Some\Path"
@@ -23,6 +23,7 @@ Qualys customers should use the following to run the tool on any asset they want
   Generate a human-readable JSON report of possible detections of CVE-2021-44228 and CVE-2021-45046.
 /report_sig
   Generate a signature report of possible detections of CVE-2021-44228 and CVE-2021-45046.
+```
 
 Sample Usage - The following command helps you scan local drives for vulnerable JAR, WAR, EAR, and ZIP.
 Log4jScanner.exe /scan
