@@ -1091,7 +1091,7 @@ int32_t PrintHelp(int32_t argc, wchar_t* argv[]) {
   wprintf(L"/report_pretty\n");
   wprintf(L"  Generate a human readable JSON report of possible detections of CVE-2021-44228/CVE-2021-45046.\n");
   wprintf(L"/report_sig\n");
-  wprintf(L"  Generate a signature report of possible detections of CVE-2021-44228/CVE-2021-45046.\n");
+  wprintf(L"  Generate a signature report (QID 376160) of possible detections of CVE-2021-44228/CVE-2021-45046.\n");
   wprintf(L"\n");
 
   return rv;
