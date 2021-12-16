@@ -1125,7 +1125,7 @@ int32_t ProcessCommandLineOptions(int32_t argc, wchar_t* argv[]) {
       cmdline_options.no_logo = true;
     } else if (ARG(v) || ARG(verbose)) {
       cmdline_options.verbose = true;
-    } else if (ARG(h) || ARG(help)) {
+    } else if (ARG(?) || ARG(h) || ARG(help)) {
       cmdline_options.help = true;
     }
   }
