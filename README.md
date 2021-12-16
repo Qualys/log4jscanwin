@@ -31,7 +31,7 @@ Sample Usage - The following command helps you scan local drives for vulnerable 
 Log4jScanner.exe /scan /report_sig
 
 # Output - The following output shows detection
-
+```
 Qualys Log4j Vulnerability Scanner (CVE-2021-44228/CVE-2021-45046) 1.2.16
 https://www.qualys.com/
 
@@ -54,3 +54,4 @@ Scan Summary:
         EAR(s) Scanned:          0
         ZIP(s) Scanned:          3
         Vulnerabilities Found:   3
+```
