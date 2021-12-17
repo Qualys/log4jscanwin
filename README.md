@@ -7,7 +7,10 @@ The utility will scan the entire hard drive(s) including archives (and nested JA
 Qualys has added a new QID (376160) that is designed to look for the results of this scan and mark the asset as vulnerable if the vulnerable log4j library was found.
 
 Qualys customers should use the following to run the tool on any asset they want to scan:
- Log4jScanner.exe /scan /report_sig
+> Log4jScanner.exe /scan /report_sig
+
+# Direct Download Link
+https://github.com/Qualys/log4jscanwin/releases/download/1.2.16/Log4jScanner-1.2.16.zip
 
 # Usage
 ```
