@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <time.h>
 #include <stdio.h>
+#include <direct.h>
 #include <fcntl.h>
 #include <io.h>
 
@@ -269,9 +270,10 @@ std::wstring GetReportDirectory() {
   std::wstring report_dir;
   if (ExpandEnvironmentVariables(qualys_program_data_locaton,
                                  destination_dir)) {
-    if (DirectoryExists(destination_dir.c_str())) {
-      report_dir = destination_dir;
+    if (!DirectoryExists(destination_dir.c_str())) {
+      _wmkdir(destination_dir.c_str());
     }
+    report_dir = destination_dir;
   }
   if (report_dir.empty()) {
     report_dir = GetScanUtilityDirectory();
