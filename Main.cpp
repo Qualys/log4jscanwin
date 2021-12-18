@@ -8,6 +8,8 @@
 #include "Scanner.h"
 #include "Main.h"
 
+#include "Version.info"
+
 
 #define ARGX3(s1, s2, s3) \
   (!_wcsicmp(argv[i], s1) || !_wcsicmp(argv[i], s2) || !_wcsicmp(argv[i], s3))
@@ -126,7 +128,7 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
   }
 
   if (!cmdline_options.no_logo) {
-    wprintf(L"Qualys Log4j Vulnerability Scanner (CVE-2021-44228/CVE-2021-45046) 1.2.17\n");
+    wprintf(L"Qualys Log4j Vulnerability Scanner (CVE-2021-44228/CVE-2021-45046) %S\n", VERSION_STRING);
     wprintf(L"https://www.qualys.com/\n\n");
   }
 

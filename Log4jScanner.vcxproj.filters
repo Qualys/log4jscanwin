@@ -62,4 +62,9 @@
       <Filter>Resource Files</Filter>
     </ResourceCompile>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="Version.info">
+      <Filter>Resource Files</Filter>
+    </None>
+  </ItemGroup>
 </Project>
