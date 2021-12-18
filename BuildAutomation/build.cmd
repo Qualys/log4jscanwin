@@ -72,13 +72,8 @@ ECHO Building - %BUILD_TARGET%
 MSBuild ..\Log4jScanner.sln /m /nodeReuse:false /t:Clean,Rebuild /p:Configuration=Release,Platform=x86 >%LOG_FILE%
 SET BUILD_STATUS=%ERRORLEVEL%
 
-ECHO Validating Symbol Files
-symchk /q /s "%BUILD_OUTPUT%" /if *.pdb
-SET SYMCHK_STATUS=%ERRORLEVEL%
-
-ECHO Updating Symbol Store
-symstore.exe add /l /f "%BUILD_OUTPUT%\*.pdb" /s "%BUILDSYMSTORE%" /compress /t "Log4jScanner for Windows (Release Production x86)" /v "%VERSION%" /o /c "Daily Build"
-SET SYMSTORE_STATUS=%ERRORLEVEL%
+REM Sign executable binaries 
+C:\qbin\sign.bat "%PACKAGE_OUTPUT%\Log4jScanner.exe"
 
 rem Postbuild
 xcopy /vy %BUILD_OUTPUT%\*.pdb %BUILD_OUTPUT%\symbols\ >>%LOG_FILE%
@@ -86,7 +81,7 @@ del /q %BUILD_OUTPUT%\*.pdb >>%LOG_FILE%
 bin\7z.exe a %PACKAGE_FILE% %BUILD_OUTPUT%\* >>%LOG_FILE%
 SET ARCHIVE_STATUS=%ERRORLEVEL%
 
-SET /a STATUS=%BUILD_STATUS%+%SYMCHK_STATUS%+%SYMSTORE_STATUS%+%ARCHIVE_STATUS%
+SET /a STATUS=%BUILD_STATUS%+%ARCHIVE_STATUS%
 IF %STATUS%==0 (
     ECHO Building completed successfully for %BUILD_TARGET%. See log for details: %LOG_FILE%
 ) ELSE (
@@ -109,13 +104,8 @@ ECHO Building - %BUILD_TARGET%
 MSBuild ..\Log4jScanner.sln /m /nodeReuse:false /t:Clean,Rebuild /p:Configuration=Release,Platform=x64 >%LOG_FILE%
 SET BUILD_STATUS=%ERRORLEVEL%
 
-ECHO Validating Symbol Files
-symchk /q /s "%BUILD_OUTPUT%" /if *.pdb
-SET SYMCHK_STATUS=%ERRORLEVEL%
-
-ECHO Updating Symbol Store
-symstore.exe add /l /f "%BUILD_OUTPUT%\*.pdb" /s "%BUILDSYMSTORE%" /compress /t "Log4jScanner for Windows (Release Production x64)" /v "%VERSION%" /o /c "Daily Build"
-SET SYMSTORE_STATUS=%ERRORLEVEL%
+REM Sign executable binaries 
+C:\qbin\sign.bat "%PACKAGE_OUTPUT%\Log4jScanner.exe"
 
 rem Postbuild
 xcopy /vy %BUILD_OUTPUT%\*.pdb %BUILD_OUTPUT%\symbols\ >>%LOG_FILE%
@@ -123,7 +113,7 @@ del /q %BUILD_OUTPUT%\*.pdb >>%LOG_FILE%
 bin\7z.exe a %PACKAGE_FILE% %BUILD_OUTPUT%\* >>%LOG_FILE%
 SET ARCHIVE_STATUS=%ERRORLEVEL%
 
-SET /a STATUS=%BUILD_STATUS%+%SYMCHK_STATUS%+%SYMSTORE_STATUS%+%ARCHIVE_STATUS%
+SET /a STATUS=%BUILD_STATUS%+%ARCHIVE_STATUS%
 IF %STATUS%==0 (
     ECHO Building completed successfully for %BUILD_TARGET%. See log for details: %LOG_FILE%
 ) ELSE (
