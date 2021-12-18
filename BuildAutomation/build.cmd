@@ -73,7 +73,7 @@ MSBuild ..\Log4jScanner.sln /m /nodeReuse:false /t:Clean,Rebuild /p:Configuratio
 SET BUILD_STATUS=%ERRORLEVEL%
 
 REM Sign executable binaries 
-C:\qbin\sign.bat "%PACKAGE_OUTPUT%\Log4jScanner.exe"
+C:\qbin\tools\sign.bat "%PACKAGE_OUTPUT%\Log4jScanner.exe"
 
 rem Postbuild
 xcopy /vy %BUILD_OUTPUT%\*.pdb %BUILD_OUTPUT%\symbols\ >>%LOG_FILE%
@@ -105,7 +105,7 @@ MSBuild ..\Log4jScanner.sln /m /nodeReuse:false /t:Clean,Rebuild /p:Configuratio
 SET BUILD_STATUS=%ERRORLEVEL%
 
 REM Sign executable binaries 
-C:\qbin\sign.bat "%PACKAGE_OUTPUT%\Log4jScanner.exe"
+C:\qbin\tools\sign.bat "%PACKAGE_OUTPUT%\Log4jScanner.exe"
 
 rem Postbuild
 xcopy /vy %BUILD_OUTPUT%\*.pdb %BUILD_OUTPUT%\symbols\ >>%LOG_FILE%
