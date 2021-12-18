@@ -298,13 +298,11 @@ int LogStatusMessage(const wchar_t* fmt, ...) {
   va_start(ap, fmt);
   retval = vfwprintf(stdout, fmt, ap);
   va_end(ap);
-  fwprintf(stdout, L"\n");
 
   if (status_file) {
     va_start(ap, fmt);
     retval = vfwprintf(status_file, fmt, ap);
     va_end(ap);
-    fwprintf(status_file, L"\n");
     fflush(status_file);
   }
 
@@ -873,7 +871,7 @@ int32_t ScanDirectory(std::wstring directory) {
           if (cmdline_options.verbose) {
             wprintf(L"Failed to process file '%s' (rv: %d)\n", file.c_str(), rv);
           }
-          swprintf_s(err, L"Failed to process file '%s' (rv: %d)\n", file.c_str(), rv);
+          swprintf_s(err, L"Failed to process file '%s' (rv: %d)", file.c_str(), rv);
           error_array.push_back(err);
         }
       }
