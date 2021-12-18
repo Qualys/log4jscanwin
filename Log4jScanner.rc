@@ -1,6 +1,7 @@
 // Microsoft Visual C++ generated resource script.
 //
 #include "resource.h"
+#include "version.info"
 
 #define APSTUDIO_READONLY_SYMBOLS
 /////////////////////////////////////////////////////////////////////////////
@@ -51,8 +52,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 1,2,17,0
- PRODUCTVERSION 1,2,17,0
+ FILEVERSION VERSION_BINARY
+ PRODUCTVERSION VERSION_BINARY
  FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -69,12 +70,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "Qualys, Inc."
             VALUE "FileDescription", "Qualys Log4j Vulnerability Scanner"
-            VALUE "FileVersion", "1.2.17.0"
+            VALUE "FileVersion", VERSION_STRING
             VALUE "InternalName", "Log4jScanner.exe"
             VALUE "LegalCopyright", "Copyright (C) 2021"
             VALUE "OriginalFilename", "Log4jScanner.exe"
             VALUE "ProductName", "Log4jScanner"
-            VALUE "ProductVersion", "1.2.17.0"
+            VALUE "ProductVersion", VERSION_STRING
         END
     END
     BLOCK "VarFileInfo"
