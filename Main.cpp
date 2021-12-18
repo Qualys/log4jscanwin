@@ -3,7 +3,19 @@
 //
 
 #include "stdafx.h"
+#include "Utils.h"
+#include "Reports.h"
+#include "Scanner.h"
 #include "Main.h"
+
+
+#define ARGX3(s1, s2, s3) \
+  (!_wcsicmp(argv[i], s1) || !_wcsicmp(argv[i], s2) || !_wcsicmp(argv[i], s3))
+#define ARG(S) ARGX3(L"-" #S, L"--" #S, L"/" #S)
+#define ARGPARAMCOUNT(X) ((i + X) <= (argc - 1))
+
+
+CCommandLineOptions cmdline_options;
 
 
 int32_t PrintHelp(int32_t argc, wchar_t* argv[]) {
@@ -129,7 +141,7 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
   }
 
   if (cmdline_options.reportSig) {
-    _wfopen_s(&status_file, GetSignatureStatusFilename().c_str(), L"w+");
+    OpenSignatureStatusFile();
   }
 
   repSummary.scanStart = time(0);
@@ -229,9 +241,8 @@ END:
       }
     }
   }
-  if (status_file) {
-    fclose(status_file);
-  }
+
+  CloseSignatureStatusFile();
 
   return rv;
 }
