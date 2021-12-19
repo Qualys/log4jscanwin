@@ -291,10 +291,12 @@ int32_t ScanFileArchive(std::wstring file, std::wstring alternate) {
       cveStatus = "Unknown";
     }
 
-    repVulns.push_back(CReportVunerabilities(
-        file, A2W(manifestVersion), A2W(manifestVendor), foundLog4j, foundLog4j1x, foundLog4j2x,
-        foundJNDILookupClass, foundLog4jManifest, A2W(log4jVersion), A2W(log4jVendor), cve202144228Mitigated,
-        cve202145046Mitigated, cve202145105Mitigated, A2W(cveStatus)));
+    if (foundLog4j2xCorePOM) {
+      repVulns.push_back(CReportVunerabilities(
+          file, A2W(manifestVersion), A2W(manifestVendor), foundLog4j, foundLog4j1x, foundLog4j2x,
+          foundJNDILookupClass, foundLog4jManifest, A2W(log4jVersion), A2W(log4jVendor), cve202144228Mitigated,
+          cve202145046Mitigated, cve202145105Mitigated, A2W(cveStatus)));
+    }
 
     if (!cmdline_options.no_logo) {
       wprintf(L"Log4j Found: '%s' ( Manifest Vendor: %S, Manifest Version: %S, JNDI Class: %s, Log4j Vendor: %S, Log4j Version: %S, CVE Status: %S )\n",
