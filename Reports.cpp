@@ -85,6 +85,7 @@ int32_t GenerateReportDetail(DocumentW& doc) {
     ValueW vLog4jVersion(rapidjson::kStringType);
     ValueW vCVE202144228Mitigated(rapidjson::kTrueType);
     ValueW vCVE202145046Mitigated(rapidjson::kTrueType);
+    ValueW vCVE202145105Mitigated(rapidjson::kTrueType);
     ValueW vCVEStatus(rapidjson::kStringType);
     ValueW oDetail(rapidjson::kObjectType);
 
@@ -99,7 +100,8 @@ int32_t GenerateReportDetail(DocumentW& doc) {
     vLog4jVendor.SetString(vuln.log4jVendor.c_str(), doc.GetAllocator());
     vLog4jVersion.SetString(vuln.log4jVersion.c_str(), doc.GetAllocator());
     vCVE202144228Mitigated.SetBool(vuln.cve202144228Mitigated);
-    vCVE202144228Mitigated.SetBool(vuln.cve202145046Mitigated);
+    vCVE202145046Mitigated.SetBool(vuln.cve202145046Mitigated);
+    vCVE202145105Mitigated.SetBool(vuln.cve202145105Mitigated);
     vCVEStatus.SetString(vuln.cveStatus.c_str(), doc.GetAllocator());
 
     oDetail.AddMember(L"file", vFile, doc.GetAllocator());
@@ -113,7 +115,8 @@ int32_t GenerateReportDetail(DocumentW& doc) {
     oDetail.AddMember(L"log4jVendor", vLog4jVendor, doc.GetAllocator());
     oDetail.AddMember(L"log4jVersion", vLog4jVersion, doc.GetAllocator());
     oDetail.AddMember(L"cve202144228Mitigated", vCVE202144228Mitigated, doc.GetAllocator());
-    oDetail.AddMember(L"cve202144228Mitigated", vCVE202144228Mitigated, doc.GetAllocator());
+    oDetail.AddMember(L"cve202145046Mitigated", vCVE202145046Mitigated, doc.GetAllocator());
+    oDetail.AddMember(L"cve202145105Mitigated", vCVE202145105Mitigated, doc.GetAllocator());
     oDetail.AddMember(L"cveStatus", vCVEStatus, doc.GetAllocator());
 
     oDetails.PushBack(oDetail, doc.GetAllocator());
