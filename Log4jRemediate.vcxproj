@@ -21,10 +21,10 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{c8fe89ce-1114-46a1-bf01-6aa2394a7233}</ProjectGuid>
+    <ProjectGuid>{c8fe89ce-1114-46a1-bf01-6aa2394a7232}</ProjectGuid>
     <RootNamespace>CVE202144228Scan</RootNamespace>
     <WindowsTargetPlatformVersion>7.0</WindowsTargetPlatformVersion>
-    <ProjectName>Log4jScanner</ProjectName>
+    <ProjectName>Log4jRemediate</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -174,14 +174,16 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="MainScan.cpp" />
+    <ClCompile Include="MainRemediate.cpp" />
+    <ClCompile Include="Remediate.cpp" />
     <ClCompile Include="Reports.cpp" />
     <ClCompile Include="Scanner.cpp" />
     <ClCompile Include="stdafx.cpp" />
     <ClCompile Include="Utils.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="MainScan.h" />
+    <ClInclude Include="MainRemediate.h" />
+    <ClInclude Include="Remediate.h" />
     <ClInclude Include="Reports.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="Scanner.h" />
@@ -189,7 +191,7 @@
     <ClInclude Include="Utils.h" />
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="Log4jScanner.rc" />
+    <ResourceCompile Include="Log4jRemediate.rc" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Version.info" />

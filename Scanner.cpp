@@ -2,7 +2,7 @@
 #include "stdafx.h"
 #include "Utils.h"
 #include "Reports.h"
-#include "Main.h"
+//#include "Main.h"
 #include "Scanner.h"
 
 #include "minizip/unzip.h"
@@ -78,7 +78,7 @@ bool IsCVE202145105Mitigated(std::string log4jVendor, std::string version) {
   return false;
 }
 
-int32_t ScanFileArchive(std::wstring file, std::wstring alternate) {
+int32_t ScanFileArchive(bool console, bool verbose, std::wstring file, std::wstring alternate) {
   int32_t     rv = ERROR_SUCCESS;
   unsigned long bytesWritten = 0;
   unzFile     zf = NULL;
@@ -209,7 +209,7 @@ int32_t ScanFileArchive(std::wstring file, std::wstring alternate) {
               std::wstring masked_filename = file + L"!" + A2W(filename);
               std::wstring alternate_filename = tmpFilename;
 
-              ScanFileArchive(masked_filename, alternate_filename);
+              ScanFileArchive(console, verbose, masked_filename, alternate_filename);
 
               DeleteFile(alternate_filename.c_str());
             }
@@ -343,7 +343,7 @@ int32_t ScanFileArchive(std::wstring file, std::wstring alternate) {
         foundJNDILookupClass, foundLog4jManifest, A2W(log4jVersion), A2W(log4jVendor), cve20214104Mitigated, 
         cve202144228Mitigated, cve202145046Mitigated, cve202145105Mitigated, A2W(cveStatus)));
 
-    if (!cmdline_options.no_logo) {
+    if (console) {
       wprintf(L"Log4j Found: '%s' ( Manifest Vendor: %S, Manifest Version: %S, JNDI Class: %s, Log4j Vendor: %S, Log4j Version: %S, CVE Status: %S )\n",
               file.c_str(), manifestVendor.c_str(), manifestVersion.c_str(), foundJNDILookupClass ? L"Found" : L"NOT Found", log4jVendor.c_str(),
               log4jVersion.c_str(), cveStatus.c_str());
@@ -353,7 +353,7 @@ int32_t ScanFileArchive(std::wstring file, std::wstring alternate) {
   return rv;
 }
 
-int32_t ScanFile(std::wstring file) {
+int32_t ScanFile(bool console, bool verbose, std::wstring file) {
   int32_t rv = ERROR_SUCCESS;
   wchar_t drive[_MAX_DRIVE];
   wchar_t dir[_MAX_DIR];
@@ -363,19 +363,19 @@ int32_t ScanFile(std::wstring file) {
   if (0 == _wsplitpath_s(file.c_str(), drive, dir, fname, ext)) {
     if (0 == _wcsicmp(ext, L".jar")) {
       repSummary.scannedJARs++;
-      rv = ScanFileArchive(file, L"");
+      rv = ScanFileArchive(console, verbose, file, L"");
     }
     if (0 == _wcsicmp(ext, L".war")) {
       repSummary.scannedWARs++;
-      rv = ScanFileArchive(file, L"");
+      rv = ScanFileArchive(console, verbose, file, L"");
     }
     if (0 == _wcsicmp(ext, L".ear")) {
       repSummary.scannedEARs++;
-      rv = ScanFileArchive(file, L"");
+      rv = ScanFileArchive(console, verbose, file, L"");
     }
     if (0 == _wcsicmp(ext, L".zip")) {
       repSummary.scannedZIPs++;
-      rv = ScanFileArchive(file, L"");
+      rv = ScanFileArchive(console, verbose, file, L"");
     }
   } else {
     rv = errno;
@@ -384,7 +384,7 @@ int32_t ScanFile(std::wstring file) {
   return rv;
 }
 
-int32_t ScanDirectory(std::wstring directory) {
+int32_t ScanDirectory(bool console, bool verbose, std::wstring directory) {
   int32_t rv = ERROR_SUCCESS;
   std::wstring search = directory + std::wstring(L"*.*");
   WIN32_FIND_DATA FindFileData;
@@ -411,9 +411,9 @@ int32_t ScanDirectory(std::wstring directory) {
 
         std::wstring dir =
             directory + std::wstring(FindFileData.cFileName) + std::wstring(L"\\");
-        rv = ScanDirectory(dir);
+        rv = ScanDirectory(console, verbose, dir);
         if (ERROR_SUCCESS != rv) {
-          if (cmdline_options.verbose) {
+          if (verbose) {
             wprintf(L"Failed to process directory '%s' (rv: %d)\n", dir.c_str(), rv);
           }
           swprintf_s(err, L"Failed to process directory '%s' (rv: %d)", dir.c_str(), rv);
@@ -428,9 +428,9 @@ int32_t ScanDirectory(std::wstring directory) {
         repSummary.scannedFiles++;
 
         std::wstring file = directory + std::wstring(FindFileData.cFileName);
-        rv = ScanFile(file);
+        rv = ScanFile(console, verbose, file);
         if (ERROR_SUCCESS != rv) {
-          if (cmdline_options.verbose) {
+          if (verbose) {
             wprintf(L"Failed to process file '%s' (rv: %d)\n", file.c_str(), rv);
           }
           swprintf_s(err, L"Failed to process file '%s' (rv: %d)", file.c_str(), rv);
@@ -445,7 +445,7 @@ int32_t ScanDirectory(std::wstring directory) {
   return rv;
 }
 
-int32_t ScanLocalDrives() {
+int32_t ScanLocalDrives(bool console, bool verbose) {
   int32_t rv = ERROR_SUCCESS;
   DWORD rt = 0;
   wchar_t drives[256];
@@ -456,14 +456,14 @@ int32_t ScanLocalDrives() {
     wchar_t* drive = &drives[i];
     DWORD type = GetDriveType(drive);
     if ((DRIVE_FIXED == type) || (DRIVE_RAMDISK == type)) {
-      ScanDirectory(drive);
+      ScanDirectory(console, verbose, drive);
     }
   }
 
   return rv;
 }
 
-int32_t ScanNetworkDrives() {
+int32_t ScanNetworkDrives(bool console, bool verbose) {
   int32_t rv = ERROR_SUCCESS;
   DWORD rt = 0;
   wchar_t drives[256];
@@ -474,7 +474,7 @@ int32_t ScanNetworkDrives() {
     wchar_t* drive = &drives[i];
     DWORD type = GetDriveType(drive);
     if (DRIVE_REMOTE == type) {
-      ScanDirectory(drive);
+      ScanDirectory(console, verbose, drive);
     }
   }
 

@@ -74,6 +74,6 @@ extern CReportSummary repSummary;
 extern std::vector<CReportVunerabilities> repVulns;
 
 
-int32_t GenerateJSONReport();
+int32_t GenerateJSONReport(bool pretty);
 int32_t GenerateSignatureReport();
 

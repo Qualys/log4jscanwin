@@ -2,7 +2,7 @@
 #include "stdafx.h"
 #include "Utils.h"
 #include "Reports.h"
-#include "Main.h"
+//#include "Main.h"
 
 #include "rapidjson/document.h"
 #include "rapidjson/prettywriter.h"
@@ -129,7 +129,7 @@ int32_t GenerateReportDetail(DocumentW& doc) {
   return rv;
 }
 
-int32_t GenerateJSONReport() {
+int32_t GenerateJSONReport(bool pretty) {
   int32_t rv = ERROR_SUCCESS;
   DocumentW doc;
   rapidjson::StringBuffer buffer;
@@ -139,7 +139,7 @@ int32_t GenerateJSONReport() {
   GenerateReportSummary(doc);
   GenerateReportDetail(doc);
 
-  if (cmdline_options.reportPretty) {
+  if (pretty) {
     PrettyWriterW writer(buffer);
     doc.Accept(writer);
   } else {

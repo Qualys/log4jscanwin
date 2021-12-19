@@ -6,7 +6,7 @@
 #include "Utils.h"
 #include "Reports.h"
 #include "Scanner.h"
-#include "Main.h"
+#include "MainRemediate.h"
 
 #include "Version.info"
 
@@ -34,7 +34,7 @@ int32_t PrintHelp(int32_t argc, wchar_t* argv[]) {
   wprintf(L"/report_pretty\n");
   wprintf(L"  Generate a human readable JSON report of possible detections of supported CVE(s).\n");
   wprintf(L"/report_sig\n");
-  wprintf(L"  Generate a signature report (QID 376160) of possible detections of supported CVE(s).\n");
+  wprintf(L"  Generate a signature report of possible detections of supported CVE(s).\n");
   wprintf(L"\n");
 
   return rv;
@@ -45,25 +45,6 @@ int32_t ProcessCommandLineOptions(int32_t argc, wchar_t* argv[]) {
 
   for (int32_t i = 1; i < argc; i++) {
     if (0) {
-    } else if (ARG(scan)) {
-      cmdline_options.scanLocalDrives = true;
-    } else if (ARG(scan_file) && ARGPARAMCOUNT(1)) {
-      cmdline_options.scanFile = true;
-      cmdline_options.file = argv[i + 1];
-    } else if (ARG(scan_directory) && ARGPARAMCOUNT(1)) {
-      cmdline_options.scanDirectory = true;
-      cmdline_options.directory = argv[i + 1];
-    } else if (ARG(report)) {
-      cmdline_options.no_logo = true;
-      cmdline_options.report = true;
-    } else if (ARG(report_pretty)) {
-      cmdline_options.no_logo = true;
-      cmdline_options.report = true;
-      cmdline_options.reportPretty = true;
-    } else if (ARG(report_sig)) {
-      cmdline_options.no_logo = true;
-      cmdline_options.report = true;
-      cmdline_options.reportSig = true;
     } else if (ARG(nologo)) {
       cmdline_options.no_logo = true;
     } else if (ARG(v) || ARG(verbose)) {
@@ -128,19 +109,14 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
   }
 
   if (!cmdline_options.no_logo) {
-    wprintf(L"Qualys Log4j Vulnerability Scanner %S\n", VERSION_STRING);
+    wprintf(L"Qualys Log4j Remediation Utility %S\n", VERSION_STRING);
     wprintf(L"https://www.qualys.com/\n");
-    wprintf(L"Supported CVE(s): CVE-2021-4104, CVE-2021-44228, CVE-2021-45046, CVE-2021-45105\n\n");
+    wprintf(L"Supported CVE(s): CVE-2021-44228, CVE-2021-45046\n\n");
   }
 
   if (cmdline_options.help) {
     PrintHelp(argc, argv);
     goto END;
-  }
-
-  if (!cmdline_options.scanLocalDrives && !cmdline_options.scanNetworkDrives &&
-      !cmdline_options.scanDirectory && !cmdline_options.scanFile) {
-    cmdline_options.scanLocalDrives = true;
   }
 
   if (cmdline_options.reportSig) {
@@ -159,34 +135,6 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
     LogStatusMessage(L"Scan start time : %s\n", buf);
   }
 
-
-  if (cmdline_options.scanLocalDrives) {
-    if (!cmdline_options.no_logo) {
-      wprintf(L"Scanning Local Drives...\n");
-    }
-    ScanLocalDrives();
-  }
-
-  if (cmdline_options.scanNetworkDrives) {
-    if (!cmdline_options.no_logo) {
-      wprintf(L"Scanning Network Drives...\n");
-    }
-    ScanNetworkDrives();
-  }
-
-  if (cmdline_options.scanDirectory) {
-    if (!cmdline_options.no_logo) {
-      wprintf(L"Scanning '%s'...\n", cmdline_options.directory.c_str());
-    }
-    ScanDirectory(cmdline_options.directory);
-  }
-
-  if (cmdline_options.scanFile) {
-    if (!cmdline_options.no_logo) {
-      wprintf(L"Scanning '%s'...\n", cmdline_options.file.c_str());
-    }
-    ScanFile(cmdline_options.file);
-  }
 
   repSummary.scanEnd = time(0);
 
@@ -222,7 +170,7 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
 
   if (cmdline_options.report) {
     if (!cmdline_options.reportSig) {
-      GenerateJSONReport();
+      GenerateJSONReport(cmdline_options.reportPretty);
     } else {
       GenerateSignatureReport();
     }
