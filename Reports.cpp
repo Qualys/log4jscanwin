@@ -83,6 +83,7 @@ int32_t GenerateReportDetail(DocumentW& doc) {
     ValueW vDetectedLog4jManifest(rapidjson::kTrueType);
     ValueW vLog4jVendor(rapidjson::kStringType);
     ValueW vLog4jVersion(rapidjson::kStringType);
+    ValueW vCVE20214104Mitigated(rapidjson::kTrueType);
     ValueW vCVE202144228Mitigated(rapidjson::kTrueType);
     ValueW vCVE202145046Mitigated(rapidjson::kTrueType);
     ValueW vCVE202145105Mitigated(rapidjson::kTrueType);
@@ -99,6 +100,7 @@ int32_t GenerateReportDetail(DocumentW& doc) {
     vDetectedLog4jManifest.SetBool(vuln.detectedLog4jManifest);
     vLog4jVendor.SetString(vuln.log4jVendor.c_str(), doc.GetAllocator());
     vLog4jVersion.SetString(vuln.log4jVersion.c_str(), doc.GetAllocator());
+    vCVE20214104Mitigated.SetBool(vuln.cve20214104Mitigated);
     vCVE202144228Mitigated.SetBool(vuln.cve202144228Mitigated);
     vCVE202145046Mitigated.SetBool(vuln.cve202145046Mitigated);
     vCVE202145105Mitigated.SetBool(vuln.cve202145105Mitigated);
@@ -114,6 +116,7 @@ int32_t GenerateReportDetail(DocumentW& doc) {
     oDetail.AddMember(L"detectedLog4jManifest", vDetectedLog4jManifest, doc.GetAllocator());
     oDetail.AddMember(L"log4jVendor", vLog4jVendor, doc.GetAllocator());
     oDetail.AddMember(L"log4jVersion", vLog4jVersion, doc.GetAllocator());
+    oDetail.AddMember(L"cve20214104Mitigated", vCVE20214104Mitigated, doc.GetAllocator());
     oDetail.AddMember(L"cve202144228Mitigated", vCVE202144228Mitigated, doc.GetAllocator());
     oDetail.AddMember(L"cve202145046Mitigated", vCVE202145046Mitigated, doc.GetAllocator());
     oDetail.AddMember(L"cve202145105Mitigated", vCVE202145105Mitigated, doc.GetAllocator());
@@ -170,8 +173,7 @@ int32_t GenerateSignatureReport() {
                  vuln.log4jVendor.c_str(),
                  vuln.log4jVersion.c_str());
       fwprintf_s(signature_file, L"Path=%s\n", vuln.file.c_str());
-      fwprintf_s(signature_file, L"%s %s\n", vuln.log4jVendor.c_str(),
-                vuln.log4jVersion.c_str());
+      fwprintf_s(signature_file, L"%s %s\n", vuln.log4jVendor.c_str(), vuln.log4jVersion.c_str());
       fwprintf_s(signature_file, L"------------------------------------------------------------------------\n");
     }
 

@@ -32,6 +32,18 @@ bool ParseVersion(std::string version, int& major, int& minor, int& build) {
   return ( 0 != sscanf(version.c_str(), "%d.%d.%d", &major, &minor, &build) );
 }
 
+bool IsCVE20214104Mitigated(std::string log4jVendor, std::string version) {
+  int major = 0, minor = 0, build = 0;
+  if (log4jVendor.compare("log4j") != 0) return true;
+  if (ParseVersion(version, major, minor, build)) {
+    if ((major >= 2) || (major < 1)) return true;
+    if ((major == 1) && (minor <= 1)) return true;
+    if ((major == 1) && (minor == 2) && (build >= 17)) return true;
+    if ((major == 1) && (minor >= 3)) return true;
+  }
+  return false;
+}
+
 bool IsCVE202144228Mitigated(std::string log4jVendor, bool foundJNDILookupClass, std::string version) {
   int major = 0, minor = 0, build = 0;
   if (!foundJNDILookupClass) return true;
@@ -87,6 +99,7 @@ int32_t ScanFileArchive(std::wstring file, std::wstring alternate) {
   bool        foundManifestVendor = false;
   bool        foundManifestVersion = false;
   bool        foundLog4jManifest = false;
+  bool        cve20214104Mitigated = false;
   bool        cve202144228Mitigated = false;
   bool        cve202145046Mitigated = false;
   bool        cve202145105Mitigated = false;
@@ -243,7 +256,10 @@ int32_t ScanFileArchive(std::wstring file, std::wstring alternate) {
     if (foundManifest) {
       foundManifestVendor = GetDictionaryValue(manifest, "Implementation-Vendor-Id:", "Unknown", manifestVendor);
       if (!foundManifestVendor) {
-        foundManifestVendor = GetDictionaryValue(manifest, "Bundle-Vendor:", "Unknown", manifestVendor);
+        foundManifestVendor = GetDictionaryValue(manifest, "Implementation-Vendor:", "Unknown", manifestVendor);
+        if (!foundManifestVendor) {
+          foundManifestVendor = GetDictionaryValue(manifest, "Bundle-Vendor:", "Unknown", manifestVendor);
+        }
       }
       foundManifestVersion = GetDictionaryValue(manifest, "Implementation-Version:", "Unknown", manifestVersion);
       if (!foundManifestVersion) {
@@ -255,11 +271,31 @@ int32_t ScanFileArchive(std::wstring file, std::wstring alternate) {
 
       if (foundManifestVendor) {
         if (std::string::npos != manifestVendor.find("log4j", 0)) {
+          // 1.x
           foundLog4jManifest = true;
+          manifestVendor = "log4j";
+          if (log4jVendor == "Unknown") {
+            log4jVendor = "log4j";
+          }
         }
-        if (std::string::npos !=
-            manifestVendor.find("org.apache.logging.log4j", 0)) {
+        if (std::string::npos != manifestVendor.find("org.apache.logging.log4j", 0)) {
+          // 2.x
           foundLog4jManifest = true;
+          manifestVendor = "org.apache.logging.log4j";
+        }
+        if (std::string::npos != manifestVendor.find("Apache Software Foundation", 0)) {
+          // 1.x
+          foundLog4jManifest = true;
+          manifestVendor = "Apache Software Foundation";
+          if (log4jVendor == "Unknown") {
+            log4jVendor = "log4j";
+          }
+        }
+
+        if (!foundLog4j1xPOM && !foundLog4j2xPOM && !foundLog4j2xCorePOM) {
+          if (foundLog4jManifest) {
+            log4jVersion = manifestVersion;
+          }
         }
       }
     }
@@ -268,9 +304,14 @@ int32_t ScanFileArchive(std::wstring file, std::wstring alternate) {
       cve202144228Mitigated = IsCVE202144228Mitigated(log4jVendor, foundJNDILookupClass, log4jVersion);
       cve202145046Mitigated = IsCVE202145046Mitigated(log4jVendor, foundJNDILookupClass, log4jVersion);
       cve202145105Mitigated = IsCVE202145105Mitigated(log4jVendor, log4jVersion);
+    } else {
+      if (foundLog4j1x && (foundLog4j1xPOM || foundLog4jManifest)) {
+        cve20214104Mitigated = IsCVE20214104Mitigated(log4jVendor, log4jVersion);
+      }
     }
 
-    if (foundLog4j2xCorePOM && (!cve202144228Mitigated || !cve202145046Mitigated|| !cve202145105Mitigated)) {
+    if        (foundLog4j2xCorePOM && (!cve202144228Mitigated || !cve202145046Mitigated|| !cve202145105Mitigated)) {
+
       repSummary.foundVunerabilities++;
       cveStatus = "Potentially Vulnerable (";
       cveStatus += !cve202144228Mitigated ? " CVE-2021-44228: Found" : " CVE-2021-44228: NOT Found";
@@ -278,10 +319,12 @@ int32_t ScanFileArchive(std::wstring file, std::wstring alternate) {
       cveStatus += !cve202145105Mitigated ? " CVE-2021-45105: Found" : " CVE-2021-45105: NOT Found";
       cveStatus += " )";
 
-      repVulns.push_back(CReportVunerabilities(
-          file, A2W(manifestVersion), A2W(manifestVendor), foundLog4j, foundLog4j1x, foundLog4j2x,
-          foundJNDILookupClass, foundLog4jManifest, A2W(log4jVersion), A2W(log4jVendor), cve202144228Mitigated,
-          cve202145046Mitigated, cve202145105Mitigated, A2W(cveStatus)));
+    } else if ((foundLog4j1x && (foundLog4j1xPOM || foundLog4jManifest)) && (!cve20214104Mitigated)) {
+
+      repSummary.foundVunerabilities++;
+      cveStatus = "Potentially Vulnerable (";
+      cveStatus += !cve20214104Mitigated ? " CVE-2021-4104: Found" : " CVE-2021-4104: NOT Found";
+      cveStatus += " )";
 
     } else if (!foundJNDILookupClass && !foundManifestVendor && !foundManifestVersion) {
       cveStatus = "N/A";
@@ -294,6 +337,11 @@ int32_t ScanFileArchive(std::wstring file, std::wstring alternate) {
     } else {
       cveStatus = "Unknown";
     }
+
+    repVulns.push_back(CReportVunerabilities(
+        file, A2W(manifestVersion), A2W(manifestVendor), foundLog4j, foundLog4j1x, foundLog4j2x,
+        foundJNDILookupClass, foundLog4jManifest, A2W(log4jVersion), A2W(log4jVendor), cve20214104Mitigated, 
+        cve202144228Mitigated, cve202145046Mitigated, cve202145105Mitigated, A2W(cveStatus)));
 
     if (!cmdline_options.no_logo) {
       wprintf(L"Log4j Found: '%s' ( Manifest Vendor: %S, Manifest Version: %S, JNDI Class: %s, Log4j Vendor: %S, Log4j Version: %S, CVE Status: %S )\n",

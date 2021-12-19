@@ -28,13 +28,13 @@ int32_t PrintHelp(int32_t argc, wchar_t* argv[]) {
   wprintf(L"/scan_directory \"C:\\Some\\Path\"\n");
   wprintf(L"  Scan a specific directory for vulnerable JAR, WAR, EAR, ZIP files used by various Java applications.\n");
   wprintf(L"/scan_file \"C:\\Some\\Path\\Some.jar\"\n");
-  wprintf(L"  Scan a specific file for CVE-2021-44228/CVE-2021-45046/CVE-2021-45105.\n");
+  wprintf(L"  Scan a specific file for supported CVE(s).\n");
   wprintf(L"/report\n");
-  wprintf(L"  Generate a JSON report of possible detections of CVE-2021-44228/CVE-2021-45046/CVE-2021-45105.\n");
+  wprintf(L"  Generate a JSON report of possible detections of supported CVE(s).\n");
   wprintf(L"/report_pretty\n");
-  wprintf(L"  Generate a human readable JSON report of possible detections of CVE-2021-44228/CVE-2021-45046/CVE-2021-45105.\n");
+  wprintf(L"  Generate a human readable JSON report of possible detections of supported CVE(s).\n");
   wprintf(L"/report_sig\n");
-  wprintf(L"  Generate a signature report (QID 376160) of possible detections of CVE-2021-44228/CVE-2021-45046/CVE-2021-45105.\n");
+  wprintf(L"  Generate a signature report (QID 376160) of possible detections of supported CVE(s).\n");
   wprintf(L"\n");
 
   return rv;
@@ -129,8 +129,8 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
 
   if (!cmdline_options.no_logo) {
     wprintf(L"Qualys Log4j Vulnerability Scanner %S\n", VERSION_STRING);
-    wprintf(L"https://www.qualys.com/\n\n");
-    wprintf(L"Supported CVE(s): CVE-2021-44228, CVE-2021-45046, CVE-2021-45105");
+    wprintf(L"https://www.qualys.com/\n");
+    wprintf(L"Supported CVE(s): CVE-2021-4104, CVE-2021-44228, CVE-2021-45046, CVE-2021-45105\n\n");
   }
 
   if (cmdline_options.help) {
