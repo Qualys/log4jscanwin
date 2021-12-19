@@ -271,17 +271,13 @@ int32_t ScanFileArchive(std::wstring file, std::wstring alternate) {
     }
 
     if (foundLog4j2xCorePOM && (!cve202144228Mitigated || !cve202145046Mitigated|| !cve202145105Mitigated)) {
+
       repSummary.foundVunerabilities++;
       cveStatus = "Potentially Vulnerable (";
       cveStatus += !cve202144228Mitigated ? " CVE-2021-44228: Found" : " CVE-2021-44228: NOT Found";
       cveStatus += !cve202145046Mitigated ? " CVE-2021-45046: Found" : " CVE-2021-45046: NOT Found";
       cveStatus += !cve202145105Mitigated ? " CVE-2021-45105: Found" : " CVE-2021-45105: NOT Found";
       cveStatus += " )";
-
-      repVulns.push_back(CReportVunerabilities(
-          file, A2W(manifestVersion), A2W(manifestVendor), foundLog4j, foundLog4j1x, foundLog4j2x,
-          foundJNDILookupClass, foundLog4jManifest, A2W(log4jVersion), A2W(log4jVendor), cve202144228Mitigated,
-          cve202145046Mitigated, cve202145105Mitigated, A2W(cveStatus)));
 
     } else if (!foundJNDILookupClass && !foundManifestVendor && !foundManifestVersion) {
       cveStatus = "N/A";
@@ -294,6 +290,11 @@ int32_t ScanFileArchive(std::wstring file, std::wstring alternate) {
     } else {
       cveStatus = "Unknown";
     }
+
+    repVulns.push_back(CReportVunerabilities(
+        file, A2W(manifestVersion), A2W(manifestVendor), foundLog4j, foundLog4j1x, foundLog4j2x,
+        foundJNDILookupClass, foundLog4jManifest, A2W(log4jVersion), A2W(log4jVendor), cve202144228Mitigated,
+        cve202145046Mitigated, cve202145105Mitigated, A2W(cveStatus)));
 
     if (!cmdline_options.no_logo) {
       wprintf(L"Log4j Found: '%s' ( Manifest Vendor: %S, Manifest Version: %S, JNDI Class: %s, Log4j Vendor: %S, Log4j Version: %S, CVE Status: %S )\n",
