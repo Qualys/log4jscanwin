@@ -10,7 +10,7 @@ Qualys customers should use the following to run the tool on any asset they want
 > Log4jScanner.exe /scan /report_sig
 
 # Direct Download Link
-https://github.com/Qualys/log4jscanwin/releases/download/1.2.17/Log4jScanner-1.2.17.zip
+https://github.com/Qualys/log4jscanwin/releases/download/1.2.18/Log4jScanner-1.2.18.zip
 
 # Usage
 ```
