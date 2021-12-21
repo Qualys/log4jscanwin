@@ -319,22 +319,12 @@ int32_t ScanFileArchive(bool console, bool verbose, std::wstring file, std::wstr
       cveStatus += !cve202145105Mitigated ? " CVE-2021-45105: Found" : " CVE-2021-45105: NOT Found";
       cveStatus += " )";
 
-      repVulns.push_back(CReportVunerabilities(
-          file, A2W(manifestVersion), A2W(manifestVendor), foundLog4j, foundLog4j1x, foundLog4j2x,
-          foundJNDILookupClass, foundLog4jManifest, A2W(log4jVersion), A2W(log4jVendor), cve20214104Mitigated, 
-          cve202144228Mitigated, cve202145046Mitigated, cve202145105Mitigated, A2W(cveStatus)));
-
     } else if ((foundLog4j1x && (foundLog4j1xPOM || foundLog4jManifest)) && (!cve20214104Mitigated)) {
 
       repSummary.foundVunerabilities++;
       cveStatus = "Potentially Vulnerable (";
       cveStatus += !cve20214104Mitigated ? " CVE-2021-4104: Found" : " CVE-2021-4104: NOT Found";
       cveStatus += " )";
-
-      repVulns.push_back(CReportVunerabilities(
-          file, A2W(manifestVersion), A2W(manifestVendor), foundLog4j, foundLog4j1x, foundLog4j2x,
-          foundJNDILookupClass, foundLog4jManifest, A2W(log4jVersion), A2W(log4jVendor), cve20214104Mitigated, 
-          cve202144228Mitigated, cve202145046Mitigated, cve202145105Mitigated, A2W(cveStatus)));
 
     } else if (!foundJNDILookupClass && !foundManifestVendor && !foundManifestVersion) {
       cveStatus = "N/A";
@@ -347,6 +337,11 @@ int32_t ScanFileArchive(bool console, bool verbose, std::wstring file, std::wstr
     } else {
       cveStatus = "Unknown";
     }
+
+    repVulns.push_back(CReportVunerabilities(
+        file, A2W(manifestVersion), A2W(manifestVendor), foundLog4j, foundLog4j1x, foundLog4j2x,
+        foundJNDILookupClass, foundLog4jManifest, A2W(log4jVersion), A2W(log4jVendor), cve20214104Mitigated, 
+        cve202144228Mitigated, cve202145046Mitigated, cve202145105Mitigated, A2W(cveStatus)));
 
     if (console) {
       wprintf(L"Log4j Found: '%s' ( Manifest Vendor: %S, Manifest Version: %S, JNDI Class: %s, Log4j Vendor: %S, Log4j Version: %S, CVE Status: %S )\n",
