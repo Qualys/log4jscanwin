@@ -311,7 +311,7 @@ int32_t ScanFileArchive(bool console, bool verbose, std::wstring file, std::wstr
       }
     }
 
-    if        (foundLog4j2xCorePOM && (!cve202144228Mitigated || !cve202145046Mitigated|| !cve202145105Mitigated)) {
+    if (foundLog4j2xCorePOM && (!cve202144228Mitigated || !cve202145046Mitigated|| !cve202145105Mitigated)) {
 
       repSummary.foundVunerabilities++;
       cveStatus = "Potentially Vulnerable (";

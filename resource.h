@@ -1,6 +1,6 @@
 //{{NO_DEPENDENCIES}}
 // Microsoft Visual C++ generated include file.
-// Used by CVE-2021-44228-Scan.rc
+// Used by CVE-2021-4104, CVE-2021-44228, CVE-2021-45046, CVE-2021-45105 Scan.rc
 
 // Next default values for new objects
 // 
