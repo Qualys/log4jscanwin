@@ -12,7 +12,7 @@
 const std::wregex line1_regex(L"Source: Manifest Vendor: ([^,]*), Manifest Version: ([^,]*), JNDI Class: ([^,]*), Log4j Vendor: ([^,]*), Log4j Version: ([^,]*)");
 const std::wregex line2_regex(L"Path=(.*)");
 
-bool ReadSignatureReport(const std::wstring& report, std::vector<CReportVunerabilities>& result) {
+bool ReadSignatureReport(const std::wstring& report, std::vector<CReportVulnerabilities>& result) {
   bool success{};
   DWORD file_size{};
   PBYTE buffer{};
@@ -442,7 +442,6 @@ bool RemediateFromSignatureReport() {
   bool success{};  
   wchar_t error[1024]{};
   std::wstring signature_file;
-  std::vector<CReportVunerabilities> vulnerabilities;
 
   if (!ExpandEnvironmentVariables(qualys_program_data_location, signature_file)) {
     swprintf_s(error, L"Failed to expand path %s", qualys_program_data_location);
@@ -458,8 +457,18 @@ bool RemediateFromSignatureReport() {
     goto END;
   }  
 
-  // Add fix logic here
+  for (auto& vuln : repVulns) {
+    
+    // Add fix logic here
 
+    // Remediation success
+    if (true) {
+      vuln.cve202144228Mitigated = true;
+      vuln.cve202145046Mitigated = true;
+
+      // Delete from signature file
+    }
+  }
   success = true;
 
 END:
@@ -467,11 +476,11 @@ END:
   return success;
 }
 
-bool DeleteVulnerabilityFromReport(const CReportVunerabilities& vulnerability) {
+bool DeleteVulnerabilityFromReport(const CReportVulnerabilities& vulnerability) {
   bool success{};
   wchar_t error[1024]{};
   std::wstring signature_file;
-  std::vector<CReportVunerabilities> report;
+  std::vector<CReportVulnerabilities> report;
 
   if (!ExpandEnvironmentVariables(qualys_program_data_location, signature_file)) {
     swprintf_s(error, L"Failed to expand path %s", qualys_program_data_location);
@@ -486,6 +495,8 @@ bool DeleteVulnerabilityFromReport(const CReportVunerabilities& vulnerability) {
     error_array.push_back(error);
     goto END;
   }
+
+  // Delete vulnerability if found in report
 
   success = true;
 END:

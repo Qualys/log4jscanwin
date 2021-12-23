@@ -339,7 +339,7 @@ int32_t ScanFileArchive(bool console, bool verbose, std::wstring file, std::wstr
       cveStatus = "Unknown";
     }
 
-    repVulns.push_back(CReportVunerabilities(
+    repVulns.push_back(CReportVulnerabilities(
         file, A2W(manifestVersion), A2W(manifestVendor), foundLog4j, foundLog4j1x, foundLog4j2x,
         foundJNDILookupClass, foundLog4jManifest, A2W(log4jVersion), A2W(log4jVendor), cve20214104Mitigated, 
         cve202144228Mitigated, cve202145046Mitigated, cve202145105Mitigated, A2W(cveStatus)));

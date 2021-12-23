@@ -17,8 +17,8 @@ using PrettyWriterW = rapidjson::PrettyWriter<rapidjson::StringBuffer, rapidjson
 
 
 CReportSummary repSummary;
-std::vector<CReportVunerabilities> repVulns;
-
+CRemediationSummary remSummary;
+std::vector<CReportVulnerabilities> repVulns;
 
 int32_t GenerateReportSummary(DocumentW& doc) {
   int32_t rv = ERROR_SUCCESS;
@@ -71,7 +71,7 @@ int32_t GenerateReportDetail(DocumentW& doc) {
   ValueW oDetails(rapidjson::kArrayType);
 
   for (size_t i = 0; i < repVulns.size(); i++) {
-    CReportVunerabilities vuln = repVulns[i];
+    CReportVulnerabilities vuln = repVulns[i];
 
     ValueW vFile(rapidjson::kStringType);
     ValueW vManifestVendor(rapidjson::kStringType);
@@ -163,7 +163,7 @@ int32_t GenerateSignatureReport() {
 
   if (signature_file) {
     for (size_t i = 0; i < repVulns.size(); i++) {
-      CReportVunerabilities vuln = repVulns[i];
+      CReportVulnerabilities vuln = repVulns[i];
 
       fwprintf_s(signature_file,
                  L"Source: Manifest Vendor: %s, Manifest Version: %s, JNDI Class: %s, Log4j Vendor: %s, Log4j Version: %s\n",
@@ -185,6 +185,28 @@ int32_t GenerateSignatureReport() {
 
 int32_t GenerateRemediationReport() {
   int32_t rv = ERROR_SUCCESS;
+
+  FILE* remediation_file = nullptr;
+  _wfopen_s(&remediation_file, GetRemediationReportFilename().c_str(), L"w+, ccs=UTF-8");
+
+  if (remediation_file) {
+    for (size_t i = 0; i < repVulns.size(); i++) {
+      CReportVulnerabilities vuln = repVulns[i];
+
+      fwprintf_s(remediation_file,
+        L"Source: Signature File, Vendor: %s, Manifest Version: %s, JNDI Class: %s, Log4j Vendor: %s, Log4j Version: %s\n",
+        vuln.manifestVendor.c_str(),
+        vuln.manifestVersion.c_str(),
+        vuln.detectedJNDILookupClass ? L"Found" : L"NOT Found",
+        vuln.log4jVendor.c_str(),
+        vuln.log4jVersion.c_str());
+      fwprintf_s(remediation_file, L"Path=%s\n", vuln.file.c_str());
+      fwprintf_s(remediation_file, L"Mitigated=%s\n", (vuln.cve202144228Mitigated && vuln.cve202145046Mitigated ? L"true": L"false"));
+      fwprintf_s(remediation_file, L"------------------------------------------------------------------------\n");
+    }
+
+    fclose(remediation_file);
+  }
 
   return rv;
 }

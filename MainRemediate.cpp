@@ -44,7 +44,8 @@ int32_t ProcessCommandLineOptions(int32_t argc, wchar_t* argv[]) {
       cmdline_options.remediateFile = true;
       cmdline_options.file = argv[i + 1];
     } else if (ARG(remediate_sig)) {
-      cmdline_options.remediateSig = true;      
+      cmdline_options.remediateSig = true;
+      cmdline_options.report = true;
       cmdline_options.no_logo = true;
     } else if (ARG(report)) {
       cmdline_options.report = true;      
@@ -111,7 +112,7 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
   if (!cmdline_options.no_logo) {
     wprintf(L"Qualys Log4j Remediation Utility %S\n", VERSION_STRING);
     wprintf(L"https://www.qualys.com/\n");
-    wprintf(L"Supported CVE(s): CVE-2021-4104, CVE-2021-44228, CVE-2021-45046, CVE-2021-45105\n\n");
+    wprintf(L"Supported CVE(s): CVE-2021-44228, CVE-2021-45046\n\n");
   }
 
   if (cmdline_options.help) {
@@ -123,13 +124,13 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
     OpenStatusFile(GetRemediationStatusFilename());
   }
 
-  repSummary.scanStart = time(0);
+  remSummary.scanStart = time(0);
 
   if (cmdline_options.remediateSig) {
     wchar_t buf[64] = {0};
     struct tm* tm = NULL;
 
-    tm = localtime((time_t*)&repSummary.scanStart);
+    tm = localtime((time_t*)&remSummary.scanStart);
     wcsftime(buf, _countof(buf) - 1, L"%FT%T%z", tm);
 
     LogStatusMessage(L"Remediation start time : %s\n", buf);
@@ -143,13 +144,13 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
     RemediateFile(cmdline_options.file);
   }
 
-  repSummary.scanEnd = time(0);
+  remSummary.scanEnd = time(0);
 
   if (cmdline_options.remediateSig) {
     wchar_t buf[64] = {0};
     struct tm* tm = NULL;
 
-    tm = localtime((time_t*)&repSummary.scanEnd);
+    tm = localtime((time_t*)&remSummary.scanEnd);
     wcsftime(buf, _countof(buf) - 1, L"%FT%T%z", tm);
 
     LogStatusMessage(L"Remediation end time : %s\n", buf);
@@ -159,23 +160,22 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
     wchar_t buf[64] = {0};
     struct tm* tm = NULL;
 
-    tm = localtime((time_t*)&repSummary.scanEnd);
+    tm = localtime((time_t*)&remSummary.scanEnd);
     wcsftime(buf, _countof(buf) - 1, L"%FT%T%z", tm);
 
     wprintf(L"\tRemediation Summary:\n");
     wprintf(L"\tRemediation Date:\t\t %s\n", buf);
-    wprintf(L"\tRemediation Duration:\t\t %lld Seconds\n", repSummary.scanEnd - repSummary.scanStart);
-    /*wprintf(L"\tFiles Scanned:\t\t %lld\n", repSummary.scannedFiles);
-    wprintf(L"\tDirectories Scanned:\t %lld\n", repSummary.scannedDirectories);
-    wprintf(L"\tJAR(s) Scanned:\t\t %lld\n", repSummary.scannedJARs);
-    wprintf(L"\tWAR(s) Scanned:\t\t %lld\n", repSummary.scannedWARs);
-    wprintf(L"\tEAR(s) Scanned:\t\t %lld\n", repSummary.scannedEARs);
-    wprintf(L"\tZIP(s) Scanned:\t\t %lld\n", repSummary.scannedZIPs);
-    wprintf(L"\tVulnerabilities Found:\t %lld\n", repSummary.foundVunerabilities);*/
+    wprintf(L"\tRemediation Duration:\t\t %lld Seconds\n", remSummary.scanEnd - remSummary.scanStart);    
+    wprintf(L"\tJAR(s) Remediated:\t\t %lld\n", remSummary.remediatedJARs);
+    wprintf(L"\tWAR(s) Remediated:\t\t %lld\n", remSummary.remediatedWARs);
+    wprintf(L"\tEAR(s) Remediated:\t\t %lld\n", remSummary.remediatedEARs);
+    wprintf(L"\tZIP(s) Remediated:\t\t %lld\n", remSummary.remediatedZIPs);
   }
 
   if (cmdline_options.report) {
-    GenerateRemediationReport();
+    if (cmdline_options.remediateSig) {
+      GenerateRemediationReport();
+    }    
   }
 
 END:
