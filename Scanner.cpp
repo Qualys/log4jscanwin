@@ -50,7 +50,7 @@ bool IsCVE202144228Mitigated(std::string log4jVendor, bool foundJNDILookupClass,
   if (log4jVendor.compare("log4j-core") != 0) return true;
   if (ParseVersion(version, major, minor, build)) {
     if (major < 2) return true;
-    if ((major == 2) && (minor == 12) && (build == 2)) return true;
+    if ((major == 2) && (minor == 12) && (build >= 2)) return true;
     if ((major == 2) && (minor >= 15)) return true;
   }
   return false;
@@ -62,7 +62,7 @@ bool IsCVE202145046Mitigated(std::string log4jVendor, bool foundJNDILookupClass,
   if (log4jVendor.compare("log4j-core") != 0) return true;
   if (ParseVersion(version, major, minor, build)) {
     if (major < 2) return true;
-    if ((major == 2) && (minor == 12) && (build == 2)) return true;
+    if ((major == 2) && (minor == 12) && (build >= 2)) return true;
     if ((major == 2) && (minor > 15)) return true;
   }
   return false;
@@ -73,7 +73,7 @@ bool IsCVE202145105Mitigated(std::string log4jVendor, std::string version) {
   if (log4jVendor.compare("log4j-core") != 0) return true;
   if (ParseVersion(version, major, minor, build)) {
     if (major < 2) return true;
-    if ((major == 2) && (minor == 12) && (build == 3)) return true;
+    if ((major == 2) && (minor == 12) && (build >= 3)) return true;
     if ((major == 2) && (minor > 16)) return true;
   }
   return false;
