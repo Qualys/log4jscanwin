@@ -25,7 +25,25 @@ class CReportSummary {
   }
 };
 
-class CReportVunerabilities {
+struct CRemediationSummary {
+  uint64_t remediatedZIPs;
+  uint64_t remediatedJARs;
+  uint64_t remediatedWARs;
+  uint64_t remediatedEARs;
+  uint64_t scanStart;
+  uint64_t scanEnd;
+
+  CRemediationSummary() {
+    remediatedZIPs = 0;
+    remediatedJARs = 0;
+    remediatedWARs = 0;
+    remediatedEARs = 0;
+    scanStart = 0;
+    scanEnd = 0;
+  }
+};
+
+class CReportVulnerabilities {
  public:
   std::wstring file;
   std::wstring manifestVersion;
@@ -43,7 +61,7 @@ class CReportVunerabilities {
   bool cve202145105Mitigated;
   std::wstring cveStatus;
 
-  CReportVunerabilities(std::wstring file, std::wstring manifestVersion,
+  CReportVulnerabilities(std::wstring file, std::wstring manifestVersion,
                         std::wstring manifestVendor, bool detectedLog4j,
                         bool detectedLog4j1x, bool detectedLog4j2x,
                         bool detectedJNDILookupClass,
@@ -71,7 +89,8 @@ class CReportVunerabilities {
 
 
 extern CReportSummary repSummary;
-extern std::vector<CReportVunerabilities> repVulns;
+extern CRemediationSummary remSummary;
+extern std::vector<CReportVulnerabilities> repVulns;
 
 
 int32_t GenerateJSONReport(bool pretty);
