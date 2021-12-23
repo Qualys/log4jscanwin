@@ -182,3 +182,9 @@ int32_t GenerateSignatureReport() {
 
   return rv;
 }
+
+int32_t GenerateRemediationReport() {
+  int32_t rv = ERROR_SUCCESS;
+
+  return rv;
+}

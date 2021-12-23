@@ -6,6 +6,7 @@
 #include "Utils.h"
 #include "Reports.h"
 #include "Scanner.h"
+#include "Remediate.h"
 #include "MainRemediate.h"
 
 #include "Version.info"
@@ -23,18 +24,12 @@ CCommandLineOptions cmdline_options;
 int32_t PrintHelp(int32_t argc, wchar_t* argv[]) {
   int32_t rv = ERROR_SUCCESS;
 
-  wprintf(L"/scan\n");
-  wprintf(L"  Scan local drives for vulnerable JAR, WAR, EAR, ZIP files used by various Java applications.\n");
-  wprintf(L"/scan_directory \"C:\\Some\\Path\"\n");
-  wprintf(L"  Scan a specific directory for vulnerable JAR, WAR, EAR, ZIP files used by various Java applications.\n");
-  wprintf(L"/scan_file \"C:\\Some\\Path\\Some.jar\"\n");
-  wprintf(L"  Scan a specific file for supported CVE(s).\n");
+  wprintf(L"/remediate_file \"C:\\Some\\Path.[jar|war|ear|zip]\n");
+  wprintf(L"  Remove JndiLookup.class from specified JAR, WAR, EAR, ZIP files.\n");
+  wprintf(L"/remediate_sig\n");
+  wprintf(L"  Remove JndiLookup.class from JAR, WAR, EAR, ZIP files detected by scanner utility\n");  
   wprintf(L"/report\n");
-  wprintf(L"  Generate a JSON report of possible detections of supported CVE(s).\n");
-  wprintf(L"/report_pretty\n");
-  wprintf(L"  Generate a human readable JSON report of possible detections of supported CVE(s).\n");
-  wprintf(L"/report_sig\n");
-  wprintf(L"  Generate a signature report of possible detections of supported CVE(s).\n");
+  wprintf(L"  Generate a report of mitigations of supported CVE(s).\n");  
   wprintf(L"\n");
 
   return rv;
@@ -45,6 +40,14 @@ int32_t ProcessCommandLineOptions(int32_t argc, wchar_t* argv[]) {
 
   for (int32_t i = 1; i < argc; i++) {
     if (0) {
+    } else if (ARG(remediate_file)) {
+      cmdline_options.remediateFile = true;
+      cmdline_options.file = argv[i + 1];
+    } else if (ARG(remediate_sig)) {
+      cmdline_options.remediateSig = true;      
+      cmdline_options.no_logo = true;
+    } else if (ARG(report)) {
+      cmdline_options.report = true;      
     } else if (ARG(nologo)) {
       cmdline_options.no_logo = true;
     } else if (ARG(v) || ARG(verbose)) {
@@ -57,18 +60,15 @@ int32_t ProcessCommandLineOptions(int32_t argc, wchar_t* argv[]) {
   //
   // Check to make sure the directory path is normalized
   //
-  if (cmdline_options.scanDirectory) {
-    if ((0 == cmdline_options.directory.substr(0, 1).compare(L"\"")) ||
-        (0 == cmdline_options.directory.substr(0, 1).compare(L"'"))) {
-      cmdline_options.directory.erase(0, 1);
+  if (cmdline_options.remediateFile) {
+    if ((0 == cmdline_options.file.substr(0, 1).compare(L"\"")) ||
+        (0 == cmdline_options.file.substr(0, 1).compare(L"'"))) {
+      cmdline_options.file.erase(0, 1);
     }
-    if ((0 == cmdline_options.directory.substr(cmdline_options.directory.size() - 1, 1).compare(L"\"")) ||
-        (0 == cmdline_options.directory.substr(cmdline_options.directory.size() - 1, 1).compare(L"'"))) {
-      cmdline_options.directory.erase(cmdline_options.directory.size() - 1, 1);
-    }
-    if (0 != cmdline_options.directory.substr(cmdline_options.directory.size() - 1, 1).compare(L"\\")) {
-      cmdline_options.directory += L"\\";
-    }
+    if ((0 == cmdline_options.file.substr(cmdline_options.file.size() - 1, 1).compare(L"\"")) ||
+        (0 == cmdline_options.file.substr(cmdline_options.file.size() - 1, 1).compare(L"'"))) {
+      cmdline_options.file.erase(cmdline_options.file.size() - 1, 1);
+    }    
   }
 
   return rv;
@@ -119,35 +119,41 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
     goto END;
   }
 
-  if (cmdline_options.reportSig) {
-    OpenSignatureStatusFile();
+  if (cmdline_options.remediateSig) {
+    OpenStatusFile(GetRemediationStatusFilename());
   }
 
   repSummary.scanStart = time(0);
 
-  if (cmdline_options.reportSig) {
+  if (cmdline_options.remediateSig) {
     wchar_t buf[64] = {0};
     struct tm* tm = NULL;
 
     tm = localtime((time_t*)&repSummary.scanStart);
     wcsftime(buf, _countof(buf) - 1, L"%FT%T%z", tm);
 
-    LogStatusMessage(L"Scan start time : %s\n", buf);
+    LogStatusMessage(L"Remediation start time : %s\n", buf);
   }
 
+  // Add handlers here
+  if (cmdline_options.remediateSig) {
+    RemediateFromSignatureReport();
+  }
+  else if (cmdline_options.remediateFile) {
+    RemediateFile(cmdline_options.file);
+  }
 
   repSummary.scanEnd = time(0);
 
-  if (cmdline_options.reportSig) {
+  if (cmdline_options.remediateSig) {
     wchar_t buf[64] = {0};
     struct tm* tm = NULL;
 
     tm = localtime((time_t*)&repSummary.scanEnd);
     wcsftime(buf, _countof(buf) - 1, L"%FT%T%z", tm);
 
-    LogStatusMessage(L"\nScan end time : %s\n", buf);
+    LogStatusMessage(L"Remediation end time : %s\n", buf);
   }
-
 
   if (!cmdline_options.no_logo) {
     wchar_t buf[64] = {0};
@@ -156,35 +162,31 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
     tm = localtime((time_t*)&repSummary.scanEnd);
     wcsftime(buf, _countof(buf) - 1, L"%FT%T%z", tm);
 
-    wprintf(L"\nScan Summary:\n");
-    wprintf(L"\tScan Date:\t\t %s\n", buf);
-    wprintf(L"\tScan Duration:\t\t %lld Seconds\n", repSummary.scanEnd - repSummary.scanStart);
-    wprintf(L"\tFiles Scanned:\t\t %lld\n", repSummary.scannedFiles);
+    wprintf(L"\tRemediation Summary:\n");
+    wprintf(L"\tRemediation Date:\t\t %s\n", buf);
+    wprintf(L"\tRemediation Duration:\t\t %lld Seconds\n", repSummary.scanEnd - repSummary.scanStart);
+    /*wprintf(L"\tFiles Scanned:\t\t %lld\n", repSummary.scannedFiles);
     wprintf(L"\tDirectories Scanned:\t %lld\n", repSummary.scannedDirectories);
     wprintf(L"\tJAR(s) Scanned:\t\t %lld\n", repSummary.scannedJARs);
     wprintf(L"\tWAR(s) Scanned:\t\t %lld\n", repSummary.scannedWARs);
     wprintf(L"\tEAR(s) Scanned:\t\t %lld\n", repSummary.scannedEARs);
     wprintf(L"\tZIP(s) Scanned:\t\t %lld\n", repSummary.scannedZIPs);
-    wprintf(L"\tVulnerabilities Found:\t %lld\n", repSummary.foundVunerabilities);
+    wprintf(L"\tVulnerabilities Found:\t %lld\n", repSummary.foundVunerabilities);*/
   }
 
   if (cmdline_options.report) {
-    if (!cmdline_options.reportSig) {
-      GenerateJSONReport(cmdline_options.reportPretty);
-    } else {
-      GenerateSignatureReport();
-    }
+    GenerateRemediationReport();
   }
 
 END:
 
-  if (cmdline_options.reportSig) {
+  if (cmdline_options.remediateSig) {
     if (error_array.empty()) {
       LogStatusMessage(L"Run status : Success\n");
-      LogStatusMessage(L"Result file location : %s\n", GetSignatureReportFilename().c_str());
+      LogStatusMessage(L"Result file location : %s\n", GetRemediationReportFilename().c_str());
     } else {
       LogStatusMessage(L"Run status : Partially Successful\n");
-      LogStatusMessage(L"Result file location : %s\n", GetSignatureReportFilename().c_str());
+      LogStatusMessage(L"Result file location : %s\n", GetRemediationReportFilename().c_str());
 
       LogStatusMessage(L"Errors :\n");
       for (const auto& e : error_array) {
@@ -193,7 +195,7 @@ END:
     }
   }
 
-  CloseSignatureStatusFile();
+  CloseStatusFile();
 
   return rv;
 }

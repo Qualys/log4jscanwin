@@ -9,6 +9,12 @@
     }                                         \
   } while (FALSE)
 
+constexpr wchar_t* qualys_program_data_location = L"%ProgramData%\\Qualys";
+constexpr wchar_t* report_sig_output_file = L"log4j_findings.out";
+constexpr wchar_t* report_sig_status_file = L"status.txt";
+
+constexpr wchar_t* remediation_report_file = L"log4j_remediate.out";
+constexpr wchar_t* remediation_status_file = L"remediation_status.out";
 
 std::wstring A2W(const std::string& str);
 std::string W2A(const std::wstring& str);
@@ -21,9 +27,12 @@ std::wstring GetScanUtilityDirectory();
 std::wstring GetReportDirectory();
 std::wstring GetSignatureReportFilename();
 std::wstring GetSignatureStatusFilename();
-bool OpenSignatureStatusFile();
+std::wstring GetRemediationReportFilename();
+std::wstring GetRemediationStatusFilename();
+bool OpenStatusFile(const std::wstring & filename);
 int LogStatusMessage(const wchar_t* fmt, ...);
-bool CloseSignatureStatusFile();
+bool CloseStatusFile();
+void SplitWideString(std::wstring str, const std::wstring & token, std::vector<std::wstring>&result);
 
 LONG CALLBACK CatchUnhandledExceptionFilter(PEXCEPTION_POINTERS pExPtrs);
 

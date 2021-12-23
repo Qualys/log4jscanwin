@@ -6,14 +6,8 @@
 #include "minizip/iowin32.h"
 #include "zlib/zlib.h"
 
-
-constexpr wchar_t* qualys_program_data_locaton = L"%ProgramData%\\Qualys";
-constexpr wchar_t* report_sig_output_file = L"log4j_findings.out";
-constexpr wchar_t* report_sig_status_file = L"status.txt";
-
 FILE* status_file = nullptr;
 std::vector<std::wstring> error_array;
-
 
 std::wstring A2W(const std::string& str) {
   int length_wide = MultiByteToWideChar(CP_ACP, 0, str.data(), -1, NULL, 0);
@@ -29,6 +23,21 @@ std::string W2A(const std::wstring& str) {
   WideCharToMultiByte(CP_ACP, 0, str.data(), -1, string_ansi, length_ansi, NULL, NULL);
   std::string result(string_ansi, length_ansi - 1);
   return result;
+}
+
+void SplitWideString(std::wstring str, const std::wstring& token, std::vector<std::wstring>& result)
+{
+  while (str.size()) {
+    auto index = str.find(token);
+    if (index != std::wstring::npos) {
+      result.push_back(str.substr(0, index));
+      str = str.substr(index + token.size());      
+    }
+    else {
+      result.push_back(str);
+      str.clear();
+    }
+  }
 }
 
 bool SanitizeContents(std::string& str) {
@@ -116,7 +125,7 @@ std::wstring GetScanUtilityDirectory() {
 std::wstring GetReportDirectory() {
   std::wstring destination_dir;
   std::wstring report_dir;
-  if (ExpandEnvironmentVariables(qualys_program_data_locaton,
+  if (ExpandEnvironmentVariables(qualys_program_data_location,
                                  destination_dir)) {
     if (!DirectoryExists(destination_dir.c_str())) {
       _wmkdir(destination_dir.c_str());
@@ -135,6 +144,14 @@ std::wstring GetSignatureReportFilename() {
 
 std::wstring GetSignatureStatusFilename() {
   return GetReportDirectory() + L"\\" + report_sig_status_file;
+}
+
+std::wstring GetRemediationReportFilename() {
+  return GetReportDirectory() + L"\\" + remediation_report_file;
+}
+
+std::wstring GetRemediationStatusFilename() {
+  return GetReportDirectory() + L"\\" + remediation_status_file;
 }
 
 int LogStatusMessage(const wchar_t* fmt, ...) {
@@ -157,12 +174,12 @@ int LogStatusMessage(const wchar_t* fmt, ...) {
   return retval;
 }
 
-bool OpenSignatureStatusFile() {
-  errno_t err = _wfopen_s(&status_file, GetSignatureStatusFilename().c_str(), L"w+");
+bool OpenStatusFile(const std::wstring& filename) {
+  errno_t err = _wfopen_s(&status_file, filename.c_str(), L"w+");
   return (EINVAL != err);
 }
 
-bool CloseSignatureStatusFile() {
+bool CloseStatusFile() {
   if (status_file) {
     fclose(status_file);
   }
