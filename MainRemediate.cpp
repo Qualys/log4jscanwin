@@ -90,7 +90,7 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
   using typeWow64DisableWow64FsRedirection = BOOL(WINAPI*)(PVOID OlValue);
   typeWow64DisableWow64FsRedirection Wow64DisableWow64FsRedirection;
   BOOL bIs64BitWindows = FALSE;
-  PVOID pHandle;
+  PVOID pHandle{};
 
   if (!IsWow64Process(GetCurrentProcess(), &bIs64BitWindows)) {
     wprintf(L"Failed to determine if process is running as WoW64.\n");
@@ -143,15 +143,16 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
 
   // Add handlers here
   if (cmdline_options.remediateSig) {
-    RemediateFromSignatureReport();
+    rv = RemediateFromSignatureReport();
+    if (rv != ERROR_SUCCESS) {
+      LogStatusMessage(L"Failed to remediate vulnerabilities from signature report.\n");
+    }
   }
   else if (cmdline_options.remediateFile) {
     RemediateLog4J remediator;
-    if (remediator.RemediateFileArchive(cmdline_options.file) == 0) {
-      // Success
-    }
-    else {
-      // Log failure
+    rv = remediator.RemediateFileArchive(cmdline_options.file);
+    if(rv != ERROR_SUCCESS){
+      LogStatusMessage(L"Failed to remediate file: %s\n", cmdline_options.file.c_str());
     }
   }
 

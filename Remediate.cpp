@@ -51,15 +51,13 @@ int ExtractFileArchives(const std::vector<std::wstring>& archives, PairStack& ar
 
   std::wstring current_file = archives.at(0);
 
-  for (size_t i = 1; i < archives.size(); i++)
-  {
+  for (size_t i = 1; i < archives.size(); i++) {
     unzFile zf = unzOpen2_64(current_file.c_str(), &zfm);
     if (NULL != zf) {
       rv = unzLocateFile(zf, W2A(archives.at(i)).c_str(), false);
-      if (UNZ_OK == rv)
-      {
+      if (UNZ_OK == rv) {
         GetTempPath(_countof(tmpPath), tmpPath);
-        GetTempFileName(tmpPath, L"qua", 0, tmpFilename);
+        GetTempFileName(tmpPath, L"qua_rem", 0, tmpFilename);
 
         HANDLE h = CreateFile(tmpFilename, GENERIC_READ | GENERIC_WRITE, NULL,
           NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_TEMPORARY, NULL);
@@ -67,7 +65,6 @@ int ExtractFileArchives(const std::vector<std::wstring>& archives, PairStack& ar
         if (h != INVALID_HANDLE_VALUE) {
           rv = unzOpenCurrentFile(zf);
           if (UNZ_OK == rv) {
-            std::wcout << L"Writing " << archives.at(i).c_str() << L" to " << tmpFilename << std::endl;
             do {
               memset(buf, 0, sizeof(buf));
               rv = unzReadCurrentFile(zf, buf, sizeof(buf));
@@ -84,7 +81,7 @@ int ExtractFileArchives(const std::vector<std::wstring>& archives, PairStack& ar
         current_file = tmpFilename;
       }
       else {
-        std::wcout << L"Failed to locate file: " << archives.at(i).c_str() << std::endl;
+        LogStatusMessage(L"Failed to locate file: %s\n", archives.at(i).c_str());
         break;
       }
     }
@@ -94,11 +91,12 @@ int ExtractFileArchives(const std::vector<std::wstring>& archives, PairStack& ar
       unzClose(zf);
     }
   }
+
   return rv;
 }
 
-bool ReadSignatureReport(const std::wstring& report, std::vector<CReportVulnerabilities>& result) {
-  bool success{};
+DWORD ReadSignatureReport(const std::wstring& report, std::vector<CReportVulnerabilities>& result) {
+  DWORD status{};
   DWORD file_size{};
   PBYTE buffer{};
   FILE* scan_file{};
@@ -108,8 +106,8 @@ bool ReadSignatureReport(const std::wstring& report, std::vector<CReportVulnerab
 
   std::wifstream wif(report);
   if (!wif.is_open()) {
-    swprintf_s(error, L"Failed to open signature report: %s", report.c_str());
-    error_array.push_back(error);
+    status = ERROR_OPEN_FAILED;
+    LogStatusMessage(L"Failed to open signature report: %s; Win32 error: %d\n", report.c_str(), status);
     goto END;
   }
 
@@ -117,7 +115,13 @@ bool ReadSignatureReport(const std::wstring& report, std::vector<CReportVulnerab
   wss << wif.rdbuf();
   SplitWideString(wss.str(), L"\n", lines);
 
-  for (uint32_t index = 0; index < lines.size(); index += SIGNATURE_ITEM_LENGTH) {
+  if (lines.size() % 4 != 0) {
+    status = ERROR_INVALID_DATA;
+    LogStatusMessage(L"Invalid signature report: %s; Win32 error: %d\n", report.c_str(), status);
+    goto END;
+  }
+
+  for (size_t index = 0; index < lines.size(); index += SIGNATURE_ITEM_LENGTH) {
     std::wsmatch wsm1, wsm2;
     if (std::regex_search(lines[index].cbegin(), lines[index].cend(), wsm1, line1_regex)) {
       if (std::regex_search(lines[index + 1].cbegin(), lines[index + 1].cend(), wsm2, line2_regex)) {
@@ -132,13 +136,11 @@ bool ReadSignatureReport(const std::wstring& report, std::vector<CReportVulnerab
       }
     }
     else {
-      swprintf_s(error, L"Failed to parse signature report: %s", report.c_str());
-      error_array.push_back(error);
+      status = ERROR_INVALID_DATA;
+      LogStatusMessage(L"Unable to parse signature report: %s; Win32 error: %d\n", report.c_str(), status);
       goto END;
     }
   }
-
-  success = true;
 
 END:
 
@@ -146,12 +148,11 @@ END:
     wif.close();
   }
 
-  return success;
+  return status;
 }
 
-bool RemediateFromSignatureReport() {
-  bool success{};
-  wchar_t error[1024]{};
+DWORD RemediateFromSignatureReport() {
+  DWORD status{};  
   std::wstring sig_report_file;
   std::wstring rem_report_file;
   RemediateLog4J remediator;
@@ -161,143 +162,156 @@ bool RemediateFromSignatureReport() {
 
   // Delete old report
   if (!DeleteFile(rem_report_file.c_str())) {
-    if (GetLastError() != ERROR_FILE_NOT_FOUND) {
-      swprintf_s(error, L"Failed to delete old remediation report: %s", rem_report_file.c_str());
-      error_array.push_back(error);
+    status = GetLastError();
+    if (status != ERROR_FILE_NOT_FOUND) {      
+      LogStatusMessage(L"Failed to delete old remediation report: %s; Win32 error: %d\n", rem_report_file.c_str(), status);
       goto END;
     }
   }
 
-  if (!ReadSignatureReport(sig_report_file, repVulns)) {
-    swprintf_s(error, L"Failed to read signature report: %s", sig_report_file.c_str());
-    error_array.push_back(error);
+  status = ReadSignatureReport(sig_report_file, repVulns);
+  if (status != ERROR_SUCCESS) {
+    LogStatusMessage(L"Failed to read signature report: %s\n", sig_report_file.c_str());
     goto END;
-  }  
+  }
 
   for (auto& vuln : repVulns) {
+    
+    if (!vuln.detectedJNDILookupClass) {      
+      continue; // Not vulnerable
+    }
 
-    if (vuln.detectedJNDILookupClass) {
+    if (IsCVE202144228Mitigated(W2A(vuln.log4jVendor), vuln.detectedJNDILookupClass, W2A(vuln.log4jVersion)) ||
+      IsCVE202145046Mitigated(W2A(vuln.log4jVendor), vuln.detectedJNDILookupClass, W2A(vuln.log4jVersion))) {
+      continue; // Not vulnerable
+    }    
 
-      if (!IsCVE202144228Mitigated(W2A(vuln.log4jVendor), vuln.detectedJNDILookupClass, W2A(vuln.log4jVersion)) ||
-        !IsCVE202145046Mitigated(W2A(vuln.log4jVendor), vuln.detectedJNDILookupClass, W2A(vuln.log4jVersion))) {
-       
-        // Remediation success
-        if (remediator.RemediateFileArchive(vuln.file) == 0) {
-          vuln.cve202144228Mitigated = true;
-          vuln.cve202145046Mitigated = true;
+    status = remediator.RemediateFileArchive(vuln.file);
+    if (status != ERROR_SUCCESS) {
+      // Log here      
+    }
+    else { // Remediation success
 
-          // TODO: Delete from signature file
-          DeleteVulnerabilityFromReport(vuln);
+      LogStatusMessage(L"Fixed file: %s\n", vuln.file.c_str());
 
-          // Update report
-          AddToRemediationReport(vuln);
-        }
-        else {
-          // Log fail to remediate here
-        }
+      vuln.cve202144228Mitigated = true;
+      vuln.cve202145046Mitigated = true;
+
+      // Modify entry in signature file
+      status = ModifySigReportEntry(vuln);
+      if (status != ERROR_SUCCESS) {
+        LogStatusMessage(L"Failed to modify item in signature report: %s; Win32 error: %d\n", vuln.file.c_str(), status);        
       }
+    }
+
+    // Update report
+    status = AddToRemediationReport(vuln);
+    if (status != ERROR_SUCCESS) {
+      LogStatusMessage(L"Failed to add item to remediation report: %s; Win32 error: %d\n", vuln.file.c_str(), status);      
     }
   }
 
-  success = true;
-
 END:
 
-  return success;
+  return status;
 }
 
-bool DeleteVulnerabilityFromReport(const CReportVulnerabilities& delete_entry) {
-  bool success{};
-  wchar_t error[1024]{};
+DWORD ModifySigReportEntry(const CReportVulnerabilities& modify) {
+  errno_t err{};
+  DWORD status{};
+  FILE* sig_file = nullptr;
   std::wstring sig_report_file;
   std::vector<CReportVulnerabilities> signature_report;
 
   sig_report_file = GetSignatureReportFilename();
 
-  if (!ReadSignatureReport(sig_report_file, signature_report)) {
-    swprintf_s(error, L"Failed to read signature file %s", sig_report_file.c_str());
-    error_array.push_back(error);
-    goto END;
-  }
-
-  FILE* sig_file = nullptr;
-  if (_wfopen_s(&sig_file, sig_report_file.c_str(), L"w+, ccs=UTF-8") != 0) {
-    wprintf_s(L"Failed to open signature report: %s\n", sig_report_file.c_str());
+  status = ReadSignatureReport(sig_report_file, signature_report);
+  if (status != ERROR_SUCCESS) {
+    LogStatusMessage(L"Failed to read signature report %s; Win32 error: %d\n", sig_report_file.c_str(), status);
     goto END;
   }
   
-  bool mitigated = false;
-  for (auto& item : signature_report) {    
-    if (item.file == delete_entry.file) {
-      mitigated = true;
-      continue;
-    }
-    else {
-      fwprintf_s(sig_file,
-        L"Source: Manifest Vendor: %s, Manifest Version: %s, JNDI Class: %s, Log4j Vendor: %s, Log4j Version: %s\n",
-        item.manifestVendor.c_str(),
-        item.manifestVersion.c_str(),
-        item.detectedJNDILookupClass ? L"Found" : L"NOT Found",
-        item.log4jVendor.c_str(),
-        item.log4jVersion.c_str());
-      fwprintf_s(sig_file, L"Path=%s\n", item.file.c_str());
-      fwprintf_s(sig_file, L"%s %s\n", item.log4jVendor.c_str(), item.log4jVersion.c_str());
-      fwprintf_s(sig_file, L"------------------------------------------------------------------------\n");
-    }
+  err = _wfopen_s(&sig_file, sig_report_file.c_str(), L"w+, ccs=UTF-8");
+  if (err != 0) {
+    status = ERROR_INVALID_OPERATION;
+    LogStatusMessage(L"Failed to open signature report: %s, errno: %d\n", sig_report_file.c_str(), err);
+    goto END;
   }
-  fclose(sig_file);
-}
+    
+  for (auto& item : signature_report) {
 
-  success = true;
+    if (item.file == modify.file) {
+      item.detectedJNDILookupClass = false;      
+    }
+
+    fwprintf_s(sig_file,
+      L"Source: Manifest Vendor: %s, Manifest Version: %s, JNDI Class: %s, Log4j Vendor: %s, Log4j Version: %s\n",
+      item.manifestVendor.c_str(),
+      item.manifestVersion.c_str(),
+      item.detectedJNDILookupClass ? L"Found" : L"NOT Found",
+      item.log4jVendor.c_str(),
+      item.log4jVersion.c_str());
+    fwprintf_s(sig_file, L"Path=%s\n", item.file.c_str());
+    fwprintf_s(sig_file, L"%s %s\n", item.log4jVendor.c_str(), item.log4jVersion.c_str());
+    fwprintf_s(sig_file, L"------------------------------------------------------------------------\n");
+  }
+
+  fclose(sig_file);  
 
 END:
 
-  return success;
+  return status;
 }
 
-RemediateLog4J::RemediateLog4J()
-{
+RemediateLog4J::RemediateLog4J() {
 	fill_win32_filefunc64W(&ffunc_);
 }
 
-RemediateLog4J::~RemediateLog4J()
-{
+RemediateLog4J::~RemediateLog4J() {
 }
 
-int RemediateLog4J::RemediateFileArchive(const std::wstring& vulnerable_file_path)
-{
-	std::vector<std::wstring> result;
-	SplitWideString(vulnerable_file_path, L"!", result);
+DWORD RemediateLog4J::RemediateFileArchive(const std::wstring& vulnerable_file_path) {
+  DWORD status{};
+  wchar_t	tmpPath[_MAX_PATH + 1]{};
+  wchar_t tmpFilename[_MAX_PATH + 1]{};
+  PairStack archives_mapping;
+  std::vector<std::wstring> result;
+	
+  SplitWideString(vulnerable_file_path, L"!", result);
 
-	// Copy original parent to temp parent1
-	wchar_t	tmpPath[_MAX_PATH + 1]{};
-	wchar_t tmpFilename[_MAX_PATH + 1]{};
+  if (result.empty()) {
+    status = ERROR_INVALID_DATA;
+    LogStatusMessage(L"No file path found in %s; Win32 error: %d\n", vulnerable_file_path.c_str(), status);
+    return status;
+  }
+
+	// Copy original parent to temp	
 	GetTempPath(_countof(tmpPath), tmpPath);
-	GetTempFileName(tmpPath, L"qua", 0, tmpFilename);
+	GetTempFileName(tmpPath, L"qua_rem", 0, tmpFilename);
 
-	if (FALSE == CopyFile(result[0].c_str(), tmpFilename, FALSE))
-	{
-		return -1;
+	if (FALSE == CopyFile(result[0].c_str(), tmpFilename, FALSE)) {
+    status = GetLastError();
+    LogStatusMessage(L"Failed to copy %s to %s; Win32 error: %d\n", result[0].c_str(), tmpFilename, status);
+    return status;
 	}
 
-	PairStack archives_mapping;
-
+  // Map outermost file with corresponding temp file
 	archives_mapping.push(std::make_pair(result[0], tmpFilename));
 
-	if (ExtractFileArchives(result, archives_mapping))
-	{
-		std::wcout << L"Failed to extract archives " << vulnerable_file_path << std::endl;
-		return -1;
+	if (ExtractFileArchives(result, archives_mapping)) {
+    status = ERROR_INVALID_OPERATION;
+    LogStatusMessage(L"Failed to extract file archives from %s; Win32 error: %d\n", vulnerable_file_path.c_str(), status);
+		return status;
 	}
 
-	// 1. Pop the first jar and fix it. It is a vulnerable jar
+	// Pop the stack and fix topmost jar.
 	auto last_visited = archives_mapping.top();
 	archives_mapping.pop();
 
-	if (DeleteFileFromZIP(last_visited.second.c_str(), L"org/apache/logging/log4j/core/lookup/JndiLookup.class"))
-	{
-		std::wcout << L"Failed to delete vulnerable class from archive" << std::endl;
-		return -1;
+	if (DeleteFileFromZIP(last_visited.second.c_str(), L"org/apache/logging/log4j/core/lookup/JndiLookup.class")) {
+    status = ERROR_INVALID_OPERATION;
+    LogStatusMessage(L"Failed to delete JndiLookup.class from archive: %s; Win32 error: %d\n", last_visited.second.c_str(), status);
+		return status;
 	}
 
 	while (!archives_mapping.empty())
@@ -305,10 +319,10 @@ int RemediateLog4J::RemediateFileArchive(const std::wstring& vulnerable_file_pat
 		auto parent_jar_mapping = archives_mapping.top();
 		archives_mapping.pop();
 
-		if (ReplaceFileInZip(parent_jar_mapping.second, last_visited.first, last_visited.second))
-		{
-			std::wcout << L"Failed to repackage archive" << std::endl;
-			return -1;
+		if (ReplaceFileInZip(parent_jar_mapping.second, last_visited.first, last_visited.second)) {
+      status = ERROR_INVALID_OPERATION;
+      LogStatusMessage(L"Failed to repackage fixed %s into %s; Win32 error: %d\n", last_visited.first.c_str(), parent_jar_mapping.second.c_str(), status);
+      return status;
 		}
 
 		last_visited = parent_jar_mapping;
@@ -316,27 +330,27 @@ int RemediateLog4J::RemediateFileArchive(const std::wstring& vulnerable_file_pat
 
 	// Make backup of original jar
 	auto original_backup = result[0] + L".backup";
-	if (_wrename(result[0].c_str(), original_backup.c_str()) != 0)
-	{
-		return -1;
+	if (!MoveFile(result[0].c_str(), original_backup.c_str())) {
+    status = GetLastError();
+    LogStatusMessage(L"Failed to rename %s to %s; Win32 error: %d\n", result[0].c_str(), original_backup.c_str(), status);
+		return status;
 	}
 
 	// replace fixed jar with original
-	if (_wrename(tmpFilename, result[0].c_str()) != 0)
-	{
-		return -1;
+	if (!MoveFile(tmpFilename, result[0].c_str())) {
+    status = GetLastError();
+    LogStatusMessage(L"Failed to rename %s to %s; Win32 error: %d\n", tmpFilename, result[0].c_str(), status);
+    return status;
 	}
 
-	return 0;
+	return status;
 }
 
-int RemediateLog4J::DeleteFileFromZIP(const std::wstring& zip_name, const std::wstring& del_file)
-{
+int RemediateLog4J::DeleteFileFromZIP(const std::wstring& zip_name, const std::wstring& del_file) {
 	return FixArchive(zip_name, del_file, L"", true);
 }
 
-int RemediateLog4J::ReplaceFileInZip(const std::wstring& target_zip_path, const std::wstring& vulnerable_zip_name, const std::wstring& fixed_zip_path)
-{
+int RemediateLog4J::ReplaceFileInZip(const std::wstring& target_zip_path, const std::wstring& vulnerable_zip_name, const std::wstring& fixed_zip_path) {
 	return FixArchive(target_zip_path, vulnerable_zip_name, fixed_zip_path, false);
 }
 
@@ -345,129 +359,108 @@ int RemediateLog4J::FixArchive(const std::wstring& target_zip_path, const std::w
 	std::wstring temp_name = target_zip_path + L".tmp";
 
 	zipFile szip = UnZipOpenFile(target_zip_path, &ffunc_);
-	if (szip == NULL)
-	{
-		return -1;
+	if (szip == NULL) {
+		return 1;
 	}
 
 	zipFile dzip = ZipOpenFile(temp_name.c_str(), APPEND_STATUS_CREATE, NULL, &ffunc_);
-	if (dzip == NULL)
-	{
+	if (dzip == NULL) {
 		unzClose(szip);
-		return -1;
+		return 1;
 	}
 
 	// get global commentary
 	unz_global_info glob_info;
-	if (unzGetGlobalInfo(szip, &glob_info) != UNZ_OK)
-	{
+	if (unzGetGlobalInfo(szip, &glob_info) != UNZ_OK) {
 		zipClose(dzip, NULL);
 		unzClose(szip);
-		return -1;
+		return 1;
 	}
 
 	char* glob_comment = nullptr;
-	if (glob_info.size_comment > 0)
-	{
-		//glob_comment = (char*)malloc(glob_info.size_comment + 1);
+	if (glob_info.size_comment > 0) {		
 		glob_comment = new char[glob_info.size_comment + 1];
 
-		if ((glob_comment == nullptr) && (glob_info.size_comment != 0))
-		{
+		if ((glob_comment == nullptr) && (glob_info.size_comment != 0)) {
 			zipClose(dzip, NULL);
 			unzClose(szip);
-			return -1;
+			return 1;
 		}
 
 		SecureZeroMemory(glob_comment, glob_info.size_comment + 1);
 
-		if ((unsigned int)unzGetGlobalComment(szip, glob_comment, glob_info.size_comment + 1) != glob_info.size_comment)
-		{
+		if ((unsigned int)unzGetGlobalComment(szip, glob_comment, glob_info.size_comment + 1) != glob_info.size_comment) {
 			zipClose(dzip, NULL);
 			unzClose(szip);
 			SafeDeleteArray(glob_comment);
-			return -1;
+			return 1;
 		}
 	}
 
 	int rv = unzGoToFirstFile(szip);
-	while (rv == UNZ_OK)
-	{
+	while (rv == UNZ_OK) {
 		// get zipped file info
 		unz_file_info unzfi;
 		char dos_fn[MAX_PATH];
-		if (unzGetCurrentFileInfo(szip, &unzfi, dos_fn, MAX_PATH, NULL, 0, NULL, 0) != UNZ_OK)
-		{
+		if (unzGetCurrentFileInfo(szip, &unzfi, dos_fn, MAX_PATH, NULL, 0, NULL, 0) != UNZ_OK) {
 			break;
 		}
 
-		std::wstring file = A2W(dos_fn);
-
-		OutputDebugString(file.c_str());
-		OutputDebugString(L"\n");
+		std::wstring file = A2W(dos_fn);		
 
 		bool file_found = false;
 
-		if (_wcsicmp(file.c_str(), vulnerable_zip_name.c_str()) == 0)
-		{
+		if (_wcsicmp(file.c_str(), vulnerable_zip_name.c_str()) == 0) {
 			file_found = true;
 		}
 
 		// if not need delete this file
-		if (file_found && delete_file) // lowercase comparison
-		{
+		if (file_found && delete_file) { // lowercase comparison
 			rv = unzGoToNextFile(szip);
 			continue;
 		}
-		else
-		{
+		else {
 			char* extrafield = nullptr;
 			char* commentary = nullptr;
 
-			if (unzfi.size_file_extra > 0)
-			{
+			if (unzfi.size_file_extra > 0) {
 				extrafield = new char[unzfi.size_file_extra];
 			}
-			if (unzfi.size_file_comment)
-			{
+			if (unzfi.size_file_comment) {
 				commentary = new char[unzfi.size_file_comment];
 			}
 
-			if (unzGetCurrentFileInfo(szip, &unzfi, dos_fn, MAX_PATH, extrafield, unzfi.size_file_extra, commentary, unzfi.size_file_comment) != UNZ_OK)
-			{
+			if (unzGetCurrentFileInfo(szip, &unzfi, dos_fn, MAX_PATH, extrafield, unzfi.size_file_extra, commentary, unzfi.size_file_comment) != UNZ_OK) {
 				SafeDeleteArray(extrafield);
 				SafeDeleteArray(commentary);
 				break;
 			}
+			
+      int method{};
+      int level{};
 
-			// open file for RAW reading
-			int method;
-			int level;
-			if (unzOpenCurrentFile2(szip, &method, &level, 1) != UNZ_OK)
-			{
+      // open file for RAW reading
+			if (unzOpenCurrentFile2(szip, &method, &level, 1) != UNZ_OK) {
 				SafeDeleteArray(extrafield);
 				SafeDeleteArray(commentary);
 				break;
 			}
 
 			int size_local_extra = unzGetLocalExtrafield(szip, NULL, 0);
-			if (size_local_extra < 0)
-			{
+			if (size_local_extra < 0) {
 				SafeDeleteArray(extrafield);
 				SafeDeleteArray(commentary);
 				break;
 			}
 
 			void* local_extra = new BYTE[size_local_extra];
-			if ((local_extra == NULL) && (size_local_extra != 0))
-			{
+			if ((local_extra == NULL) && (size_local_extra != 0)) {
 				SafeDeleteArray(extrafield);
 				SafeDeleteArray(commentary);
 				break;
 			}
 
-			if (unzGetLocalExtrafield(szip, local_extra, size_local_extra) < 0)
-			{
+			if (unzGetLocalExtrafield(szip, local_extra, size_local_extra) < 0) {
 				SafeDeleteArray(extrafield);
 				SafeDeleteArray(commentary);
 				SafeDeleteArray(local_extra);
@@ -477,22 +470,18 @@ int RemediateLog4J::FixArchive(const std::wstring& target_zip_path, const std::w
 			void* buf = nullptr;
 			ULONG file_size = 0;
 			// found the file that needs to be replaced
-			if (file_found && !delete_file)
-			{
-				if (ReadFileContent(fixed_zip_path, &buf, &file_size))
-				{
+			if (file_found && !delete_file) {
+				if (ReadFileContent(fixed_zip_path, &buf, &file_size)) {
 					SafeDeleteArray(extrafield);
 					SafeDeleteArray(commentary);
 					SafeDeleteArray(local_extra);
 					break;
 				}
 			}
-			else
-			{
-				// this malloc may fail if file very large
+			else {
+				// this may fail if file very large
 				buf = new BYTE[unzfi.compressed_size];
-				if ((buf == NULL) && (unzfi.compressed_size != 0))
-				{
+				if ((buf == NULL) && (unzfi.compressed_size != 0)) {
 					SafeDeleteArray(extrafield);
 					SafeDeleteArray(commentary);
 					SafeDeleteArray(local_extra);
@@ -501,8 +490,7 @@ int RemediateLog4J::FixArchive(const std::wstring& target_zip_path, const std::w
 
 				// read file
 				int sz = unzReadCurrentFile(szip, buf, unzfi.compressed_size);
-				if ((unsigned int)sz != unzfi.compressed_size)
-				{
+				if ((unsigned int)sz != unzfi.compressed_size) {
 					SafeDeleteArray(extrafield);
 					SafeDeleteArray(commentary);
 					SafeDeleteArray(local_extra);
@@ -521,8 +509,7 @@ int RemediateLog4J::FixArchive(const std::wstring& target_zip_path, const std::w
 			zfi.external_fa = unzfi.external_fa;
 
 			if (zipOpenNewFileInZip2(dzip, dos_fn, &zfi, local_extra, size_local_extra, extrafield,
-				unzfi.size_file_extra, commentary, method, level, (file_found && !delete_file) ? 0 : 1) != UNZ_OK)
-			{
+				unzfi.size_file_extra, commentary, method, level, (file_found && !delete_file) ? 0 : 1) != UNZ_OK) {
 				SafeDeleteArray(extrafield);
 				SafeDeleteArray(commentary);
 				SafeDeleteArray(local_extra);
@@ -531,8 +518,7 @@ int RemediateLog4J::FixArchive(const std::wstring& target_zip_path, const std::w
 			}
 
 			// write file
-			if (zipWriteInFileInZip(dzip, buf, file_size) != UNZ_OK)
-			{
+			if (zipWriteInFileInZip(dzip, buf, file_size) != UNZ_OK) {
 				SafeDeleteArray(extrafield);
 				SafeDeleteArray(commentary);
 				SafeDeleteArray(local_extra);
@@ -541,8 +527,7 @@ int RemediateLog4J::FixArchive(const std::wstring& target_zip_path, const std::w
 			}
 
 			if (zipCloseFileInZipRaw(dzip, (file_found && !delete_file) ? 0 : unzfi.uncompressed_size,
-				(file_found && !delete_file) ? 0 : unzfi.crc) != UNZ_OK)
-			{
+				(file_found && !delete_file) ? 0 : unzfi.crc) != UNZ_OK) {
 				SafeDeleteArray(extrafield);
 				SafeDeleteArray(commentary);
 				SafeDeleteArray(local_extra);
@@ -550,8 +535,7 @@ int RemediateLog4J::FixArchive(const std::wstring& target_zip_path, const std::w
 				break;
 			}
 
-			if (unzCloseCurrentFile(szip) == UNZ_CRCERROR)
-			{
+			if (unzCloseCurrentFile(szip) == UNZ_CRCERROR) {
 				SafeDeleteArray(extrafield);
 				SafeDeleteArray(commentary);
 				SafeDeleteArray(local_extra);
@@ -570,45 +554,42 @@ int RemediateLog4J::FixArchive(const std::wstring& target_zip_path, const std::w
 	zipClose(dzip, glob_comment);
 	unzClose(szip);
 
-	if (glob_comment)
-	{
+	if (glob_comment) {
 		SafeDeleteArray(glob_comment);
-	}
+	}	
 
-	_wremove(target_zip_path.c_str());
-	if (_wrename(temp_name.c_str(), target_zip_path.c_str()) != 0)
-	{
-		return -1;
-	}
+  if (!DeleteFile(target_zip_path.c_str())) {
+    return 1;
+  }
+
+  if (!MoveFile(temp_name.c_str(), target_zip_path.c_str())) {
+    return 1;
+  }
+
 	return 0;
 }
 
-int RemediateLog4J::ReadFileContent(std::wstring file_path, void** buf, PULONG size)
-{
-	if (size == nullptr)
-	{
+int RemediateLog4J::ReadFileContent(std::wstring file_path, void** buf, PULONG size) {
+	if (size == nullptr) {
 		return 1;
 	}
 
 	// read file into buffer
 	HANDLE handle_fixed_zip = CreateFile(file_path.c_str(), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
-	if (handle_fixed_zip == INVALID_HANDLE_VALUE)
-	{
-		std::wcout << L"failed to open file for read " << file_path.c_str();
+	if (handle_fixed_zip == INVALID_HANDLE_VALUE) {
+		LogStatusMessage(L"Failed to open file for read %s\n", file_path.c_str());
 		return 1;
 	}
 
 	*size = GetFileSize(handle_fixed_zip, NULL);
 
 	*buf = new BYTE[*size];
-	if ((buf == NULL) && (*size != 0))
-	{
+	if ((buf == NULL) && (*size != 0)) {
 		SAFE_CLOSE_HANDLE(handle_fixed_zip);
 		return 1;
 	}
 
-	if (0 == ReadFile(handle_fixed_zip, *buf, *size, nullptr, nullptr))
-	{
+	if (0 == ReadFile(handle_fixed_zip, *buf, *size, nullptr, nullptr)) {
 		SAFE_CLOSE_HANDLE(handle_fixed_zip);
 		return 1;
 	}

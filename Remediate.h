@@ -11,7 +11,7 @@ class RemediateLog4J
 public:
 	RemediateLog4J();
 	~RemediateLog4J();
-	int RemediateFileArchive(const std::wstring& vulnerable_file_path);
+	DWORD RemediateFileArchive(const std::wstring& vulnerable_file_path);
 private:
 	int DeleteFileFromZIP(const std::wstring& zip_name, const std::wstring& del_file);
 	int ReplaceFileInZip(
@@ -26,5 +26,5 @@ private:
 	int ReadFileContent(std::wstring file_path, void** buf, PULONG size);
 };
 
-bool RemediateFromSignatureReport();
-bool DeleteVulnerabilityFromReport(const CReportVulnerabilities& delete_entry);
+DWORD RemediateFromSignatureReport();
+DWORD ModifySigReportEntry(const CReportVulnerabilities& delete_entry);
