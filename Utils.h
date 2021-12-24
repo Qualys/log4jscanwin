@@ -9,6 +9,9 @@
     }                                         \
   } while (FALSE)
 
+typedef std::stack<std::pair<std::wstring, std::wstring>> PairStack;
+typedef std::pair<std::wstring, std::wstring> StringPair;
+
 constexpr wchar_t* qualys_program_data_location = L"%ProgramData%\\Qualys";
 constexpr wchar_t* report_sig_output_file = L"log4j_findings.out";
 constexpr wchar_t* report_sig_status_file = L"status.txt";
@@ -33,6 +36,11 @@ bool OpenStatusFile(const std::wstring & filename);
 int LogStatusMessage(const wchar_t* fmt, ...);
 bool CloseStatusFile();
 void SplitWideString(std::wstring str, const std::wstring & token, std::vector<std::wstring>&result);
+
+bool IsCVE20214104Mitigated(std::string log4jVendor, std::string version);
+bool IsCVE202144228Mitigated(std::string log4jVendor, bool foundJNDILookupClass, std::string version);
+bool IsCVE202145046Mitigated(std::string log4jVendor, bool foundJNDILookupClass, std::string version);
+bool IsCVE202145105Mitigated(std::string log4jVendor, std::string version);
 
 LONG CALLBACK CatchUnhandledExceptionFilter(PEXCEPTION_POINTERS pExPtrs);
 

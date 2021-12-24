@@ -2,6 +2,9 @@
 
 #include "minizip/ioapi.h"
 
+constexpr DWORD BUFFER_READ_SIZE = 256;
+constexpr DWORD SIGNATURE_ITEM_LENGTH = 4;
+
 class RemediateLog4J
 {
 	zlib_filefunc64_def ffunc_;
@@ -23,8 +26,6 @@ private:
 	int ReadFileContent(std::wstring file_path, void** buf, PULONG size);
 };
 
-constexpr DWORD BUFFER_READ_SIZE = 256;
-constexpr DWORD SIGNATURE_ITEM_LENGTH = 4;
-
 bool RemediateFromSignatureReport();
-bool RemediateFile(const std::wstring& file);
+bool DeleteVulnerabilityFromReport(const CReportVulnerabilities& delete_entry);
+bool EnumerateAndKillJavaProcesses();

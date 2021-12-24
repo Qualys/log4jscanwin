@@ -1,16 +1,102 @@
 
 #include "stdafx.h"
+#include "minizip/zip.h"
+#include "minizip/unzip.h"
+#include "minizip/iowin32.h"
 #include "Reports.h"
 #include "Remediate.h"
 #include "Utils.h"
 
-#include <fstream>
-#include <sstream>
-#include <codecvt>
-#include <regex>
-
 const std::wregex line1_regex(L"Source: Manifest Vendor: ([^,]*), Manifest Version: ([^,]*), JNDI Class: ([^,]*), Log4j Vendor: ([^,]*), Log4j Version: ([^,]*)");
 const std::wregex line2_regex(L"Path=(.*)");
+
+template< class T > void SafeDelete(T*& pVal) {
+  if (pVal) {
+    delete pVal;
+    pVal = nullptr;
+  }
+}
+
+template< class T > void SafeDeleteArray(T*& pVal) {
+  if (pVal) {
+    delete[] pVal;
+    pVal = nullptr;
+  }
+}
+
+zipFile UnZipOpenFile(const std::wstring& file_path, zlib_filefunc64_def* ffunc) {
+  if (!ffunc) {
+    return NULL;
+  }
+  return unzOpen2_64(file_path.c_str(), ffunc);
+}
+
+zipFile ZipOpenFile(const std::wstring& file_path, int append, zipcharpc* globalcomment, zlib_filefunc64_def* ffunc) {
+  if (!ffunc) {
+    return NULL;
+  }
+  return zipOpen2_64(file_path.c_str(), append, globalcomment, ffunc);
+}
+
+int ExtractFileArchives(const std::vector<std::wstring>& archives, PairStack& archives_mapping)
+{
+  int32_t			rv = ERROR_SUCCESS;
+  unsigned long	bytesWritten = 0;
+  //unzFile			zf = NULL;
+  BYTE			buf[1024];
+  wchar_t			tmpPath[_MAX_PATH + 1]{};
+  wchar_t			tmpFilename[_MAX_PATH + 1]{};
+
+  zlib_filefunc64_def zfm = { 0 };
+  fill_win32_filefunc64W(&zfm);
+
+  std::wstring current_file = archives.at(0);
+
+  for (size_t i = 1; i < archives.size(); i++)
+  {
+    unzFile zf = unzOpen2_64(current_file.c_str(), &zfm);
+    if (NULL != zf) {
+      rv = unzLocateFile(zf, W2A(archives.at(i)).c_str(), false);
+      if (UNZ_OK == rv)
+      {
+        GetTempPath(_countof(tmpPath), tmpPath);
+        GetTempFileName(tmpPath, L"qua", 0, tmpFilename);
+
+        HANDLE h = CreateFile(tmpFilename, GENERIC_READ | GENERIC_WRITE, NULL,
+          NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_TEMPORARY, NULL);
+
+        if (h != INVALID_HANDLE_VALUE) {
+          rv = unzOpenCurrentFile(zf);
+          if (UNZ_OK == rv) {
+            std::wcout << L"Writing " << archives.at(i).c_str() << L" to " << tmpFilename << std::endl;
+            do {
+              memset(buf, 0, sizeof(buf));
+              rv = unzReadCurrentFile(zf, buf, sizeof(buf));
+              if (rv < 0 || rv == 0) break;
+              WriteFile(h, buf, rv, &bytesWritten, NULL);
+            } while (rv > 0);
+            unzCloseCurrentFile(zf);
+          }
+          CloseHandle(h);
+        }
+
+        archives_mapping.push(std::make_pair(archives.at(i), tmpFilename));
+
+        current_file = tmpFilename;
+      }
+      else {
+        std::wcout << L"Failed to locate file: " << archives.at(i).c_str() << std::endl;
+        break;
+      }
+    }
+
+    if (zf != NULL)
+    {
+      unzClose(zf);
+    }
+  }
+  return rv;
+}
 
 bool ReadSignatureReport(const std::wstring& report, std::vector<CReportVulnerabilities>& result) {
   bool success{};
@@ -18,30 +104,36 @@ bool ReadSignatureReport(const std::wstring& report, std::vector<CReportVulnerab
   PBYTE buffer{};
   FILE* scan_file{};
   wchar_t error[1024]{};
+  std::wstringstream wss;
   std::vector<std::wstring> lines;  
 
   std::wifstream wif(report);
-  wif.imbue(std::locale(std::locale::empty(), new std::codecvt_utf8<wchar_t>));
-  std::wstringstream wss;
+  if (!wif.is_open()) {
+    swprintf_s(error, L"Failed to open signature report: %s", report.c_str());
+    error_array.push_back(error);
+    goto END;
+  }
+
+  wif.imbue(std::locale(std::locale::empty(), new std::codecvt_utf8<wchar_t>));  
   wss << wif.rdbuf();
   SplitWideString(wss.str(), L"\n", lines);
 
   for (uint32_t index = 0; index < lines.size(); index += SIGNATURE_ITEM_LENGTH) {
     std::wsmatch wsm1, wsm2;
-    if (std::regex_match(lines[index].cbegin(), lines[index].cend(), wsm1, line1_regex)
-      && std::regex_match(lines[index + 1].cbegin(), lines[index + 1].cend(), wsm2, line2_regex)) {
+    if (std::regex_search(lines[index].cbegin(), lines[index].cend(), wsm1, line1_regex)) {
+      if (std::regex_search(lines[index + 1].cbegin(), lines[index + 1].cend(), wsm2, line2_regex)) {
+        std::wstring vendor = wsm1[1].str();
+        std::wstring manifest_version = wsm1[2].str();
+        bool jndi_class_found = (wsm1[3].str() == L"Found" ? true : false);
+        std::wstring log4j_vendor = wsm1[4].str();
+        std::wstring log4j_version = wsm1[5].str();
+        std::wstring file = wsm2[1].str();
 
-      std::wstring vendor = wsm1[1].str();
-      std::wstring manifest_version = wsm1[2].str();
-      bool jndi_class_found = (wsm1[3].str() == L"Found" ? true : false);
-      std::wstring log4j_vendor = wsm1[4].str();
-      std::wstring log4j_version = wsm1[5].str();
-      std::wstring file = wsm2[1].str();
-      
-      result.emplace_back(file, manifest_version, vendor, false, false, false, jndi_class_found, false, log4j_version, log4j_vendor, false, false, false, false, L"");
+        result.emplace_back(file, manifest_version, vendor, false, false, false, jndi_class_found, false, log4j_version, log4j_vendor, false, false, false, false, L"");
+      }
     }
     else {
-      swprintf_s(error, L"Failed to parse file %s", report.c_str());
+      swprintf_s(error, L"Failed to parse signature report: %s", report.c_str());
       error_array.push_back(error);
       goto END;
     }
@@ -58,8 +150,105 @@ END:
   return success;
 }
 
-bool RemediateFile(const std::wstring& file) {
+bool RemediateFromSignatureReport() {
   bool success{};
+  wchar_t error[1024]{};
+  std::wstring sig_report_file;
+  std::wstring rem_report_file;
+  RemediateLog4J remediator;
+
+  sig_report_file = GetSignatureReportFilename();
+  rem_report_file = GetRemediationReportFilename();
+
+  // Delete old report
+  if (!DeleteFile(rem_report_file.c_str())) {
+    if (GetLastError() != ERROR_FILE_NOT_FOUND) {
+      swprintf_s(error, L"Failed to delete old remediation report: %s", rem_report_file.c_str());
+      error_array.push_back(error);
+      goto END;
+    }
+  }
+
+  if (!ReadSignatureReport(sig_report_file, repVulns)) {
+    swprintf_s(error, L"Failed to read signature report: %s", sig_report_file.c_str());
+    error_array.push_back(error);
+    goto END;
+  }  
+
+  for (auto& vuln : repVulns) {
+
+    if (vuln.detectedJNDILookupClass) {
+
+      if (!IsCVE202144228Mitigated(W2A(vuln.log4jVendor), vuln.detectedJNDILookupClass, W2A(vuln.log4jVersion)) ||
+        !IsCVE202145046Mitigated(W2A(vuln.log4jVendor), vuln.detectedJNDILookupClass, W2A(vuln.log4jVersion))) {
+
+        // Add fix logic here
+
+        // Remediation success
+        if (true) {
+          vuln.cve202144228Mitigated = true;
+          vuln.cve202145046Mitigated = true;
+
+          // TODO: Delete from signature file          
+
+          // Update report
+          AddToRemediationReport(vuln);
+        }
+      }
+    }
+  }
+
+  success = true;
+
+END:
+
+  return success;
+}
+
+bool DeleteVulnerabilityFromReport(const CReportVulnerabilities& delete_entry) {
+  bool success{};
+  wchar_t error[1024]{};
+  std::wstring sig_report_file;
+  std::vector<CReportVulnerabilities> signature_report;
+
+  sig_report_file = GetSignatureReportFilename();
+
+  if (!ReadSignatureReport(sig_report_file, signature_report)) {
+    swprintf_s(error, L"Failed to read signature file %s", sig_report_file.c_str());
+    error_array.push_back(error);
+    goto END;
+  }
+
+  FILE* sig_file = nullptr;
+  _wfopen_s(&sig_file, sig_report_file.c_str(), L"w+, ccs=UTF-8");
+
+  if (sig_file)
+  {
+    for (auto& item : signature_report) {
+      if (item.file == delete_entry.file) {
+        continue;
+      }
+      else {
+        fwprintf_s(sig_file,
+          L"Source: Manifest Vendor: %s, Manifest Version: %s, JNDI Class: %s, Log4j Vendor: %s, Log4j Version: %s\n",
+          item.manifestVendor.c_str(),
+          item.manifestVersion.c_str(),
+          item.detectedJNDILookupClass ? L"Found" : L"NOT Found",
+          item.log4jVendor.c_str(),
+          item.log4jVersion.c_str());
+        fwprintf_s(sig_file, L"Path=%s\n", item.file.c_str());
+        fwprintf_s(sig_file, L"%s %s\n", item.log4jVendor.c_str(), item.log4jVersion.c_str());
+        fwprintf_s(sig_file, L"------------------------------------------------------------------------\n");
+      }
+    }
+    fclose(sig_file);
+  }
+
+  success = true;
+END:
+
+  return success;
+}
 
 RemediateLog4J::RemediateLog4J()
 {
@@ -433,73 +622,9 @@ int RemediateLog4J::ReadFileContent(std::wstring file_path, void** buf, PULONG s
 
 	return 0;
 }
-  // Add fix logic here
 
-  return success;
-}
-
-bool RemediateFromSignatureReport() {
-  bool success{};  
-  wchar_t error[1024]{};
-  std::wstring signature_file;
-
-  if (!ExpandEnvironmentVariables(qualys_program_data_location, signature_file)) {
-    swprintf_s(error, L"Failed to expand path %s", qualys_program_data_location);
-    error_array.push_back(error);
-    goto END;
-  }
-    
-  signature_file.append(L"\\").append(report_sig_output_file);
-
-  if (!ReadSignatureReport(signature_file, vulnerabilities)) {
-    swprintf_s(error, L"Failed to read signature file %s", signature_file.c_str());
-    error_array.push_back(error);
-    goto END;
-  }  
-
-  for (auto& vuln : repVulns) {
-    
-    // Add fix logic here
-
-    // Remediation success
-    if (true) {
-      vuln.cve202144228Mitigated = true;
-      vuln.cve202145046Mitigated = true;
-
-      // Delete from signature file
-    }
-  }
-  success = true;
-
-END:
-
-  return success;
-}
-
-bool DeleteVulnerabilityFromReport(const CReportVulnerabilities& vulnerability) {
-  bool success{};
-  wchar_t error[1024]{};
-  std::wstring signature_file;
-  std::vector<CReportVulnerabilities> report;
-
-  if (!ExpandEnvironmentVariables(qualys_program_data_location, signature_file)) {
-    swprintf_s(error, L"Failed to expand path %s", qualys_program_data_location);
-    error_array.push_back(error);
-    goto END;
-  }
-
-  signature_file.append(L"\\").append(report_sig_output_file);
-
-  if (!ReadSignatureReport(signature_file, report)) {
-    swprintf_s(error, L"Failed to read signature file %s", signature_file.c_str());
-    error_array.push_back(error);
-    goto END;
-  }
-
-  // Delete vulnerability if found in report
-
-  success = true;
-END:
+bool EnumerateAndKillJavaProcesses() {
+  bool success = false;
 
   return success;
 }

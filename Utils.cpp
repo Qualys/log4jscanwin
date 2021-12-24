@@ -102,6 +102,57 @@ bool ExpandEnvironmentVariables(const wchar_t* source, std::wstring& destination
   return true;
 }
 
+bool ParseVersion(std::string version, int& major, int& minor, int& build) {
+  return (0 != sscanf(version.c_str(), "%d.%d.%d", &major, &minor, &build));
+}
+
+bool IsCVE20214104Mitigated(std::string log4jVendor, std::string version) {
+  int major = 0, minor = 0, build = 0;
+  if (log4jVendor.compare("log4j") != 0) return true;
+  if (ParseVersion(version, major, minor, build)) {
+    if ((major >= 2) || (major < 1)) return true;
+    if ((major == 1) && (minor <= 1)) return true;
+    if ((major == 1) && (minor == 2) && (build >= 17)) return true;
+    if ((major == 1) && (minor >= 3)) return true;
+  }
+  return false;
+}
+
+bool IsCVE202144228Mitigated(std::string log4jVendor, bool foundJNDILookupClass, std::string version) {
+  int major = 0, minor = 0, build = 0;
+  if (!foundJNDILookupClass) return true;
+  if (log4jVendor.compare("log4j-core") != 0) return true;
+  if (ParseVersion(version, major, minor, build)) {
+    if (major < 2) return true;
+    if ((major == 2) && (minor == 12) && (build >= 2)) return true;
+    if ((major == 2) && (minor >= 15)) return true;
+  }
+  return false;
+}
+
+bool IsCVE202145046Mitigated(std::string log4jVendor, bool foundJNDILookupClass, std::string version) {
+  int major = 0, minor = 0, build = 0;
+  if (!foundJNDILookupClass) return true;
+  if (log4jVendor.compare("log4j-core") != 0) return true;
+  if (ParseVersion(version, major, minor, build)) {
+    if (major < 2) return true;
+    if ((major == 2) && (minor == 12) && (build >= 2)) return true;
+    if ((major == 2) && (minor > 15)) return true;
+  }
+  return false;
+}
+
+bool IsCVE202145105Mitigated(std::string log4jVendor, std::string version) {
+  int major = 0, minor = 0, build = 0;
+  if (log4jVendor.compare("log4j-core") != 0) return true;
+  if (ParseVersion(version, major, minor, build)) {
+    if (major < 2) return true;
+    if ((major == 2) && (minor == 12) && (build >= 3)) return true;
+    if ((major == 2) && (minor > 16)) return true;
+  }
+  return false;
+}
+
 bool DirectoryExists(const wchar_t* dirPath) {
   if (dirPath == NULL) {
     return false;

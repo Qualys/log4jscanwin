@@ -96,4 +96,5 @@ extern std::vector<CReportVulnerabilities> repVulns;
 int32_t GenerateJSONReport(bool pretty);
 int32_t GenerateSignatureReport();
 
-int32_t GenerateRemediationReport();
+int32_t AddToRemediationReport(const CReportVulnerabilities& vuln);
+int32_t GenerateRemediationJSONReport(bool pretty);

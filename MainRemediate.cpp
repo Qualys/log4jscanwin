@@ -27,9 +27,13 @@ int32_t PrintHelp(int32_t argc, wchar_t* argv[]) {
   wprintf(L"/remediate_file \"C:\\Some\\Path.[jar|war|ear|zip]\n");
   wprintf(L"  Remove JndiLookup.class from specified JAR, WAR, EAR, ZIP files.\n");
   wprintf(L"/remediate_sig\n");
-  wprintf(L"  Remove JndiLookup.class from JAR, WAR, EAR, ZIP files detected by scanner utility\n");  
+  wprintf(L"  Remove JndiLookup.class from JAR, WAR, EAR, ZIP files detected by scanner utility\n");
+  wprintf(L"/kill\n");
+  wprintf(L"  Kill Java processes with name [java|javaw].exe\n");
   wprintf(L"/report\n");
-  wprintf(L"  Generate a report of mitigations of supported CVE(s).\n");  
+  wprintf(L"  Generate a JSON for mitigations of supported CVE(s).\n");
+  wprintf(L"/report_pretty\n");
+  wprintf(L"  Generate a pretty JSON for mitigations of supported CVE(s).\n");
   wprintf(L"\n");
 
   return rv;
@@ -44,12 +48,17 @@ int32_t ProcessCommandLineOptions(int32_t argc, wchar_t* argv[]) {
       cmdline_options.remediateFile = true;
       cmdline_options.file = argv[i + 1];
     } else if (ARG(remediate_sig)) {
-      cmdline_options.remediateSig = true;
-      cmdline_options.report = true;
+      cmdline_options.remediateSig = true;      
       cmdline_options.no_logo = true;
+    } else if (ARG(kill)) {
+      cmdline_options.kill = true;
     } else if (ARG(report)) {
       cmdline_options.report = true;      
-    } else if (ARG(nologo)) {
+    } else if (ARG(report_pretty)) {
+      cmdline_options.report = true;
+      cmdline_options.report_pretty = true;
+    }
+    else if (ARG(nologo)) {
       cmdline_options.no_logo = true;
     } else if (ARG(v) || ARG(verbose)) {
       cmdline_options.verbose = true;
@@ -135,14 +144,20 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
 
     LogStatusMessage(L"Remediation start time : %s\n", buf);
   }
+ 
+  if (cmdline_options.kill) {
+    EnumerateAndKillJavaProcesses();
+  }
 
   // Add handlers here
   if (cmdline_options.remediateSig) {
     RemediateFromSignatureReport();
   }
   else if (cmdline_options.remediateFile) {
-    RemediateFile(cmdline_options.file);
+
   }
+
+  Sleep(2542);
 
   remSummary.scanEnd = time(0);
 
@@ -173,19 +188,17 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
   }
 
   if (cmdline_options.report) {
-    if (cmdline_options.remediateSig) {
-      GenerateRemediationReport();
-    }    
+    GenerateRemediationJSONReport(cmdline_options.report_pretty);
   }
 
 END:
 
   if (cmdline_options.remediateSig) {
     if (error_array.empty()) {
-      LogStatusMessage(L"Run status : Success\n");
+      LogStatusMessage(L"\nRun status : Success\n");
       LogStatusMessage(L"Result file location : %s\n", GetRemediationReportFilename().c_str());
     } else {
-      LogStatusMessage(L"Run status : Partially Successful\n");
+      LogStatusMessage(L"\nRun status : Partially Successful\n");
       LogStatusMessage(L"Result file location : %s\n", GetRemediationReportFilename().c_str());
 
       LogStatusMessage(L"Errors :\n");

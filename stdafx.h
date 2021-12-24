@@ -12,4 +12,8 @@
 #include <iostream>
 #include <string>
 #include <vector>
-
+#include <stack>
+#include <fstream>
+#include <sstream>
+#include <codecvt>
+#include <regex>
