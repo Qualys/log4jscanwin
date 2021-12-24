@@ -63,7 +63,7 @@ bool IsCVE202145046Mitigated(std::string log4jVendor, bool foundJNDILookupClass,
   if (ParseVersion(version, major, minor, build)) {
     if (major < 2) return true;
     if ((major == 2) && (minor == 12) && (build >= 2)) return true;
-    if ((major == 2) && (minor > 15)) return true;
+    if ((major == 2) && (minor > 16)) return true;
   }
   return false;
 }
