@@ -27,9 +27,7 @@ int32_t PrintHelp(int32_t argc, wchar_t* argv[]) {
   wprintf(L"/remediate_file \"C:\\Some\\Path.[jar|war|ear|zip]\n");
   wprintf(L"  Remove JndiLookup.class from specified JAR, WAR, EAR, ZIP files.\n");
   wprintf(L"/remediate_sig\n");
-  wprintf(L"  Remove JndiLookup.class from JAR, WAR, EAR, ZIP files detected by scanner utility\n");
-  wprintf(L"/kill\n");
-  wprintf(L"  Kill Java processes with name [java|javaw].exe\n");
+  wprintf(L"  Remove JndiLookup.class from JAR, WAR, EAR, ZIP files detected by scanner utility\n");  
   wprintf(L"/report\n");
   wprintf(L"  Generate a JSON for mitigations of supported CVE(s).\n");
   wprintf(L"/report_pretty\n");
@@ -50,8 +48,6 @@ int32_t ProcessCommandLineOptions(int32_t argc, wchar_t* argv[]) {
     } else if (ARG(remediate_sig)) {
       cmdline_options.remediateSig = true;      
       cmdline_options.no_logo = true;
-    } else if (ARG(kill)) {
-      cmdline_options.kill = true;
     } else if (ARG(report)) {
       cmdline_options.report = true;      
     } else if (ARG(report_pretty)) {
@@ -144,20 +140,20 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
 
     LogStatusMessage(L"Remediation start time : %s\n", buf);
   }
- 
-  if (cmdline_options.kill) {
-    EnumerateAndKillJavaProcesses();
-  }
 
   // Add handlers here
   if (cmdline_options.remediateSig) {
     RemediateFromSignatureReport();
   }
   else if (cmdline_options.remediateFile) {
-
+    RemediateLog4J remediator;
+    if (remediator.RemediateFileArchive(cmdline_options.file) == 0) {
+      // Success
+    }
+    else {
+      // Log failure
+    }
   }
-
-  Sleep(2542);
 
   remSummary.scanEnd = time(0);
 

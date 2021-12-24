@@ -41,8 +41,7 @@ zipFile ZipOpenFile(const std::wstring& file_path, int append, zipcharpc* global
 int ExtractFileArchives(const std::vector<std::wstring>& archives, PairStack& archives_mapping)
 {
   int32_t			rv = ERROR_SUCCESS;
-  unsigned long	bytesWritten = 0;
-  //unzFile			zf = NULL;
+  unsigned long	bytesWritten = 0;  
   BYTE			buf[1024];
   wchar_t			tmpPath[_MAX_PATH + 1]{};
   wchar_t			tmpFilename[_MAX_PATH + 1]{};
@@ -181,18 +180,20 @@ bool RemediateFromSignatureReport() {
 
       if (!IsCVE202144228Mitigated(W2A(vuln.log4jVendor), vuln.detectedJNDILookupClass, W2A(vuln.log4jVersion)) ||
         !IsCVE202145046Mitigated(W2A(vuln.log4jVendor), vuln.detectedJNDILookupClass, W2A(vuln.log4jVersion))) {
-
-        // Add fix logic here
-
+       
         // Remediation success
-        if (true) {
+        if (remediator.RemediateFileArchive(vuln.file) == 0) {
           vuln.cve202144228Mitigated = true;
           vuln.cve202145046Mitigated = true;
 
-          // TODO: Delete from signature file          
+          // TODO: Delete from signature file
+          DeleteVulnerabilityFromReport(vuln);
 
           // Update report
           AddToRemediationReport(vuln);
+        }
+        else {
+          // Log fail to remediate here
         }
       }
     }
@@ -220,31 +221,35 @@ bool DeleteVulnerabilityFromReport(const CReportVulnerabilities& delete_entry) {
   }
 
   FILE* sig_file = nullptr;
-  _wfopen_s(&sig_file, sig_report_file.c_str(), L"w+, ccs=UTF-8");
-
-  if (sig_file)
-  {
-    for (auto& item : signature_report) {
-      if (item.file == delete_entry.file) {
-        continue;
-      }
-      else {
-        fwprintf_s(sig_file,
-          L"Source: Manifest Vendor: %s, Manifest Version: %s, JNDI Class: %s, Log4j Vendor: %s, Log4j Version: %s\n",
-          item.manifestVendor.c_str(),
-          item.manifestVersion.c_str(),
-          item.detectedJNDILookupClass ? L"Found" : L"NOT Found",
-          item.log4jVendor.c_str(),
-          item.log4jVersion.c_str());
-        fwprintf_s(sig_file, L"Path=%s\n", item.file.c_str());
-        fwprintf_s(sig_file, L"%s %s\n", item.log4jVendor.c_str(), item.log4jVersion.c_str());
-        fwprintf_s(sig_file, L"------------------------------------------------------------------------\n");
-      }
-    }
-    fclose(sig_file);
+  if (_wfopen_s(&sig_file, sig_report_file.c_str(), L"w+, ccs=UTF-8") != 0) {
+    wprintf_s(L"Failed to open signature report: %s\n", sig_report_file.c_str());
+    goto END;
   }
+  
+  bool mitigated = false;
+  for (auto& item : signature_report) {    
+    if (item.file == delete_entry.file) {
+      mitigated = true;
+      continue;
+    }
+    else {
+      fwprintf_s(sig_file,
+        L"Source: Manifest Vendor: %s, Manifest Version: %s, JNDI Class: %s, Log4j Vendor: %s, Log4j Version: %s\n",
+        item.manifestVendor.c_str(),
+        item.manifestVersion.c_str(),
+        item.detectedJNDILookupClass ? L"Found" : L"NOT Found",
+        item.log4jVendor.c_str(),
+        item.log4jVersion.c_str());
+      fwprintf_s(sig_file, L"Path=%s\n", item.file.c_str());
+      fwprintf_s(sig_file, L"%s %s\n", item.log4jVendor.c_str(), item.log4jVersion.c_str());
+      fwprintf_s(sig_file, L"------------------------------------------------------------------------\n");
+    }
+  }
+  fclose(sig_file);
+}
 
   success = true;
+
 END:
 
   return success;
@@ -309,8 +314,6 @@ int RemediateLog4J::RemediateFileArchive(const std::wstring& vulnerable_file_pat
 		last_visited = parent_jar_mapping;
 	}
 
-	// 2 - 30 second
-
 	// Make backup of original jar
 	auto original_backup = result[0] + L".backup";
 	if (_wrename(result[0].c_str(), original_backup.c_str()) != 0)
@@ -323,14 +326,6 @@ int RemediateLog4J::RemediateFileArchive(const std::wstring& vulnerable_file_pat
 	{
 		return -1;
 	}
-
-	// delete the backup file
-
-	// delete entry from log4j_findings.out
-
-	// update remdiation report 
-
-	Sleep(10000);
 
 	return 0;
 }
@@ -621,10 +616,4 @@ int RemediateLog4J::ReadFileContent(std::wstring file_path, void** buf, PULONG s
 	SAFE_CLOSE_HANDLE(handle_fixed_zip);
 
 	return 0;
-}
-
-bool EnumerateAndKillJavaProcesses() {
-  bool success = false;
-
-  return success;
 }

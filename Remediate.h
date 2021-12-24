@@ -28,4 +28,3 @@ private:
 
 bool RemediateFromSignatureReport();
 bool DeleteVulnerabilityFromReport(const CReportVulnerabilities& delete_entry);
-bool EnumerateAndKillJavaProcesses();
