@@ -293,6 +293,16 @@ namespace log4jremediate {
 				return status;
 			}
 
+			// check if file is read only then do not process the jar
+
+			DWORD fileAttr = GetFileAttributes(result[0].c_str());
+			if (fileAttr & FILE_ATTRIBUTE_READONLY)
+			{
+				status = ERROR_ACCESS_DENIED;
+				LOG_WIN32_MESSAGE(status, L"Failed to fix %s because it is read only", result[0].c_str());
+				return status;
+			}
+
 			// Copy original parent to temp	
 			GetTempPath(_countof(tmpPath), tmpPath);
 			// LJR for Log4J remediation
@@ -520,6 +530,7 @@ namespace log4jremediate {
 		unzClose(szip);
 
 		if (!DeleteFile(target_zip_path.c_str())) {
+			LOG_WIN32_MESSAGE(GetLastError(), L"Failed to delete %s", target_zip_path.c_str());
 			return 1;
 		}
 
