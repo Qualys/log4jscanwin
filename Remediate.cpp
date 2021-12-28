@@ -167,6 +167,7 @@ namespace log4jremediate {
 		}
 		else {
 			std::wofstream sig_file(sig_report_file, std::ios::trunc | std::ios::out);
+			sig_file.imbue(std::locale(std::locale::empty(), new std::codecvt_utf8<wchar_t>));
 
 			if (!sig_file.is_open()) {
 				status = ERROR_FILE_NOT_FOUND;
@@ -185,6 +186,8 @@ namespace log4jremediate {
 						<< L"Path=" << item.file << "\n"
 						<< item.log4jVendor << " " << item.log4jVersion << "\n"
 						<< L"------------------------------------------------------------------------\n";
+
+					sig_file.flush();
 				}
 			}
 		}

@@ -226,7 +226,7 @@ int LogStatusMessage(const wchar_t* fmt, ...) {
 }
 
 bool OpenStatusFile(const std::wstring& filename) {
-  errno_t err = _wfopen_s(&status_file, filename.c_str(), L"w+");
+  errno_t err = _wfopen_s(&status_file, filename.c_str(), L"w+, ccs=UTF-8");
   return (EINVAL != err);
 }
 
