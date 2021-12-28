@@ -174,6 +174,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Log.cpp" />
     <ClCompile Include="MainRemediate.cpp" />
     <ClCompile Include="Remediate.cpp" />
     <ClCompile Include="Reports.cpp" />
@@ -181,6 +182,7 @@
     <ClCompile Include="Utils.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Log.h" />
     <ClInclude Include="Remediate.h" />
     <ClInclude Include="Reports.h" />
     <ClInclude Include="resource.h" />

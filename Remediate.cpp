@@ -81,7 +81,7 @@ namespace log4jremediate {
 					current_file = tmpFilename;
 				}
 				else {
-					LogStatusMessage(L"Failed to locate file: %s\n", archives[i].c_str());
+					LOG_MESSAGE(L"Failed to locate file: %s", archives[i].c_str());
 					break;
 				}
 			}
@@ -101,9 +101,8 @@ namespace log4jremediate {
 
 		std::wifstream wif(report);
 
-		if (!wif.is_open()) {
-			status = ERROR_OPEN_FAILED;
-			LogStatusMessage(L"Failed to open signature report: %s; Win32 error: %d\n", report.c_str(), status);
+		if (!wif.is_open()) {			
+			LOG_MESSAGE(L"No signature report found in %s", report.c_str());
 			goto END;
 		}
 
@@ -113,7 +112,7 @@ namespace log4jremediate {
 
 		if (lines.size() % 4 != 0) {
 			status = ERROR_INVALID_DATA;
-			LogStatusMessage(L"Invalid signature report: %s; Win32 error: %d\n", report.c_str(), status);
+			LOG_WIN32_MESSAGE(status, L"Invalid signature report %s", report.c_str());
 			goto END;
 		}
 
@@ -128,7 +127,7 @@ namespace log4jremediate {
 			}
 			else {
 				status = ERROR_INVALID_DATA;
-				LogStatusMessage(L"Unable to parse signature report: %s; Win32 error: %d\n", report.c_str(), status);
+				LOG_WIN32_MESSAGE(status, L"Unable to parse signature report %s", report.c_str());
 				goto END;
 			}
 		}
@@ -145,21 +144,21 @@ namespace log4jremediate {
 
 		status = ReadSignatureReport(sig_report_file, signature_report);
 		if (status != ERROR_SUCCESS) {
-			LogStatusMessage(L"Failed to read signature report %s; Win32 error: %d\n", sig_report_file.c_str(), status);
+			LOG_WIN32_MESSAGE(status, L"Failed to read signature report %s", sig_report_file.c_str());
 		}
 		else {
 			std::wofstream sig_file(sig_report_file, std::ios::app | std::ios::out);
 
 			if (!sig_file.is_open()) {
 				status = ERROR_FILE_NOT_FOUND;
-				LogStatusMessage(L"Failed to open signature report: %s, err: %S\n", sig_report_file.c_str(), strerror(errno));
+				LOG_MESSAGE(L"Failed to open signature report %s, err: %S", sig_report_file.c_str(), strerror(errno));
 			}
 			else {
 				for (auto& item : signature_report) {
 
 					item.detectedJNDILookupClass = (item.file != modify.file);
 
-					sig_file << L"Source: Manifest Vendor : " << item.manifestVendor
+					sig_file << L"Source: Manifest Vendor: " << item.manifestVendor
 						<< L", Manifest Version: " << item.manifestVersion
 						<< L", JNDI Class: " << (item.detectedJNDILookupClass ? L"Found" : L"NOT Found")
 						<< L", Log4j Vendor: " << item.log4jVendor
@@ -176,25 +175,26 @@ namespace log4jremediate {
 
 	DWORD RemediateLog4JSigReport::RemediateFromSignatureReport() {
 		DWORD status{};
+		DWORD report_status{};  // record error inside loop
 		std::wstring sig_report_file;
 		std::wstring rem_report_file;
 		RemediateLog4JFile remediator;
-
+    
 		sig_report_file = GetSignatureReportFilename();
 		rem_report_file = GetRemediationReportFilename();
 
-		// Delete old report
-		if (!DeleteFile(rem_report_file.c_str())) {
-			status = GetLastError();
-			if (status != ERROR_FILE_NOT_FOUND) {
-				LogStatusMessage(L"Failed to delete old remediation report: %s; Win32 error: %d\n", rem_report_file.c_str(), status);
-				goto END;
-			}
-		}
+		// Truncate/Create remediation report
+		std::wofstream sig_file(rem_report_file, std::ios::trunc | std::ios::out);
+		sig_file.close();
 
 		status = ReadSignatureReport(sig_report_file, repVulns);
-		if (status != ERROR_SUCCESS) {
-			LogStatusMessage(L"Failed to read signature report: %s\n", sig_report_file.c_str());
+		if (status != ERROR_SUCCESS) {      
+			LOG_MESSAGE(L"Failed to read signature report: %s", sig_report_file.c_str());
+			goto END;
+		}
+
+		if (repVulns.empty()) {
+			LOG_MESSAGE(L"No vulnerabilities found in report: %s", sig_report_file.c_str());
 			goto END;
 		}
 
@@ -208,13 +208,16 @@ namespace log4jremediate {
 				continue; // Not vulnerable
 			}
 
+			LOG_MESSAGE(L"Processing file: %s", vuln.file.c_str());
+
 			status = remediator.RemediateFileArchive(vuln.file);
 			if (status != ERROR_SUCCESS) {
-				// Log here      
+				// Failure logs added to RemediateFileArchive
+				report_status = status;
 			}
 			else { // Remediation success
 
-				LogStatusMessage(L"Fixed file: %s\n", vuln.file.c_str());
+				LOG_MESSAGE(L"Fixed file: %s", vuln.file.c_str());
 
 				vuln.cve202144228Mitigated = true;
 				vuln.cve202145046Mitigated = true;
@@ -222,20 +225,22 @@ namespace log4jremediate {
 				// Modify entry in signature file
 				status = ModifySigReportEntry(vuln);
 				if (status != ERROR_SUCCESS) {
-					LogStatusMessage(L"Failed to modify item in signature report: %s; Win32 error: %d\n", vuln.file.c_str(), status);
+					report_status = status;
+					LOG_WIN32_MESSAGE(status, L"Failed to modify item in signature report: %s", vuln.file.c_str());
 				}
 			}
 
 			// Update report
 			status = AddToRemediationReport(vuln);
 			if (status != ERROR_SUCCESS) {
-				LogStatusMessage(L"Failed to add item to remediation report: %s; Win32 error: %d\n", vuln.file.c_str(), status);
+				report_status = status;
+				LOG_WIN32_MESSAGE(status, L"Failed to add item to remediation report %s", vuln.file.c_str());
 			}
 		}
 
 	END:
 
-		return status;
+		return (report_status != ERROR_SUCCESS ? report_status : status);
 	}
 
 	DWORD RemediateLog4JFile::RemediateFileArchive(const std::wstring& vulnerable_file_path) {
@@ -249,7 +254,7 @@ namespace log4jremediate {
 
 		if (result.empty()) {
 			status = ERROR_INVALID_DATA;
-			LogStatusMessage(L"No file path found in %s; Win32 error: %d\n", vulnerable_file_path.c_str(), status);
+			LOG_WIN32_MESSAGE(status, L"No file path found in %s", vulnerable_file_path.c_str());
 			return status;
 		}
 
@@ -259,7 +264,7 @@ namespace log4jremediate {
 
 		if (FALSE == CopyFile(result[0].c_str(), tmpFilename, FALSE)) {
 			status = GetLastError();
-			LogStatusMessage(L"Failed to copy %s to %s; Win32 error: %d\n", result[0].c_str(), tmpFilename, status);
+			LOG_WIN32_MESSAGE(status, L"Failed to copy %s to %s", result[0].c_str(), tmpFilename);
 			return status;
 		}
 
@@ -268,7 +273,7 @@ namespace log4jremediate {
 
 		if (ExtractFileArchives(result, archives_mapping)) {
 			status = ERROR_INVALID_OPERATION;
-			LogStatusMessage(L"Failed to extract file archives from %s; Win32 error: %d\n", vulnerable_file_path.c_str(), status);
+			LOG_WIN32_MESSAGE(status, L"Failed to extract file archives from %s", vulnerable_file_path.c_str());
 			return status;
 		}
 
@@ -278,7 +283,7 @@ namespace log4jremediate {
 
 		if (DeleteFileFromZIP(last_visited.second.c_str(), L"org/apache/logging/log4j/core/lookup/JndiLookup.class")) {
 			status = ERROR_INVALID_OPERATION;
-			LogStatusMessage(L"Failed to delete JndiLookup.class from archive: %s; Win32 error: %d\n", last_visited.second.c_str(), status);
+			LOG_WIN32_MESSAGE(status, L"Failed to delete JndiLookup.class from archive: %s", last_visited.second.c_str());
 			return status;
 		}
 
@@ -288,7 +293,7 @@ namespace log4jremediate {
 
 			if (ReplaceFileInZip(parent_jar_mapping.second, last_visited.first, last_visited.second)) {
 				status = ERROR_INVALID_OPERATION;
-				LogStatusMessage(L"Failed to repackage fixed %s into %s; Win32 error: %d\n", last_visited.first.c_str(), parent_jar_mapping.second.c_str(), status);
+				LOG_WIN32_MESSAGE(status, L"Failed to repackage fixed %s into %s", last_visited.first.c_str(), parent_jar_mapping.second.c_str());
 				return status;
 			}
 
@@ -299,14 +304,14 @@ namespace log4jremediate {
 		auto original_backup = result[0] + L".backup";
 		if (!MoveFile(result[0].c_str(), original_backup.c_str())) {
 			status = GetLastError();
-			LogStatusMessage(L"Failed to rename %s to %s; Win32 error: %d\n", result[0].c_str(), original_backup.c_str(), status);
+			LOG_WIN32_MESSAGE(status, L"Failed to rename %s to %s", result[0].c_str(), original_backup.c_str());
 			return status;
 		}
 
 		// replace fixed jar with original
 		if (!MoveFile(tmpFilename, result[0].c_str())) {
 			status = GetLastError();
-			LogStatusMessage(L"Failed to rename %s to %s; Win32 error: %d\n", tmpFilename, result[0].c_str(), status);
+			LOG_WIN32_MESSAGE(status, L"Failed to rename %s to %s", tmpFilename, result[0].c_str());
 			return status;
 		}
 
@@ -482,7 +487,7 @@ namespace log4jremediate {
 		HANDLE handle_fixed_zip = CreateFile(file_path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr);
 
 		if (handle_fixed_zip == INVALID_HANDLE_VALUE) {
-			LogStatusMessage(L"Failed to open file for read %s\n", file_path.c_str());
+			LOG_MESSAGE(L"Failed to open file for read %s", file_path.c_str());
 			ret_val = 1;
 			goto CLEANUP;
 		}

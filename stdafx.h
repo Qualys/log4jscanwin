@@ -20,3 +20,5 @@
 #include "minizip/zip.h"
 #include "minizip/unzip.h"
 #include "minizip/iowin32.h"
+
+#include "Log.h"

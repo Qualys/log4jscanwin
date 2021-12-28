@@ -154,28 +154,28 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
   remSummary.scanStart = std::time(nullptr);
 
   if (cmdline_options.remediateSig) {
-    LogStatusMessage(L"Remediation start time : %s\n", FormatTimestamp(remSummary.scanStart).data());
+    LOG_MESSAGE(L"Remediation start time : %s", FormatTimestamp(remSummary.scanStart).data());
   }
 
-  // Add handlers here
+  // Command handlers
   if (cmdline_options.remediateSig) {
     rv = log4jremediate::RemediateLog4JSigReport::RemediateFromSignatureReport();
     if (rv != ERROR_SUCCESS) {
-      LogStatusMessage(L"Failed to remediate vulnerabilities from signature report.\n");
+      LOG_MESSAGE(L"Failed to remediate vulnerabilities from signature report.");
     }
   }
   else if (cmdline_options.remediateFile) {
     log4jremediate::RemediateLog4JFile remediator;
     rv = remediator.RemediateFileArchive(cmdline_options.file);
     if (rv != ERROR_SUCCESS) {
-      LogStatusMessage(L"Failed to remediate file: %s\n", cmdline_options.file.c_str());
+      LOG_MESSAGE(L"Failed to remediate file: %s", cmdline_options.file.c_str());
     }
   }
 
   remSummary.scanEnd = std::time(nullptr);
 
   if (cmdline_options.remediateSig) {
-    LogStatusMessage(L"Remediation end time : %s\n", FormatTimestamp(remSummary.scanEnd).data());
+    LOG_MESSAGE(L"Remediation end time : %s", FormatTimestamp(remSummary.scanEnd).data());
   }
 
   if (!cmdline_options.no_logo) {
@@ -195,18 +195,13 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
 END:
 
   if (cmdline_options.remediateSig) {
-    if (error_array.empty()) {
-      LogStatusMessage(L"\nRun status : Success\n");
-      LogStatusMessage(L"Result file location : %s\n", GetRemediationReportFilename().c_str());
+    if (rv == ERROR_SUCCESS) {
+      LOG_MESSAGE(L"\nRun status : Success");
+      LOG_MESSAGE(L"Result file location : %s", GetRemediationReportFilename().c_str());
     }
     else {
-      LogStatusMessage(L"\nRun status : Partially Successful\n");
-      LogStatusMessage(L"Result file location : %s\n", GetRemediationReportFilename().c_str());
-
-      LogStatusMessage(L"Errors :\n");
-      for (const auto& e : error_array) {
-        LogStatusMessage(L"%s\n", e.c_str());
-      }
+      LOG_MESSAGE(L"\nRun status : Partially Successful");
+      LOG_MESSAGE(L"Result file location : %s", GetRemediationReportFilename().c_str());      
     }
   }
 
