@@ -181,11 +181,7 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
   if (!cmdline_options.no_logo) {
     wprintf(L"\tRemediation Summary:\n");
     wprintf(L"\tRemediation Date:\t\t %s\n", FormatTimestamp(remSummary.scanEnd).data());
-    wprintf(L"\tRemediation Duration:\t\t %llu Seconds\n", remSummary.scanEnd - remSummary.scanStart);
-    wprintf(L"\tJAR(s) Remediated:\t\t %llu\n", remSummary.remediatedJARs);
-    wprintf(L"\tWAR(s) Remediated:\t\t %llu\n", remSummary.remediatedWARs);
-    wprintf(L"\tEAR(s) Remediated:\t\t %llu\n", remSummary.remediatedEARs);
-    wprintf(L"\tZIP(s) Remediated:\t\t %llu\n", remSummary.remediatedZIPs);
+    wprintf(L"\tRemediation Duration:\t\t %llu Seconds\n", remSummary.scanEnd - remSummary.scanStart);    
   }
 
   if (cmdline_options.report) {

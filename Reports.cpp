@@ -226,17 +226,9 @@ int32_t GenerateRemediationReportSummary(DocumentW& doc) {
   wcsftime(buf, _countof(buf) - 1, L"%FT%T%z", tm);
 
   vRemediationDate.SetString(&buf[0], doc.GetAllocator());
-  vRemediationDuration.SetInt64(remSummary.scanEnd - remSummary.scanStart);  
-  vRemediatedZIPs.SetInt64(remSummary.remediatedZIPs);
-  vRemediatedJARs.SetInt64(remSummary.remediatedJARs);
-  vRemediatedWARs.SetInt64(remSummary.remediatedWARs);
-  vRemediatedEARs.SetInt64(remSummary.remediatedEARs);  
+  vRemediationDuration.SetInt64(remSummary.scanEnd - remSummary.scanStart);      
 
   oSummary.AddMember(L"remediationDuration", vRemediationDuration, doc.GetAllocator());  
-  oSummary.AddMember(L"remediatedJARs", vRemediatedJARs, doc.GetAllocator());
-  oSummary.AddMember(L"remediatedWARs", vRemediatedWARs, doc.GetAllocator());
-  oSummary.AddMember(L"remediatedEARs", vRemediatedEARs, doc.GetAllocator());
-  oSummary.AddMember(L"remediatedZIPs", vRemediatedZIPs, doc.GetAllocator());
   doc.AddMember(L"remediationSummary", oSummary, doc.GetAllocator());
 
   return rv;

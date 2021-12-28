@@ -307,7 +307,7 @@ namespace log4jremediate {
 			//Add to set of delete files
 			setTempLocs.emplace(tmpFilename);
 
-			if (ExtractFileArchives(result, archives_mapping)) {
+			if (ExtractFileArchives(result, archives_mapping, setTempLocs)) {
 				status = ERROR_INVALID_OPERATION;
 				LOG_WIN32_MESSAGE(status, L"Failed to extract file archives from %s", vulnerable_file_path.c_str());
 				return status;

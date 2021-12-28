@@ -25,19 +25,11 @@ class CReportSummary {
   }
 };
 
-struct CRemediationSummary {
-  uint64_t remediatedZIPs;
-  uint64_t remediatedJARs;
-  uint64_t remediatedWARs;
-  uint64_t remediatedEARs;
+struct CRemediationSummary {  
   uint64_t scanStart;
   uint64_t scanEnd;
 
-  CRemediationSummary() {
-    remediatedZIPs = 0;
-    remediatedJARs = 0;
-    remediatedWARs = 0;
-    remediatedEARs = 0;
+  CRemediationSummary() {    
     scanStart = 0;
     scanEnd = 0;
   }
