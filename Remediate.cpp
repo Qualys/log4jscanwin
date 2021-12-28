@@ -180,62 +180,73 @@ namespace log4jremediate {
 		std::wstring rem_report_file;
 		RemediateLog4JFile remediator;
     
-		sig_report_file = GetSignatureReportFilename();
-		rem_report_file = GetRemediationReportFilename();
+		try
+		{
+			sig_report_file = GetSignatureReportFilename();
+			rem_report_file = GetRemediationReportFilename();
 
-		// Truncate/Create remediation report
-		std::wofstream sig_file(rem_report_file, std::ios::trunc | std::ios::out);
-		sig_file.close();
+			// Truncate/Create remediation report
+			std::wofstream sig_file(rem_report_file, std::ios::trunc | std::ios::out);
+			sig_file.close();
 
-		status = ReadSignatureReport(sig_report_file, repVulns);
-		if (status != ERROR_SUCCESS) {      
-			LOG_MESSAGE(L"Failed to read signature report: %s", sig_report_file.c_str());
-			goto END;
-		}
-
-		if (repVulns.empty()) {
-			LOG_MESSAGE(L"No vulnerabilities found in report: %s", sig_report_file.c_str());
-			goto END;
-		}
-
-		for (auto& vuln : repVulns) {
-			if (!vuln.detectedJNDILookupClass) {
-				continue; // Not vulnerable
-			}
-
-			if (IsCVE202144228Mitigated(W2A(vuln.log4jVendor), vuln.detectedJNDILookupClass, W2A(vuln.log4jVersion)) ||
-				IsCVE202145046Mitigated(W2A(vuln.log4jVendor), vuln.detectedJNDILookupClass, W2A(vuln.log4jVersion))) {
-				continue; // Not vulnerable
-			}
-
-			LOG_MESSAGE(L"Processing file: %s", vuln.file.c_str());
-
-			status = remediator.RemediateFileArchive(vuln.file);
+			status = ReadSignatureReport(sig_report_file, repVulns);
 			if (status != ERROR_SUCCESS) {
-				// Failure logs added to RemediateFileArchive
-				report_status = status;
+				LOG_MESSAGE(L"Failed to read signature report: %s", sig_report_file.c_str());
+				goto END;
 			}
-			else { // Remediation success
 
-				LOG_MESSAGE(L"Fixed file: %s", vuln.file.c_str());
+			if (repVulns.empty()) {
+				LOG_MESSAGE(L"No vulnerabilities found in report: %s", sig_report_file.c_str());
+				goto END;
+			}
 
-				vuln.cve202144228Mitigated = true;
-				vuln.cve202145046Mitigated = true;
+			for (auto& vuln : repVulns) {
+				if (!vuln.detectedJNDILookupClass) {
+					continue; // Not vulnerable
+				}
 
-				// Modify entry in signature file
-				status = ModifySigReportEntry(vuln);
+				if (IsCVE202144228Mitigated(W2A(vuln.log4jVendor), vuln.detectedJNDILookupClass, W2A(vuln.log4jVersion)) ||
+					IsCVE202145046Mitigated(W2A(vuln.log4jVendor), vuln.detectedJNDILookupClass, W2A(vuln.log4jVersion))) {
+					continue; // Not vulnerable
+				}
+
+				LOG_MESSAGE(L"Processing file: %s", vuln.file.c_str());
+
+				status = remediator.RemediateFileArchive(vuln.file);
+				if (status != ERROR_SUCCESS) {
+					// Failure logs added to RemediateFileArchive
+					report_status = status;
+				}
+				else { // Remediation success
+
+					LOG_MESSAGE(L"Fixed file: %s", vuln.file.c_str());
+
+					vuln.cve202144228Mitigated = true;
+					vuln.cve202145046Mitigated = true;
+
+					// Modify entry in signature file
+					status = ModifySigReportEntry(vuln);
+					if (status != ERROR_SUCCESS) {
+						report_status = status;
+						LOG_WIN32_MESSAGE(status, L"Failed to modify item in signature report: %s", vuln.file.c_str());
+					}
+				}
+
+				// Update report
+				status = AddToRemediationReport(vuln);
 				if (status != ERROR_SUCCESS) {
 					report_status = status;
-					LOG_WIN32_MESSAGE(status, L"Failed to modify item in signature report: %s", vuln.file.c_str());
+					LOG_WIN32_MESSAGE(status, L"Failed to add item to remediation report %s", vuln.file.c_str());
 				}
 			}
-
-			// Update report
-			status = AddToRemediationReport(vuln);
-			if (status != ERROR_SUCCESS) {
-				report_status = status;
-				LOG_WIN32_MESSAGE(status, L"Failed to add item to remediation report %s", vuln.file.c_str());
-			}
+		}
+		catch (std::bad_alloc&) {
+			status = ERROR_OUTOFMEMORY;
+			LOG_WIN32_MESSAGE(status, L"Failed to allocate memory in %s", __func__);
+		}
+		catch (std::exception& e) {
+			status = ERROR_INVALID_OPERATION;
+			LOG_WIN32_MESSAGE(status, L"Exception %S caught in %s", e.what(), __func__);
 		}
 
 	END:
@@ -250,69 +261,79 @@ namespace log4jremediate {
 		PairStack archives_mapping;
 		std::vector<std::wstring> result;
 
-		SplitWideString(vulnerable_file_path, L"!", result);
+		try {
+			SplitWideString(vulnerable_file_path, L"!", result);
 
-		if (result.empty()) {
-			status = ERROR_INVALID_DATA;
-			LOG_WIN32_MESSAGE(status, L"No file path found in %s", vulnerable_file_path.c_str());
-			return status;
-		}
-
-		// Copy original parent to temp	
-		GetTempPath(_countof(tmpPath), tmpPath);
-		GetTempFileName(tmpPath, L"qua_rem", 0, tmpFilename);
-
-		if (FALSE == CopyFile(result[0].c_str(), tmpFilename, FALSE)) {
-			status = GetLastError();
-			LOG_WIN32_MESSAGE(status, L"Failed to copy %s to %s", result[0].c_str(), tmpFilename);
-			return status;
-		}
-
-		// Map outermost file with corresponding temp file
-		archives_mapping.emplace(result[0], tmpFilename);
-
-		if (ExtractFileArchives(result, archives_mapping)) {
-			status = ERROR_INVALID_OPERATION;
-			LOG_WIN32_MESSAGE(status, L"Failed to extract file archives from %s", vulnerable_file_path.c_str());
-			return status;
-		}
-
-		// Pop the stack and fix topmost jar.
-		auto last_visited = archives_mapping.top();
-		archives_mapping.pop();
-
-		if (DeleteFileFromZIP(last_visited.second.c_str(), L"org/apache/logging/log4j/core/lookup/JndiLookup.class")) {
-			status = ERROR_INVALID_OPERATION;
-			LOG_WIN32_MESSAGE(status, L"Failed to delete JndiLookup.class from archive: %s", last_visited.second.c_str());
-			return status;
-		}
-
-		while (!archives_mapping.empty()) {
-			auto parent_jar_mapping = archives_mapping.top();
-			archives_mapping.pop();
-
-			if (ReplaceFileInZip(parent_jar_mapping.second, last_visited.first, last_visited.second)) {
-				status = ERROR_INVALID_OPERATION;
-				LOG_WIN32_MESSAGE(status, L"Failed to repackage fixed %s into %s", last_visited.first.c_str(), parent_jar_mapping.second.c_str());
+			if (result.empty()) {
+				status = ERROR_INVALID_DATA;
+				LOG_WIN32_MESSAGE(status, L"No file path found in %s", vulnerable_file_path.c_str());
 				return status;
 			}
 
-			last_visited = parent_jar_mapping;
-		}
+			// Copy original parent to temp	
+			GetTempPath(_countof(tmpPath), tmpPath);
+			GetTempFileName(tmpPath, L"qua_rem", 0, tmpFilename);
 
-		// Make backup of original jar
-		auto original_backup = result[0] + L".backup";
-		if (!MoveFile(result[0].c_str(), original_backup.c_str())) {
-			status = GetLastError();
-			LOG_WIN32_MESSAGE(status, L"Failed to rename %s to %s", result[0].c_str(), original_backup.c_str());
-			return status;
-		}
+			if (FALSE == CopyFile(result[0].c_str(), tmpFilename, FALSE)) {
+				status = GetLastError();
+				LOG_WIN32_MESSAGE(status, L"Failed to copy %s to %s", result[0].c_str(), tmpFilename);
+				return status;
+			}
 
-		// replace fixed jar with original
-		if (!MoveFile(tmpFilename, result[0].c_str())) {
-			status = GetLastError();
-			LOG_WIN32_MESSAGE(status, L"Failed to rename %s to %s", tmpFilename, result[0].c_str());
-			return status;
+			// Map outermost file with corresponding temp file
+			archives_mapping.emplace(result[0], tmpFilename);
+
+			if (ExtractFileArchives(result, archives_mapping)) {
+				status = ERROR_INVALID_OPERATION;
+				LOG_WIN32_MESSAGE(status, L"Failed to extract file archives from %s", vulnerable_file_path.c_str());
+				return status;
+			}
+
+			// Pop the stack and fix topmost jar.
+			auto last_visited = archives_mapping.top();
+			archives_mapping.pop();
+
+			if (DeleteFileFromZIP(last_visited.second.c_str(), L"org/apache/logging/log4j/core/lookup/JndiLookup.class")) {
+				status = ERROR_INVALID_OPERATION;
+				LOG_WIN32_MESSAGE(status, L"Failed to delete JndiLookup.class from archive: %s", last_visited.second.c_str());
+				return status;
+			}
+
+			while (!archives_mapping.empty()) {
+				auto parent_jar_mapping = archives_mapping.top();
+				archives_mapping.pop();
+
+				if (ReplaceFileInZip(parent_jar_mapping.second, last_visited.first, last_visited.second)) {
+					status = ERROR_INVALID_OPERATION;
+					LOG_WIN32_MESSAGE(status, L"Failed to repackage fixed %s into %s", last_visited.first.c_str(), parent_jar_mapping.second.c_str());
+					return status;
+				}
+
+				last_visited = parent_jar_mapping;
+			}
+
+			// Make backup of original jar
+			auto original_backup = result[0] + L".backup";
+			if (!MoveFile(result[0].c_str(), original_backup.c_str())) {
+				status = GetLastError();
+				LOG_WIN32_MESSAGE(status, L"Failed to rename %s to %s", result[0].c_str(), original_backup.c_str());
+				return status;
+			}
+
+			// replace fixed jar with original
+			if (!MoveFile(tmpFilename, result[0].c_str())) {
+				status = GetLastError();
+				LOG_WIN32_MESSAGE(status, L"Failed to rename %s to %s", tmpFilename, result[0].c_str());
+				return status;
+			}
+		}
+		catch (std::bad_alloc&) {
+			status = ERROR_OUTOFMEMORY;
+			LOG_WIN32_MESSAGE(status, L"Failed to allocate memory in %s", __func__);
+		}
+		catch (std::exception& e) {
+			status = ERROR_INVALID_OPERATION;
+			LOG_WIN32_MESSAGE(status, L"Exception %S caught in %s", e.what(), __func__);
 		}
 
 		return status;
