@@ -32,6 +32,9 @@ namespace log4jremediate {
 			bool delete_file = false);
 
 		int ReadFileContent(const std::wstring &file_path, std::vector<BYTE>& buf, PULONG size);
+
+		/* Cleanup temporary files*/
+		void CleanupTempFiles(std::unordered_set<std::wstring>& setTempLocs);
 	};
 
 	class RemediateLog4JSigReport {
