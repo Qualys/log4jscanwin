@@ -147,7 +147,7 @@ namespace log4jremediate {
 			LOG_WIN32_MESSAGE(status, L"Failed to read signature report %s", sig_report_file.c_str());
 		}
 		else {
-			std::wofstream sig_file(sig_report_file, std::ios::app | std::ios::out);
+			std::wofstream sig_file(sig_report_file, std::ios::trunc | std::ios::out);
 
 			if (!sig_file.is_open()) {
 				status = ERROR_FILE_NOT_FOUND;
@@ -156,7 +156,7 @@ namespace log4jremediate {
 			else {
 				for (auto& item : signature_report) {
 
-					item.detectedJNDILookupClass = (item.file != modify.file);
+					item.detectedJNDILookupClass = (item.file != modify.file) ? item.detectedJNDILookupClass : false;
 
 					sig_file << L"Source: Manifest Vendor: " << item.manifestVendor
 						<< L", Manifest Version: " << item.manifestVersion
