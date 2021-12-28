@@ -260,7 +260,8 @@ namespace log4jremediate {
 
 		// Copy original parent to temp	
 		GetTempPath(_countof(tmpPath), tmpPath);
-		GetTempFileName(tmpPath, L"qua_rem", 0, tmpFilename);
+		// LJR for Log4J remediation
+		GetTempFileName(tmpPath, L"ljr", 0, tmpFilename);
 
 		if (FALSE == CopyFile(result[0].c_str(), tmpFilename, FALSE)) {
 			status = GetLastError();
