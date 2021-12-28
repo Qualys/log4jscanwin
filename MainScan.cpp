@@ -144,7 +144,7 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
   }
 
   if (cmdline_options.reportSig) {
-    OpenSignatureStatusFile();
+    OpenStatusFile(GetSignatureStatusFilename());
   }
 
   repSummary.scanStart = time(0);
@@ -245,7 +245,7 @@ END:
     }
   }
 
-  CloseSignatureStatusFile();
+  CloseStatusFile();
 
   return rv;
 }
