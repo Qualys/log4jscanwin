@@ -367,6 +367,8 @@ namespace log4jremediate {
 				return status;
 			}
 
+			LOG_MESSAGE("Copied fixed file: %s", result[0].c_str());
+
 			// Delete temporary files
 			CleanupTempFiles(setTempLocs);			
 		}
