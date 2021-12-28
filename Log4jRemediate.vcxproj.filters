@@ -15,9 +15,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Scanner.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="Remediate.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -47,13 +44,7 @@
     <ClInclude Include="resource.h">
       <Filter>Resource Files</Filter>
     </ClInclude>
-    <ClInclude Include="Scanner.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Reports.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="MainRemediate.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

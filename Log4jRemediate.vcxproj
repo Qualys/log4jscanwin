@@ -177,16 +177,13 @@
     <ClCompile Include="MainRemediate.cpp" />
     <ClCompile Include="Remediate.cpp" />
     <ClCompile Include="Reports.cpp" />
-    <ClCompile Include="Scanner.cpp" />
     <ClCompile Include="stdafx.cpp" />
     <ClCompile Include="Utils.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="MainRemediate.h" />
     <ClInclude Include="Remediate.h" />
     <ClInclude Include="Reports.h" />
     <ClInclude Include="resource.h" />
-    <ClInclude Include="Scanner.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="Utils.h" />
   </ItemGroup>
