@@ -6,7 +6,7 @@ The utility will scan the entire hard drive(s) including archives (and nested JA
 
 Qualys has added a new QID (376160) that is designed to look for the results of this scan and mark the asset as vulnerable if the vulnerable log4j library was found.
 
-Qualys customers should use the following to run the tool on any asset they want to scan:
+Qualys customers should use the following to run the tool on any asset they want to scan, from an elevated command prompt:
 > Log4jScanner.exe /scan /report_sig
 
 # Direct Download Link
@@ -28,10 +28,10 @@ https://github.com/Qualys/log4jscanwin/releases/download/1.2.18/Log4jScanner-1.2
   Generate a signature report of possible detections of supported CVE(s).
 ```
 
-Sample Usage - The following command helps you scan local drives for vulnerable JAR, WAR, EAR, and ZIP.
+Sample Usage (from an elevated command prompt) - The following command helps you scan local drives for vulnerable JAR, WAR, EAR, and ZIP.
 > Log4jScanner.exe /scan
 
-Sample Usage - The following command helps you scan local drives for vulnerable files and writes a signature report to C:\ProgramData\Qualys
+Sample Usage (from an elevated command prompt) - The following command helps you scan local drives for vulnerable files and writes a signature report to C:\ProgramData\Qualys
 > Log4jScanner.exe /scan /report_sig
 
 # Output - The following output shows detection
