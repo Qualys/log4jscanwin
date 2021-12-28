@@ -47,11 +47,12 @@ bool IsCVE20214104Mitigated(std::string log4jVendor, std::string version) {
 bool IsCVE202144228Mitigated(std::string log4jVendor, bool foundJNDILookupClass, std::string version) {
   int major = 0, minor = 0, build = 0;
   if (!foundJNDILookupClass) return true;
-  if (log4jVendor.compare("log4j-core") != 0) return true;
+  if (log4jVendor.compare("log4j-core") != 0) return true;                  // Impacted JAR
   if (ParseVersion(version, major, minor, build)) {
-    if (major < 2) return true;
-    if ((major == 2) && (minor == 12) && (build == 2)) return true;
-    if ((major == 2) && (minor >= 15)) return true;
+    if (major < 2) return true;                                             // N/A
+    if ((major == 2) && (minor == 3) && (build >= 1)) return true;          // Java 6
+    if ((major == 2) && (minor == 12) && (build >= 2)) return true;         // Java 7
+    if ((major == 2) && (minor >= 15)) return true;                         // Java 8+
   }
   return false;
 }
@@ -59,21 +60,24 @@ bool IsCVE202144228Mitigated(std::string log4jVendor, bool foundJNDILookupClass,
 bool IsCVE202145046Mitigated(std::string log4jVendor, bool foundJNDILookupClass, std::string version) {
   int major = 0, minor = 0, build = 0;
   if (!foundJNDILookupClass) return true;
-  if (log4jVendor.compare("log4j-core") != 0) return true;
+  if (log4jVendor.compare("log4j-core") != 0) return true;                  // Impacted JAR
   if (ParseVersion(version, major, minor, build)) {
-    if (major < 2) return true;
-    if ((major == 2) && (minor == 12) && (build == 2)) return true;
-    if ((major == 2) && (minor > 15)) return true;
+    if (major < 2) return true;                                             // N/A
+    if ((major == 2) && (minor == 3) && (build >= 1)) return true;          // Java 6
+    if ((major == 2) && (minor == 12) && (build >= 2)) return true;         // Java 7
+    if ((major == 2) && (minor >= 16)) return true;                         // Java 8+
   }
   return false;
 }
 
 bool IsCVE202145105Mitigated(std::string log4jVendor, std::string version) {
   int major = 0, minor = 0, build = 0;
-  if (log4jVendor.compare("log4j-core") != 0) return true;
+  if (log4jVendor.compare("log4j-core") != 0) return true;                  // Impacted JAR
   if (ParseVersion(version, major, minor, build)) {
-    if (major < 2) return true;
-    if ((major == 2) && (minor > 16)) return true;
+    if (major < 2) return true;                                             // N/A
+    if ((major == 2) && (minor == 3) && (build >= 1)) return true;          // Java 6
+    if ((major == 2) && (minor == 12) && (build >= 2)) return true;         // Java 7
+    if ((major == 2) && (minor >= 17)) return true;                         // Java 8+
   }
   return false;
 }
