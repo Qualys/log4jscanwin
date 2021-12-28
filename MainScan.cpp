@@ -24,9 +24,9 @@ int32_t PrintHelp(int32_t argc, wchar_t* argv[]) {
   int32_t rv = ERROR_SUCCESS;
 
   wprintf(L"/scan\n");
-  wprintf(L"  Scan local drives for vulnerable JAR, WAR, EAR, ZIP files used by various Java applications.\n");
+  wprintf(L"  Scan local drives for vulnerable JAR, WAR, EAR, PAR, ZIP files used by various Java applications.\n");
   wprintf(L"/scan_directory \"C:\\Some\\Path\"\n");
-  wprintf(L"  Scan a specific directory for vulnerable JAR, WAR, EAR, ZIP files used by various Java applications.\n");
+  wprintf(L"  Scan a specific directory for vulnerable JAR, WAR, EAR, PAR, ZIP files used by various Java applications.\n");
   wprintf(L"/scan_file \"C:\\Some\\Path\\Some.jar\"\n");
   wprintf(L"  Scan a specific file for supported CVE(s).\n");
   wprintf(L"/report\n");
@@ -130,7 +130,7 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
   if (!cmdline_options.no_logo) {
     wprintf(L"Qualys Log4j Vulnerability Scanner %S\n", VERSION_STRING);
     wprintf(L"https://www.qualys.com/\n");
-    wprintf(L"Supported CVE(s): CVE-2021-4104, CVE-2021-44228, CVE-2021-45046, CVE-2021-45105\n\n");
+    wprintf(L"Supported CVE(s): CVE-2021-4104, CVE-2021-44228, CVE-2021-44832, CVE-2021-45046, CVE-2021-45105\n\n");
   }
 
   if (cmdline_options.help) {
@@ -216,6 +216,7 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
     wprintf(L"\tJAR(s) Scanned:\t\t %lld\n", repSummary.scannedJARs);
     wprintf(L"\tWAR(s) Scanned:\t\t %lld\n", repSummary.scannedWARs);
     wprintf(L"\tEAR(s) Scanned:\t\t %lld\n", repSummary.scannedEARs);
+    wprintf(L"\tPAR(s) Scanned:\t\t %lld\n", repSummary.scannedPARs);
     wprintf(L"\tZIP(s) Scanned:\t\t %lld\n", repSummary.scannedZIPs);
     wprintf(L"\tVulnerabilities Found:\t %lld\n", repSummary.foundVunerabilities);
   }

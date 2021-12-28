@@ -8,6 +8,7 @@ class CReportSummary {
   uint64_t scannedJARs;
   uint64_t scannedWARs;
   uint64_t scannedEARs;
+  uint64_t scannedPARs;
   uint64_t foundVunerabilities;
   uint64_t scanStart;
   uint64_t scanEnd;
@@ -19,6 +20,7 @@ class CReportSummary {
     scannedJARs = 0;
     scannedWARs = 0;
     scannedEARs = 0;
+    scannedPARs = 0;
     foundVunerabilities = 0;
     scanStart = 0;
     scanEnd = 0;
@@ -39,6 +41,7 @@ class CReportVunerabilities {
   std::wstring log4jVendor;
   bool cve20214104Mitigated;
   bool cve202144228Mitigated;
+  bool cve202144832Mitigated;
   bool cve202145046Mitigated;
   bool cve202145105Mitigated;
   std::wstring cveStatus;
@@ -49,8 +52,9 @@ class CReportVunerabilities {
                         bool detectedJNDILookupClass,
                         bool detectedLog4jManifest, std::wstring log4jVersion,
                         std::wstring log4jVendor, bool cve20214104Mitigated,
-                        bool cve202144228Mitigated, bool cve202145046Mitigated,
-                        bool cve202145105Mitigated, std::wstring cveStatus) {
+                        bool cve202144228Mitigated, bool cve202144832Mitigated,
+                        bool cve202145046Mitigated, bool cve202145105Mitigated,
+                        std::wstring cveStatus) {
     this->file = file;
     this->manifestVersion = manifestVersion;
     this->manifestVendor = manifestVendor;
@@ -63,6 +67,7 @@ class CReportVunerabilities {
     this->log4jVendor = log4jVendor;
     this->cve20214104Mitigated = cve20214104Mitigated;
     this->cve202144228Mitigated = cve202144228Mitigated;
+    this->cve202144832Mitigated = cve202144832Mitigated;
     this->cve202145046Mitigated = cve202145046Mitigated;
     this->cve202145105Mitigated = cve202145105Mitigated;
     this->cveStatus = cveStatus;

@@ -2,7 +2,6 @@
 #include "stdafx.h"
 #include "Utils.h"
 #include "Reports.h"
-//#include "Main.h"
 
 #include "rapidjson/document.h"
 #include "rapidjson/prettywriter.h"
@@ -30,6 +29,7 @@ int32_t GenerateReportSummary(DocumentW& doc) {
   ValueW vScannedJARs(rapidjson::kNumberType);
   ValueW vScannedWARs(rapidjson::kNumberType);
   ValueW vScannedEARs(rapidjson::kNumberType);
+  ValueW vScannedPARs(rapidjson::kNumberType);
   ValueW vScannedZIPs(rapidjson::kNumberType);
   ValueW vVulnerabilitiesFound(rapidjson::kNumberType);
   ValueW oSummary(rapidjson::kObjectType);
@@ -47,19 +47,19 @@ int32_t GenerateReportSummary(DocumentW& doc) {
   vScannedJARs.SetInt64(repSummary.scannedJARs);
   vScannedWARs.SetInt64(repSummary.scannedWARs);
   vScannedEARs.SetInt64(repSummary.scannedEARs);
+  vScannedPARs.SetInt64(repSummary.scannedPARs);
   vScannedZIPs.SetInt64(repSummary.scannedZIPs);
   vVulnerabilitiesFound.SetInt64(repSummary.foundVunerabilities);
 
   oSummary.AddMember(L"scanDuration", vScanDuration, doc.GetAllocator());
   oSummary.AddMember(L"scannedFiles", vScannedFiles, doc.GetAllocator());
-  oSummary.AddMember(L"scannedDirectories", vScannedDirectories,
-                     doc.GetAllocator());
+  oSummary.AddMember(L"scannedDirectories", vScannedDirectories, doc.GetAllocator());
   oSummary.AddMember(L"scannedJARs", vScannedJARs, doc.GetAllocator());
   oSummary.AddMember(L"scannedWARs", vScannedWARs, doc.GetAllocator());
   oSummary.AddMember(L"scannedEARs", vScannedEARs, doc.GetAllocator());
+  oSummary.AddMember(L"scannedPARs", vScannedPARs, doc.GetAllocator());
   oSummary.AddMember(L"scannedZIPs", vScannedZIPs, doc.GetAllocator());
-  oSummary.AddMember(L"vulnerabilitiesFound", vVulnerabilitiesFound,
-                     doc.GetAllocator());
+  oSummary.AddMember(L"vulnerabilitiesFound", vVulnerabilitiesFound, doc.GetAllocator());
 
   doc.AddMember(L"scanSummary", oSummary, doc.GetAllocator());
 
@@ -85,6 +85,7 @@ int32_t GenerateReportDetail(DocumentW& doc) {
     ValueW vLog4jVersion(rapidjson::kStringType);
     ValueW vCVE20214104Mitigated(rapidjson::kTrueType);
     ValueW vCVE202144228Mitigated(rapidjson::kTrueType);
+    ValueW vCVE202144832Mitigated(rapidjson::kTrueType);
     ValueW vCVE202145046Mitigated(rapidjson::kTrueType);
     ValueW vCVE202145105Mitigated(rapidjson::kTrueType);
     ValueW vCVEStatus(rapidjson::kStringType);
@@ -102,6 +103,7 @@ int32_t GenerateReportDetail(DocumentW& doc) {
     vLog4jVersion.SetString(vuln.log4jVersion.c_str(), doc.GetAllocator());
     vCVE20214104Mitigated.SetBool(vuln.cve20214104Mitigated);
     vCVE202144228Mitigated.SetBool(vuln.cve202144228Mitigated);
+    vCVE202144832Mitigated.SetBool(vuln.cve202144832Mitigated);
     vCVE202145046Mitigated.SetBool(vuln.cve202145046Mitigated);
     vCVE202145105Mitigated.SetBool(vuln.cve202145105Mitigated);
     vCVEStatus.SetString(vuln.cveStatus.c_str(), doc.GetAllocator());
@@ -118,6 +120,7 @@ int32_t GenerateReportDetail(DocumentW& doc) {
     oDetail.AddMember(L"log4jVersion", vLog4jVersion, doc.GetAllocator());
     oDetail.AddMember(L"cve20214104Mitigated", vCVE20214104Mitigated, doc.GetAllocator());
     oDetail.AddMember(L"cve202144228Mitigated", vCVE202144228Mitigated, doc.GetAllocator());
+    oDetail.AddMember(L"cve202144832Mitigated", vCVE202144832Mitigated, doc.GetAllocator());
     oDetail.AddMember(L"cve202145046Mitigated", vCVE202145046Mitigated, doc.GetAllocator());
     oDetail.AddMember(L"cve202145105Mitigated", vCVE202145105Mitigated, doc.GetAllocator());
     oDetail.AddMember(L"cveStatus", vCVEStatus, doc.GetAllocator());
