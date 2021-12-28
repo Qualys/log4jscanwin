@@ -24,7 +24,7 @@ namespace log4jremediate {
 		return zipOpen2_64(file_path.c_str(), append, globalcomment, ffunc);
 	}
 
-	int ExtractFileArchives(const std::vector<std::wstring>& archives, PairStack& archives_mapping) {
+	int ExtractFileArchives(const std::vector<std::wstring>& archives, PairStack& archives_mapping, std::unordered_set<std::wstring>& tempLocset) {
 		if (archives.empty()) {
 			return UNZ_BADZIPFILE;
 		}
@@ -77,6 +77,7 @@ namespace log4jremediate {
 					}
 
 					archives_mapping.emplace(archives[i], tmpFilename);
+					tempLocset.emplace(tmpFilename);
 
 					current_file = tmpFilename;
 				}
@@ -92,6 +93,24 @@ namespace log4jremediate {
 		}
 
 		return rv;
+	}
+
+	void log4jremediate::RemediateLog4JFile::CleanupTempFiles(std::unordered_set<std::wstring>& setTempLocs)
+	{
+
+		for (auto& filename : setTempLocs)
+		{
+			// If we are unable to File Attributes, it simply means file doesn't exist
+			//The variable are kept purposely. Helps in debugging.
+			const bool bFileExists = (GetFileAttributes(filename.c_str()) != INVALID_FILE_ATTRIBUTES);
+			if (bFileExists)
+			{
+				if (!DeleteFile(filename.c_str()))
+				{
+					LogStatusMessage(L"Fail to delete %s; Win32 error: %d\n", filename.c_str(), GetLastError());
+				}
+			}
+		}
 	}
 
 	DWORD ReadSignatureReport(const std::wstring& report, std::vector<CReportVulnerabilities>& result) {
@@ -260,6 +279,7 @@ namespace log4jremediate {
 		wchar_t tmpFilename[_MAX_PATH + 1]{};
 		PairStack archives_mapping;
 		std::vector<std::wstring> result;
+		std::unordered_set<std::wstring> setTempLocs;
 
 		try {
 			SplitWideString(vulnerable_file_path, L"!", result);
@@ -279,10 +299,13 @@ namespace log4jremediate {
 				status = GetLastError();
 				LOG_WIN32_MESSAGE(status, L"Failed to copy %s to %s", result[0].c_str(), tmpFilename);
 				return status;
-			}
+			}			
 
 			// Map outermost file with corresponding temp file
 			archives_mapping.emplace(result[0], tmpFilename);
+
+			//Add to set of delete files
+			setTempLocs.emplace(tmpFilename);
 
 			if (ExtractFileArchives(result, archives_mapping)) {
 				status = ERROR_INVALID_OPERATION;
@@ -321,12 +344,18 @@ namespace log4jremediate {
 				return status;
 			}
 
+			// Add backup file to the set of delete files 
+			setTempLocs.emplace(original_backup);
+
 			// replace fixed jar with original
 			if (!MoveFile(tmpFilename, result[0].c_str())) {
 				status = GetLastError();
 				LOG_WIN32_MESSAGE(status, L"Failed to rename %s to %s", tmpFilename, result[0].c_str());
 				return status;
 			}
+
+			// Delete temporary files
+			CleanupTempFiles(setTempLocs);			
 		}
 		catch (std::bad_alloc&) {
 			status = ERROR_OUTOFMEMORY;
@@ -335,7 +364,7 @@ namespace log4jremediate {
 		catch (std::exception& e) {
 			status = ERROR_INVALID_OPERATION;
 			LOG_WIN32_MESSAGE(status, L"Exception %S caught in %s", e.what(), __func__);
-		}
+		}		
 
 		return status;
 	}

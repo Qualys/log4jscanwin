@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 #include <stack>
+#include <unordered_set>
 #include <fstream>
 #include <sstream>
 #include <codecvt>
