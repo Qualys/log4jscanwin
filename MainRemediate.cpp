@@ -17,15 +17,13 @@
 #define ARGPARAMCOUNT(X) ((i + X) <= (argc - 1))
 
 
-struct CCommandLineOptions {
-  bool remediateFile{};
+struct CCommandLineOptions {  
   bool remediateSig{};
   bool report{};
   bool report_pretty{};
   bool verbose{};
   bool no_logo{};
-  bool help{};
-  std::wstring file;
+  bool help{};  
 };
 
 CCommandLineOptions cmdline_options;
@@ -40,9 +38,7 @@ __inline std::vector<wchar_t> FormatTimestamp(uint64_t timestamp) {
 
 DWORD PrintHelp(int32_t argc, wchar_t* argv[]) {
   DWORD rv{ ERROR_SUCCESS };
-
-  wprintf(L"/remediate_file \"C:\\Some\\Path.[jar|war|ear|zip]\n");
-  wprintf(L"  Remove JndiLookup.class from specified JAR, WAR, EAR, ZIP files.\n");
+  
   wprintf(L"/remediate_sig\n");
   wprintf(L"  Remove JndiLookup.class from JAR, WAR, EAR, ZIP files detected by scanner utility\n");
   wprintf(L"/report\n");
@@ -59,11 +55,7 @@ int32_t ProcessCommandLineOptions(int32_t argc, wchar_t* argv[]) {
 
   for (int32_t i = 1; i < argc; i++) {
     if (0) {
-    }
-    else if (ARG(remediate_file)) {
-      cmdline_options.remediateFile = true;
-      cmdline_options.file = argv[i + 1];
-    }
+    }    
     else if (ARG(remediate_sig)) {
       cmdline_options.remediateSig = true;
       cmdline_options.no_logo = true;
@@ -85,20 +77,7 @@ int32_t ProcessCommandLineOptions(int32_t argc, wchar_t* argv[]) {
       cmdline_options.help = true;
     }
   }
-
-  //
-  // Check to make sure the directory path is normalized
-  //
-  if (cmdline_options.remediateFile) {
-    if (cmdline_options.file[0] == L'\"' || cmdline_options.file[0] == L'\'') {
-      cmdline_options.file.erase(0, 1);
-    }
-
-    if (cmdline_options.file.back() == L'\"' || cmdline_options.file.back() == L'\'') {
-      cmdline_options.file.pop_back();
-    }
-  }
-
+  
   return rv;
 }
 
@@ -163,14 +142,7 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
     if (rv != ERROR_SUCCESS) {
       LOG_MESSAGE(L"Failed to remediate vulnerabilities from signature report.");
     }
-  }
-  else if (cmdline_options.remediateFile) {
-    log4jremediate::RemediateLog4JFile remediator;
-    rv = remediator.RemediateFileArchive(cmdline_options.file);
-    if (rv != ERROR_SUCCESS) {
-      LOG_MESSAGE(L"Failed to remediate file: %s", cmdline_options.file.c_str());
-    }
-  }
+  }  
 
   remSummary.scanEnd = std::time(nullptr);
 
