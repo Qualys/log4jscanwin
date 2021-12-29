@@ -14,7 +14,8 @@ class CCommandLineOptions {
   bool verbose;
   bool no_logo;
   bool help;
-
+  bool scanLocalDrivesInclMountpoints;
+ 
   CCommandLineOptions() {
     scanLocalDrives = false;
     scanNetworkDrives = false;
@@ -28,6 +29,7 @@ class CCommandLineOptions {
     verbose = false;
     no_logo = false;
     help = false;
+    scanLocalDrivesInclMountpoints = false;
   }
 };
 
