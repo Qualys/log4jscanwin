@@ -545,6 +545,7 @@ namespace log4jremediate {
 
 	int RemediateLog4JFile::ReadFileContent(const std::wstring& file_path, std::vector<BYTE>& buf, PULONG size) {
 		int ret_val{};
+		DWORD bytes_read{};
 
 		if (!size) {
 			ret_val = 1;
@@ -563,7 +564,7 @@ namespace log4jremediate {
 
 		buf.resize(*size, '\0');
 
-		if (0 == ReadFile(handle_fixed_zip, buf.data(), *size, nullptr, nullptr)) {
+		if (0 == ReadFile(handle_fixed_zip, buf.data(), *size, &bytes_read, nullptr)) {
 			ret_val = 1;
 			goto CLEANUP;
 		}
