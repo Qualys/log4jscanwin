@@ -48,7 +48,7 @@ namespace log4jremediate {
 
 				if (UNZ_OK == rv) {
 					GetTempPath(_countof(tmpPath), tmpPath);
-					GetTempFileName(tmpPath, L"qua_rem", 0, tmpFilename);
+					GetTempFileName(tmpPath, L"ljr", 0, tmpFilename);
 
 					HANDLE h = CreateFile(tmpFilename, GENERIC_READ | GENERIC_WRITE, 0,
 						nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_TEMPORARY, nullptr);
