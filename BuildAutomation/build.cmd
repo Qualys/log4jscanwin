@@ -74,6 +74,7 @@ SET BUILD_STATUS=%ERRORLEVEL%
 
 REM Sign executable binaries 
 signtool sign /f "%bamboo_winsign_pfxfile%" /p "%bamboo_winsign_password%" /fd SHA256 /n "Qualys" /d http://www.qualys.com /tr http://timestamp.digicert.com /td SHA256 /v "%BUILD_OUTPUT%\Log4jScanner.exe"
+signtool sign /f "%bamboo_winsign_pfxfile%" /p "%bamboo_winsign_password%" /fd SHA256 /n "Qualys" /d http://www.qualys.com /tr http://timestamp.digicert.com /td SHA256 /v "%BUILD_OUTPUT%\Log4jRemediate.exe"
 
 rem Postbuild
 xcopy /vy %BUILD_OUTPUT%\*.pdb %BUILD_OUTPUT%\symbols\ >>%LOG_FILE%
@@ -106,6 +107,7 @@ SET BUILD_STATUS=%ERRORLEVEL%
 
 REM Sign executable binaries 
 signtool sign /f "%bamboo_winsign_pfxfile%" /p "%bamboo_winsign_password%" /fd SHA256 /n "Qualys" /d http://www.qualys.com /tr http://timestamp.digicert.com /td SHA256 /v "%BUILD_OUTPUT%\Log4jScanner.exe"
+signtool sign /f "%bamboo_winsign_pfxfile%" /p "%bamboo_winsign_password%" /fd SHA256 /n "Qualys" /d http://www.qualys.com /tr http://timestamp.digicert.com /td SHA256 /v "%BUILD_OUTPUT%\Log4jRemediate.exe"
 
 rem Postbuild
 xcopy /vy %BUILD_OUTPUT%\*.pdb %BUILD_OUTPUT%\symbols\ >>%LOG_FILE%
