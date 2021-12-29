@@ -509,3 +509,57 @@ int32_t ScanNetworkDrives(bool console, bool verbose) {
   return rv;
 }
 
+int32_t ScanLocalDrivesInclMountpoints(bool console, bool verbose) {
+	int32_t rv = ERROR_SUCCESS;
+	DWORD rt = 0;
+	wchar_t drives[256];
+
+	wcscpy_s(drives, L"");
+	rt = GetLogicalDriveStrings(_countof(drives), drives);
+	for (uint32_t i = 0; i < rt; i += 4) {
+		wchar_t* drive = &drives[i];
+		DWORD type = GetDriveType(drive);
+		if ((DRIVE_FIXED == type) || (DRIVE_RAMDISK == type)) {
+			ScanDirectory(console, verbose, drive);
+
+			//Enumerate mount points on the drive and scan them
+			EnumMountPoints(console, verbose, drive);
+		}
+	}
+
+	return rv;
+}
+
+int32_t EnumMountPoints(bool console, bool verbose, LPCWSTR szVolume)
+{
+	int32_t rv = ERROR_SUCCESS;
+	HANDLE hFindMountPoint;
+	wchar_t szMountPoint[MAX_PATH];
+	std::wstring sBaseMountpoint = szVolume;
+
+	// Find the first mount point.
+	hFindMountPoint = FindFirstVolumeMountPoint(szVolume, szMountPoint, MAX_PATH);
+
+	// If a mount point was found scan it
+	if (hFindMountPoint != INVALID_HANDLE_VALUE)
+	{
+		ScanDirectory(console, verbose, (sBaseMountpoint + szMountPoint));
+	}
+	else
+	{
+		if (verbose) {
+			wprintf(L"No mount points.\n");
+		}
+		return rv;
+	}
+
+	// Find the next mountpoint(s)
+	while (FindNextVolumeMountPoint(hFindMountPoint, szMountPoint, MAX_PATH))
+	{
+		ScanDirectory(console, verbose, (sBaseMountpoint + szMountPoint));
+	}
+
+	FindVolumeMountPointClose(hFindMountPoint);
+
+	return rv;
+}
