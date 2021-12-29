@@ -32,6 +32,8 @@ int32_t PrintHelp(int32_t argc, wchar_t* argv[]) {
   wprintf(L"/scan_directory \"C:\\Some\\Path\"\n");
   wprintf(L"  Scan a specific directory for vulnerable JAR, WAR, EAR, PAR, ZIP files used by various Java applications.\n");
   wprintf(L"/scan_file \"C:\\Some\\Path\\Some.jar\"\n");
+  wprintf(L"/scaninclmountpoints\n");
+  wprintf(L"  Scan local drives including mount points for vulnerable JAR, WAR, EAR, PAR, ZIP files used by various Java applications.\n");
   wprintf(L"  Scan a specific file for supported CVE(s).\n");
   wprintf(L"/report\n");
   wprintf(L"  Generate a JSON report of possible detections of supported CVE(s).\n");
@@ -57,6 +59,8 @@ int32_t ProcessCommandLineOptions(int32_t argc, wchar_t* argv[]) {
     } else if (ARG(scan_directory) && ARGPARAMCOUNT(1)) {
       cmdline_options.scanDirectory = true;
       cmdline_options.directory = argv[i + 1];
+    } else if (ARG(scaninclmountpoints)) {
+      cmdline_options.scanLocalDrivesInclMountpoints = true;
     } else if (ARG(report)) {
       cmdline_options.no_logo = true;
       cmdline_options.report = true;
@@ -145,7 +149,7 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
   }
 
   if (!cmdline_options.scanLocalDrives && !cmdline_options.scanNetworkDrives &&
-      !cmdline_options.scanDirectory && !cmdline_options.scanFile) {
+      !cmdline_options.scanDirectory && !cmdline_options.scanFile && !cmdline_options.scanLocalDrivesInclMountpoints) {
     cmdline_options.scanLocalDrives = true;
   }
 
@@ -184,7 +188,14 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
     }
     ScanLocalDrives(!cmdline_options.no_logo, cmdline_options.verbose);
   }
-
+  
+  if (cmdline_options.scanLocalDrivesInclMountpoints) {
+     if (!cmdline_options.no_logo) {
+       wprintf(L"Scanning Local Drives including Mountpoints...\n");
+      }
+      ScanLocalDrivesInclMountpoints(!cmdline_options.no_logo, cmdline_options.verbose);
+  }
+  
   if (cmdline_options.scanNetworkDrives) {
     if (!cmdline_options.no_logo) {
       wprintf(L"Scanning Network Drives...\n");

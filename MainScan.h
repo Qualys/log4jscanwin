@@ -3,6 +3,7 @@
 class CCommandLineOptions {
  public:
   bool scanLocalDrives;
+  bool scanLocalDrivesInclMountpoints;
   bool scanNetworkDrives;
   bool scanFile;
   std::wstring file;
@@ -11,13 +12,14 @@ class CCommandLineOptions {
   bool report;
   bool reportPretty;
   bool reportSig;
+  bool lowpriority;
   bool verbose;
   bool no_logo;
   bool help;
-  bool lowpriority;
 
   CCommandLineOptions() {
     scanLocalDrives = false;
+    scanLocalDrivesInclMountpoints = false;
     scanNetworkDrives = false;
     scanFile = false;
     file.clear();
@@ -26,10 +28,10 @@ class CCommandLineOptions {
     report = false;
     reportPretty = false;
     reportSig = false;
+    lowpriority = false;
     verbose = false;
     no_logo = false;
     help = false;
-    lowpriority = false;
   }
 };
 
