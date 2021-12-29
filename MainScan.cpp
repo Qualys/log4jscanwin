@@ -23,6 +23,10 @@ CCommandLineOptions cmdline_options;
 int32_t PrintHelp(int32_t argc, wchar_t* argv[]) {
   int32_t rv = ERROR_SUCCESS;
 
+  wprintf(L"/help\n");
+  wprintf(L"  Displays this help page.\n");
+  wprintf(L"/lowpriority\n");
+  wprintf(L"  Lowers priority of Log4JScanner other processes have priority.\n");
   wprintf(L"/scan\n");
   wprintf(L"  Scan local drives for vulnerable JAR, WAR, EAR, PAR, ZIP files used by various Java applications.\n");
   wprintf(L"/scan_directory \"C:\\Some\\Path\"\n");
@@ -70,6 +74,8 @@ int32_t ProcessCommandLineOptions(int32_t argc, wchar_t* argv[]) {
       cmdline_options.reportSig = true;
     } else if (ARG(nologo)) {
       cmdline_options.no_logo = true;
+    } else if (ARG(lowpriority)) {
+      cmdline_options.lowpriority = true;
     } else if (ARG(v) || ARG(verbose)) {
       cmdline_options.verbose = true;
     } else if (ARG(?) || ARG(h) || ARG(help)) {
@@ -150,6 +156,19 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
   if (cmdline_options.reportSig) {
     OpenSignatureStatusFile();
   }
+  
+  if (cmdline_options.lowpriority) {
+      if (!SetPriorityClass(GetCurrentProcess(), PROCESS_MODE_BACKGROUND_BEGIN))
+      {
+          wprintf(L"Failed to set process priority.\n");
+      }
+      else
+      {
+          if (cmdline_options.verbose) {
+              wprintf(L"CPU and I/O priority lowered.\n");
+          }
+      }
+  }
 
   repSummary.scanStart = time(0);
 
@@ -162,7 +181,6 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
 
     LogStatusMessage(L"Scan start time : %s\n", buf);
   }
-
 
   if (cmdline_options.scanLocalDrives) {
     if (!cmdline_options.no_logo) {
@@ -200,7 +218,14 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
   }
 
   repSummary.scanEnd = time(0);
-
+  
+  if (cmdline_options.lowpriority) {
+      if (!SetPriorityClass(GetCurrentProcess(), PROCESS_MODE_BACKGROUND_END))
+      {
+          wprintf(L"Failed to set process priority");
+      }
+  }
+  
   if (cmdline_options.reportSig) {
     wchar_t buf[64] = {0};
     struct tm* tm = NULL;
