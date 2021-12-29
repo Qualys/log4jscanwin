@@ -154,7 +154,7 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
   }
 
   if (cmdline_options.reportSig) {
-    OpenSignatureStatusFile();
+    OpenStatusFile(GetSignatureStatusFilename());
   }
   
   if (cmdline_options.lowpriority) {
@@ -282,7 +282,7 @@ END:
     }
   }
 
-  CloseSignatureStatusFile();
+  CloseStatusFile();
 
   return rv;
 }

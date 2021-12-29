@@ -6,14 +6,8 @@
 #include "minizip/iowin32.h"
 #include "zlib/zlib.h"
 
-
-constexpr wchar_t* qualys_program_data_locaton = L"%ProgramData%\\Qualys";
-constexpr wchar_t* report_sig_output_file = L"log4j_findings.out";
-constexpr wchar_t* report_sig_status_file = L"status.txt";
-
 FILE* status_file = nullptr;
 std::vector<std::wstring> error_array;
-
 
 std::wstring A2W(const std::string& str) {
   int length_wide = MultiByteToWideChar(CP_ACP, 0, str.data(), -1, NULL, 0);
@@ -29,6 +23,21 @@ std::string W2A(const std::wstring& str) {
   WideCharToMultiByte(CP_ACP, 0, str.data(), -1, string_ansi, length_ansi, NULL, NULL);
   std::string result(string_ansi, length_ansi - 1);
   return result;
+}
+
+void SplitWideString(std::wstring str, const std::wstring& token, std::vector<std::wstring>& result)
+{
+  while (str.size()) {
+    auto index = str.find(token);
+    if (index != std::wstring::npos) {
+      result.push_back(str.substr(0, index));
+      str = str.substr(index + token.size());      
+    }
+    else {
+      result.push_back(str);
+      str.clear();
+    }
+  }
 }
 
 bool SanitizeContents(std::string& str) {
@@ -93,6 +102,73 @@ bool ExpandEnvironmentVariables(const wchar_t* source, std::wstring& destination
   return true;
 }
 
+bool ParseVersion(std::string version, int& major, int& minor, int& build) {
+  return (0 != sscanf(version.c_str(), "%d.%d.%d", &major, &minor, &build));
+}
+
+bool IsCVE20214104Mitigated(std::string log4jVendor, std::string version) {
+    int major = 0, minor = 0, build = 0;
+    if (log4jVendor.compare("log4j") != 0) return true;
+    if (ParseVersion(version, major, minor, build)) {
+        if ((major >= 2) || (major < 1)) return true;
+        if ((major == 1) && (minor <= 1)) return true;
+        if ((major == 1) && (minor == 2) && (build >= 17)) return true;
+        if ((major == 1) && (minor >= 3)) return true;
+    }
+    return false;
+}
+
+bool IsCVE202144228Mitigated(std::string log4jVendor, bool foundJNDILookupClass, std::string version) {
+    int major = 0, minor = 0, build = 0;
+    if (!foundJNDILookupClass) return true;
+    if (log4jVendor.compare("log4j-core") != 0) return true;                    // Impacted JAR
+    if (ParseVersion(version, major, minor, build)) {
+        if (major < 2) return true;                                             // N/A
+        if ((major == 2) && (minor == 3) && (build >= 1)) return true;          // Java 6
+        if ((major == 2) && (minor == 12) && (build >= 2)) return true;         // Java 7
+        if ((major == 2) && (minor >= 15)) return true;                         // Java 8+
+    }
+    return false;
+}
+
+bool IsCVE202144832Mitigated(std::string log4jVendor, std::string version) {
+    int major = 0, minor = 0, build = 0;
+    if (log4jVendor.compare("log4j-core") != 0) return true;                    // Impacted JAR
+    if (ParseVersion(version, major, minor, build)) {
+        if (major < 2) return true;                                             // N/A
+        if ((major == 2) && (minor == 3) && (build >= 2)) return true;          // Java 6
+        if ((major == 2) && (minor == 12) && (build >= 4)) return true;         // Java 7
+        if ((major == 2) && (minor == 17) && (build >= 1)) return true;         // Java 8+
+        if ((major == 2) && (minor >= 18)) return true;                         // Java 8+
+    }
+    return false;
+}
+
+bool IsCVE202145046Mitigated(std::string log4jVendor, bool foundJNDILookupClass, std::string version) {
+    int major = 0, minor = 0, build = 0;
+    if (!foundJNDILookupClass) return true;
+    if (log4jVendor.compare("log4j-core") != 0) return true;                    // Impacted JAR
+    if (ParseVersion(version, major, minor, build)) {
+        if (major < 2) return true;                                             // N/A
+        if ((major == 2) && (minor == 3) && (build >= 1)) return true;          // Java 6
+        if ((major == 2) && (minor == 12) && (build >= 2)) return true;         // Java 7
+        if ((major == 2) && (minor >= 16)) return true;                         // Java 8+
+    }
+    return false;
+}
+
+bool IsCVE202145105Mitigated(std::string log4jVendor, std::string version) {
+    int major = 0, minor = 0, build = 0;
+    if (log4jVendor.compare("log4j-core") != 0) return true;                    // Impacted JAR
+    if (ParseVersion(version, major, minor, build)) {
+        if (major < 2) return true;                                             // N/A
+        if ((major == 2) && (minor == 3) && (build >= 1)) return true;          // Java 6
+        if ((major == 2) && (minor == 12) && (build >= 2)) return true;         // Java 7
+        if ((major == 2) && (minor >= 17)) return true;                         // Java 8+
+    }
+    return false;
+}
+
 bool DirectoryExists(const wchar_t* dirPath) {
   if (dirPath == NULL) {
     return false;
@@ -116,7 +192,7 @@ std::wstring GetScanUtilityDirectory() {
 std::wstring GetReportDirectory() {
   std::wstring destination_dir;
   std::wstring report_dir;
-  if (ExpandEnvironmentVariables(qualys_program_data_locaton,
+  if (ExpandEnvironmentVariables(qualys_program_data_location,
                                  destination_dir)) {
     if (!DirectoryExists(destination_dir.c_str())) {
       _wmkdir(destination_dir.c_str());
@@ -135,6 +211,14 @@ std::wstring GetSignatureReportFilename() {
 
 std::wstring GetSignatureStatusFilename() {
   return GetReportDirectory() + L"\\" + report_sig_status_file;
+}
+
+std::wstring GetRemediationReportFilename() {
+  return GetReportDirectory() + L"\\" + remediation_report_file;
+}
+
+std::wstring GetRemediationStatusFilename() {
+  return GetReportDirectory() + L"\\" + remediation_status_file;
 }
 
 int LogStatusMessage(const wchar_t* fmt, ...) {
@@ -157,12 +241,12 @@ int LogStatusMessage(const wchar_t* fmt, ...) {
   return retval;
 }
 
-bool OpenSignatureStatusFile() {
-  errno_t err = _wfopen_s(&status_file, GetSignatureStatusFilename().c_str(), L"w+");
+bool OpenStatusFile(const std::wstring& filename) {
+  errno_t err = _wfopen_s(&status_file, filename.c_str(), L"w+, ccs=UTF-8");
   return (EINVAL != err);
 }
 
-bool CloseSignatureStatusFile() {
+bool CloseStatusFile() {
   if (status_file) {
     fclose(status_file);
   }

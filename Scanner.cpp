@@ -2,7 +2,6 @@
 #include "stdafx.h"
 #include "Utils.h"
 #include "Reports.h"
-//#include "Main.h"
 #include "Scanner.h"
 
 #include "minizip/unzip.h"
@@ -26,74 +25,6 @@ bool UncompressContents(unzFile zf, std::string& str) {
   }
 
   return true;
-}
-
-bool ParseVersion(std::string version, int& major, int& minor, int& build) {
-  return ( 0 != sscanf(version.c_str(), "%d.%d.%d", &major, &minor, &build) );
-}
-
-bool IsCVE20214104Mitigated(std::string log4jVendor, std::string version) {
-  int major = 0, minor = 0, build = 0;
-  if (log4jVendor.compare("log4j") != 0) return true;
-  if (ParseVersion(version, major, minor, build)) {
-    if ((major >= 2) || (major < 1)) return true;
-    if ((major == 1) && (minor <= 1)) return true;
-    if ((major == 1) && (minor == 2) && (build >= 17)) return true;
-    if ((major == 1) && (minor >= 3)) return true;
-  }
-  return false;
-}
-
-bool IsCVE202144228Mitigated(std::string log4jVendor, bool foundJNDILookupClass, std::string version) {
-  int major = 0, minor = 0, build = 0;
-  if (!foundJNDILookupClass) return true;
-  if (log4jVendor.compare("log4j-core") != 0) return true;                  // Impacted JAR
-  if (ParseVersion(version, major, minor, build)) {
-    if (major < 2) return true;                                             // N/A
-    if ((major == 2) && (minor == 3) && (build >= 1)) return true;          // Java 6
-    if ((major == 2) && (minor == 12) && (build >= 2)) return true;         // Java 7
-    if ((major == 2) && (minor >= 15)) return true;                         // Java 8+
-  }
-  return false;
-}
-
-bool IsCVE202144832Mitigated(std::string log4jVendor, std::string version) {
-  int major = 0, minor = 0, build = 0;
-  if (log4jVendor.compare("log4j-core") != 0) return true;                  // Impacted JAR
-  if (ParseVersion(version, major, minor, build)) {
-    if (major < 2) return true;                                             // N/A
-    if ((major == 2) && (minor == 3) && (build >= 2)) return true;          // Java 6
-    if ((major == 2) && (minor == 12) && (build >= 4)) return true;         // Java 7
-    if ((major == 2) && (minor == 17) && (build >= 1)) return true;         // Java 8+
-    if ((major == 2) && (minor >= 18)) return true;                         // Java 8+
-  }
-  return false;
-}
-
-bool IsCVE202145046Mitigated(std::string log4jVendor, bool foundJNDILookupClass,
-                             std::string version) {
-  int major = 0, minor = 0, build = 0;
-  if (!foundJNDILookupClass) return true;
-  if (log4jVendor.compare("log4j-core") != 0) return true;                  // Impacted JAR
-  if (ParseVersion(version, major, minor, build)) {
-    if (major < 2) return true;                                             // N/A
-    if ((major == 2) && (minor == 3) && (build >= 1)) return true;          // Java 6
-    if ((major == 2) && (minor == 12) && (build >= 2)) return true;         // Java 7
-    if ((major == 2) && (minor >= 16)) return true;                         // Java 8+
-  }
-  return false;
-}
-
-bool IsCVE202145105Mitigated(std::string log4jVendor, std::string version) {
-  int major = 0, minor = 0, build = 0;
-  if (log4jVendor.compare("log4j-core") != 0) return true;                  // Impacted JAR
-  if (ParseVersion(version, major, minor, build)) {
-    if (major < 2) return true;                                             // N/A
-    if ((major == 2) && (minor == 3) && (build >= 1)) return true;          // Java 6
-    if ((major == 2) && (minor == 12) && (build >= 3)) return true;         // Java 7
-    if ((major == 2) && (minor >= 17)) return true;                         // Java 8+
-  }
-  return false;
 }
 
 int32_t ScanFileArchive(bool console, bool verbose, std::wstring file, std::wstring alternate) {
@@ -354,7 +285,7 @@ int32_t ScanFileArchive(bool console, bool verbose, std::wstring file, std::wstr
       cveStatus = "N/A";
     } else if (!foundJNDILookupClass && foundLog4j2x && foundLog4jManifest) {
       cveStatus = "Mitigated";
-    } else if (foundJNDILookupClass && foundLog4j2x && cve202144228Mitigated && cve202145046Mitigated && cve202145105Mitigated) {
+    } else if (foundJNDILookupClass && foundLog4j2x && cve202144228Mitigated && cve202144832Mitigated && cve202145046Mitigated && cve202145105Mitigated) {
       cveStatus = "Mitigated";
     } else if (!foundJNDILookupClass && foundLog4j1x) {
       cveStatus = "N/A";
@@ -362,7 +293,7 @@ int32_t ScanFileArchive(bool console, bool verbose, std::wstring file, std::wstr
       cveStatus = "Unknown";
     }
 
-    repVulns.push_back(CReportVunerabilities(
+    repVulns.push_back(CReportVulnerabilities(
         file, A2W(manifestVersion), A2W(manifestVendor), foundLog4j, foundLog4j1x, foundLog4j2x,
         foundJNDILookupClass, foundLog4jManifest, A2W(log4jVersion), A2W(log4jVendor), cve20214104Mitigated, 
         cve202144228Mitigated, cve202144832Mitigated, cve202145046Mitigated, cve202145105Mitigated, A2W(cveStatus)));
