@@ -14,6 +14,7 @@ class CCommandLineOptions {
   bool verbose;
   bool no_logo;
   bool help;
+  bool lowpriority;
 
   CCommandLineOptions() {
     scanLocalDrives = false;
@@ -28,6 +29,7 @@ class CCommandLineOptions {
     verbose = false;
     no_logo = false;
     help = false;
+    lowpriority = false;
   }
 };
 
