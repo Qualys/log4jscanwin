@@ -39,6 +39,7 @@ void SplitWideString(std::wstring str, const std::wstring & token, std::vector<s
 
 bool IsCVE20214104Mitigated(std::string log4jVendor, std::string version);
 bool IsCVE202144228Mitigated(std::string log4jVendor, bool foundJNDILookupClass, std::string version);
+bool IsCVE202144832Mitigated(std::string log4jVendor, std::string version);
 bool IsCVE202145046Mitigated(std::string log4jVendor, bool foundJNDILookupClass, std::string version);
 bool IsCVE202145105Mitigated(std::string log4jVendor, std::string version);
 

@@ -107,50 +107,66 @@ bool ParseVersion(std::string version, int& major, int& minor, int& build) {
 }
 
 bool IsCVE20214104Mitigated(std::string log4jVendor, std::string version) {
-  int major = 0, minor = 0, build = 0;
-  if (log4jVendor.compare("log4j") != 0) return true;
-  if (ParseVersion(version, major, minor, build)) {
-    if ((major >= 2) || (major < 1)) return true;
-    if ((major == 1) && (minor <= 1)) return true;
-    if ((major == 1) && (minor == 2) && (build >= 17)) return true;
-    if ((major == 1) && (minor >= 3)) return true;
-  }
-  return false;
+    int major = 0, minor = 0, build = 0;
+    if (log4jVendor.compare("log4j") != 0) return true;
+    if (ParseVersion(version, major, minor, build)) {
+        if ((major >= 2) || (major < 1)) return true;
+        if ((major == 1) && (minor <= 1)) return true;
+        if ((major == 1) && (minor == 2) && (build >= 17)) return true;
+        if ((major == 1) && (minor >= 3)) return true;
+    }
+    return false;
 }
 
 bool IsCVE202144228Mitigated(std::string log4jVendor, bool foundJNDILookupClass, std::string version) {
-  int major = 0, minor = 0, build = 0;
-  if (!foundJNDILookupClass) return true;
-  if (log4jVendor.compare("log4j-core") != 0) return true;
-  if (ParseVersion(version, major, minor, build)) {
-    if (major < 2) return true;
-    if ((major == 2) && (minor == 12) && (build >= 2)) return true;
-    if ((major == 2) && (minor >= 15)) return true;
-  }
-  return false;
+    int major = 0, minor = 0, build = 0;
+    if (!foundJNDILookupClass) return true;
+    if (log4jVendor.compare("log4j-core") != 0) return true;                  // Impacted JAR
+    if (ParseVersion(version, major, minor, build)) {
+        if (major < 2) return true;                                             // N/A
+        if ((major == 2) && (minor == 3) && (build >= 1)) return true;          // Java 6
+        if ((major == 2) && (minor == 12) && (build >= 2)) return true;         // Java 7
+        if ((major == 2) && (minor >= 15)) return true;                         // Java 8+
+    }
+    return false;
+}
+
+bool IsCVE202144832Mitigated(std::string log4jVendor, std::string version) {
+    int major = 0, minor = 0, build = 0;
+    if (log4jVendor.compare("log4j-core") != 0) return true;                  // Impacted JAR
+    if (ParseVersion(version, major, minor, build)) {
+        if (major < 2) return true;                                             // N/A
+        if ((major == 2) && (minor == 3) && (build >= 2)) return true;          // Java 6
+        if ((major == 2) && (minor == 12) && (build >= 4)) return true;         // Java 7
+        if ((major == 2) && (minor == 17) && (build >= 1)) return true;         // Java 8+
+        if ((major == 2) && (minor >= 18)) return true;                         // Java 8+
+    }
+    return false;
 }
 
 bool IsCVE202145046Mitigated(std::string log4jVendor, bool foundJNDILookupClass, std::string version) {
-  int major = 0, minor = 0, build = 0;
-  if (!foundJNDILookupClass) return true;
-  if (log4jVendor.compare("log4j-core") != 0) return true;
-  if (ParseVersion(version, major, minor, build)) {
-    if (major < 2) return true;
-    if ((major == 2) && (minor == 12) && (build >= 2)) return true;
-    if ((major == 2) && (minor > 15)) return true;
-  }
-  return false;
+    int major = 0, minor = 0, build = 0;
+    if (!foundJNDILookupClass) return true;
+    if (log4jVendor.compare("log4j-core") != 0) return true;                  // Impacted JAR
+    if (ParseVersion(version, major, minor, build)) {
+        if (major < 2) return true;                                             // N/A
+        if ((major == 2) && (minor == 3) && (build >= 1)) return true;          // Java 6
+        if ((major == 2) && (minor == 12) && (build >= 2)) return true;         // Java 7
+        if ((major == 2) && (minor >= 16)) return true;                         // Java 8+
+    }
+    return false;
 }
 
 bool IsCVE202145105Mitigated(std::string log4jVendor, std::string version) {
-  int major = 0, minor = 0, build = 0;
-  if (log4jVendor.compare("log4j-core") != 0) return true;
-  if (ParseVersion(version, major, minor, build)) {
-    if (major < 2) return true;
-    if ((major == 2) && (minor == 12) && (build >= 3)) return true;
-    if ((major == 2) && (minor > 16)) return true;
-  }
-  return false;
+    int major = 0, minor = 0, build = 0;
+    if (log4jVendor.compare("log4j-core") != 0) return true;                  // Impacted JAR
+    if (ParseVersion(version, major, minor, build)) {
+        if (major < 2) return true;                                             // N/A
+        if ((major == 2) && (minor == 3) && (build >= 1)) return true;          // Java 6
+        if ((major == 2) && (minor == 12) && (build >= 2)) return true;         // Java 7
+        if ((major == 2) && (minor >= 17)) return true;                         // Java 8+
+    }
+    return false;
 }
 
 bool DirectoryExists(const wchar_t* dirPath) {
