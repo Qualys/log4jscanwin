@@ -32,9 +32,9 @@ int32_t PrintHelp(int32_t argc, wchar_t* argv[]) {
   wprintf(L"/scan_directory \"C:\\Some\\Path\"\n");
   wprintf(L"  Scan a specific directory for vulnerable JAR, WAR, EAR, PAR, ZIP files used by various Java applications.\n");
   wprintf(L"/scan_file \"C:\\Some\\Path\\Some.jar\"\n");
+  wprintf(L"  Scan a specific file for supported CVE(s).\n");
   wprintf(L"/scaninclmountpoints\n");
   wprintf(L"  Scan local drives including mount points for vulnerable JAR, WAR, EAR, PAR, ZIP files used by various Java applications.\n");
-  wprintf(L"  Scan a specific file for supported CVE(s).\n");
   wprintf(L"/report\n");
   wprintf(L"  Generate a JSON report of possible detections of supported CVE(s).\n");
   wprintf(L"/report_pretty\n");
