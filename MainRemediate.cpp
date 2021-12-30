@@ -93,7 +93,7 @@ DWORD SetPrivilege(
     DWORD status = ERROR_SUCCESS;
 
     if (!LookupPrivilegeValue(
-        NULL,            // lookup privilege on local system
+        nullptr,            // lookup privilege on local system
         Privilege.c_str(),   // privilege to lookup 
         &luid))        // receives LUID of privilege
     {
@@ -104,10 +104,7 @@ DWORD SetPrivilege(
 
     tp.PrivilegeCount = 1;
     tp.Privileges[0].Luid = luid;
-    if (EnablePrivilege)
-        tp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
-    else
-        tp.Privileges[0].Attributes = 0;
+    tp.Privileges[0].Attributes = EnablePrivilege ? SE_PRIVILEGE_ENABLED : 0;
 
     // Enable the privilege or disable all privileges.
 
@@ -116,17 +113,17 @@ DWORD SetPrivilege(
         FALSE,
         &tp,
         sizeof(TOKEN_PRIVILEGES),
-        (PTOKEN_PRIVILEGES)NULL,
-        (PDWORD)NULL))
+        (PTOKEN_PRIVILEGES)nullptr,
+        (PDWORD)nullptr))
     {
         status = GetLastError();
         LOG_WIN32_MESSAGE(status, L"%s", L"Failed to set privilege");
         return status;
     }
-    auto err = GetLastError();
-    if (err == ERROR_NOT_ALL_ASSIGNED)
+    
+    status = GetLastError();
+    if (status == ERROR_NOT_ALL_ASSIGNED)
     {
-        status = GetLastError();
         LOG_WIN32_MESSAGE(status, L"%s", L"The token does not have the specified privilege");
         return status;
     }
@@ -140,7 +137,7 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
   SetUnhandledExceptionFilter(CatchUnhandledExceptionFilter);
   _setmode(_fileno(stdout), _O_U16TEXT);
 
-  HANDLE hToken = NULL;
+  HANDLE hToken = nullptr;
   // Open a handle to the access token for the calling process.
   if (!OpenProcessToken(GetCurrentProcess(),
       TOKEN_ADJUST_PRIVILEGES,

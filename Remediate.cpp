@@ -317,7 +317,7 @@ namespace log4jremediate {
 			PACL pOldDACL = nullptr;
 			PSID psidGroup = nullptr;
 			PSID psidOwner = nullptr;
-			PSECURITY_DESCRIPTOR pSD = NULL;			
+			PSECURITY_DESCRIPTOR pSD = nullptr;			
 
 			if (GetNamedSecurityInfo(result[0].c_str(), SE_FILE_OBJECT,
 				GROUP_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION | OWNER_SECURITY_INFORMATION,
@@ -392,12 +392,16 @@ namespace log4jremediate {
 				LOG_WIN32_MESSAGE(status, L"Failed to set permissions to file %s", result[0].c_str());
 
 				if (pSD != nullptr)
+				{
 					LocalFree((HLOCAL)pSD);
+				}
 
 				return status;
 			}
 			if (pSD != nullptr)
+			{
 				LocalFree((HLOCAL)pSD);
+			}
 			
 			LOG_MESSAGE("Copied fixed file: %s", result[0].c_str());
 
