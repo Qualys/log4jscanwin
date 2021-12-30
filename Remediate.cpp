@@ -278,11 +278,11 @@ namespace log4jremediate {
 		}
 		catch (std::bad_alloc&) {
 			status = ERROR_OUTOFMEMORY;
-			LOG_WIN32_MESSAGE(status, L"Failed to allocate memory in %s", __func__);
+			LOG_WIN32_MESSAGE(status, L"Failed to allocate memory in %S", __func__);
 		}
 		catch (std::exception& e) {
 			status = ERROR_INVALID_OPERATION;
-			LOG_WIN32_MESSAGE(status, L"Exception %S caught in %s", e.what(), __func__);
+			LOG_WIN32_MESSAGE(status, L"Exception %S caught in %S", e.what(), __func__);
 		}
 
 	END:
@@ -433,11 +433,11 @@ namespace log4jremediate {
 		}
 		catch (std::bad_alloc&) {
 			status = ERROR_OUTOFMEMORY;
-			LOG_WIN32_MESSAGE(status, L"Failed to allocate memory in %s", __func__);
+			LOG_WIN32_MESSAGE(status, L"Failed to allocate memory in %S", __func__);
 		}
 		catch (std::exception& e) {
 			status = ERROR_INVALID_OPERATION;
-			LOG_WIN32_MESSAGE(status, L"Exception %S caught in %s", e.what(), __func__);
+			LOG_WIN32_MESSAGE(status, L"Exception %S caught in %S", e.what(), __func__);
 		}		
 
 		return status;
