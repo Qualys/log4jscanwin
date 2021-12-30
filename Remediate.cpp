@@ -317,9 +317,7 @@ namespace log4jremediate {
 			PACL pOldDACL = nullptr;
 			PSID psidGroup = nullptr;
 			PSID psidOwner = nullptr;
-			PSECURITY_DESCRIPTOR pSD = NULL;
-
-			
+			PSECURITY_DESCRIPTOR pSD = NULL;			
 
 			if (GetNamedSecurityInfo(result[0].c_str(), SE_FILE_OBJECT,
 				GROUP_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION | OWNER_SECURITY_INFORMATION,
@@ -383,7 +381,7 @@ namespace log4jremediate {
 				return status;
 			}
 
-			TCHAR file_path[MAX_PATH] = { '\0' };
+			WCHAR file_path[MAX_PATH] = { '\0' };
 			wcscpy_s(file_path, result[0].c_str());
 
 			if (SetNamedSecurityInfo(file_path, SE_FILE_OBJECT,

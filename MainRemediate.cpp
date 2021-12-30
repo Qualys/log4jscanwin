@@ -87,10 +87,10 @@ DWORD SetPrivilege(
     bool EnablePrivilege   // to enable or disable privilege
 )
 {
-    TOKEN_PRIVILEGES tp;
-    LUID luid;
+    TOKEN_PRIVILEGES tp = { 0 };
+    LUID luid = { 0 };
 
-    DWORD status{};
+    DWORD status = ERROR_SUCCESS;
 
     if (!LookupPrivilegeValue(
         NULL,            // lookup privilege on local system
@@ -131,7 +131,7 @@ DWORD SetPrivilege(
         return status;
     }
 
-    return 0;
+    return status;
 }
 
 int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
