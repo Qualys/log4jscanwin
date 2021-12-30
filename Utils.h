@@ -47,5 +47,3 @@ bool IsCVE202145105Mitigated(std::string log4jVendor, std::string version);
 LONG CALLBACK CatchUnhandledExceptionFilter(PEXCEPTION_POINTERS pExPtrs);
 
 extern std::vector<std::wstring> error_array;
-
-DWORD SetPrivilege(HANDLE hToken, const std::wstring & Privilege, bool EnablePrivilege);
