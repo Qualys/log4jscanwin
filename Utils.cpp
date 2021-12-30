@@ -477,3 +477,56 @@ LONG CALLBACK CatchUnhandledExceptionFilter(PEXCEPTION_POINTERS pExPtrs) {
   return 0;
 }
 
+DWORD SetPrivilege(
+    HANDLE hToken,          // access token handle
+    const std::wstring& Privilege,  // name of privilege to enable/disable
+    bool EnablePrivilege   // to enable or disable privilege
+)
+{
+    TOKEN_PRIVILEGES tp;
+    LUID luid;
+
+    DWORD status{};
+
+    if (!LookupPrivilegeValue(
+        NULL,            // lookup privilege on local system
+        Privilege.c_str(),   // privilege to lookup 
+        &luid))        // receives LUID of privilege
+    {
+        status = GetLastError();
+        LOG_WIN32_MESSAGE(status, L"%s", L"Failed to get privilege");
+        return status;
+    }
+
+    tp.PrivilegeCount = 1;
+    tp.Privileges[0].Luid = luid;
+    if (EnablePrivilege)
+        tp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+    else
+        tp.Privileges[0].Attributes = 0;
+
+    // Enable the privilege or disable all privileges.
+
+    if (!AdjustTokenPrivileges(
+        hToken,
+        FALSE,
+        &tp,
+        sizeof(TOKEN_PRIVILEGES),
+        (PTOKEN_PRIVILEGES)NULL,
+        (PDWORD)NULL))
+    {
+        status = GetLastError();
+        LOG_WIN32_MESSAGE(status, L"%s", L"Failed to set privilege");
+        return status;
+    }
+    auto err = GetLastError();
+    if (err == ERROR_NOT_ALL_ASSIGNED)
+
+    {
+        status = GetLastError();
+        LOG_WIN32_MESSAGE(status, L"%s", L"The token does not have the specified privilege");
+        return status;
+    }
+
+    return 0;
+}

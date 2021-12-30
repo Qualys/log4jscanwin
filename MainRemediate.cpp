@@ -87,6 +87,25 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
   SetUnhandledExceptionFilter(CatchUnhandledExceptionFilter);
   _setmode(_fileno(stdout), _O_U16TEXT);
 
+  HANDLE hToken = NULL;
+  // Open a handle to the access token for the calling process.
+  if (!OpenProcessToken(GetCurrentProcess(),
+      TOKEN_ADJUST_PRIVILEGES,
+      &hToken))
+  {
+      LOG_WIN32_MESSAGE(GetLastError(), L"%s", L"Failed to open process token");
+      goto END;
+  }
+
+  // Enable the SE_TAKE_OWNERSHIP_NAME privilege.
+  if (SetPrivilege(hToken, SE_TAKE_OWNERSHIP_NAME, TRUE) != ERROR_SUCCESS)
+  {
+      LOG_MESSAGE("You must be logged on as Administrator");
+      CloseHandle(hToken);
+      goto END;
+  }
+  CloseHandle(hToken);
+
 #ifndef _WIN64
   using typeWow64DisableWow64FsRedirection = BOOL(WINAPI*)(PVOID OlValue);
   typeWow64DisableWow64FsRedirection Wow64DisableWow64FsRedirection;

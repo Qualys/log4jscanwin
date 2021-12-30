@@ -314,6 +314,22 @@ namespace log4jremediate {
 				return status;
 			}			
 
+			PACL pOldDACL = nullptr;
+			PSID psidGroup = nullptr;
+			PSID psidOwner = nullptr;
+			PSECURITY_DESCRIPTOR pSD = NULL;
+
+			
+
+			if (GetNamedSecurityInfo(result[0].c_str(), SE_FILE_OBJECT,
+				GROUP_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION | OWNER_SECURITY_INFORMATION,
+				&psidOwner, &psidGroup, &pOldDACL, nullptr, &pSD) != ERROR_SUCCESS)
+			{
+				status = GetLastError();
+				LOG_WIN32_MESSAGE(status, L"Failed to get permissions of file %s", result[0].c_str());
+				return status;
+			}
+
 			// Map outermost file with corresponding temp file
 			archives_mapping.emplace(result[0], tmpFilename);
 
@@ -367,6 +383,24 @@ namespace log4jremediate {
 				return status;
 			}
 
+			TCHAR file_path[MAX_PATH] = { '\0' };
+			wcscpy_s(file_path, result[0].c_str());
+
+			if (SetNamedSecurityInfo(file_path, SE_FILE_OBJECT,
+				GROUP_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION | OWNER_SECURITY_INFORMATION,
+				psidOwner, psidGroup, pOldDACL, nullptr) != ERROR_SUCCESS)
+			{
+				status = GetLastError();
+				LOG_WIN32_MESSAGE(status, L"Failed to set permissions to file %s", result[0].c_str());
+
+				if (pSD != nullptr)
+					LocalFree((HLOCAL)pSD);
+
+				return status;
+			}
+			if (pSD != nullptr)
+				LocalFree((HLOCAL)pSD);
+			
 			LOG_MESSAGE("Copied fixed file: %s", result[0].c_str());
 
 			// Delete temporary files

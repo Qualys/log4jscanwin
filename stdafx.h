@@ -4,6 +4,7 @@
 #include <dbghelp.h>
 #include <fcntl.h>
 #include <io.h>
+#include <aclapi.h>
 
 #include <cstdio>
 #include <string>
