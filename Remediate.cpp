@@ -125,7 +125,7 @@ namespace log4jremediate {
 
 		if (!bFileExists)
 		{
-			LOG_MESSAGE(L"Signature report %s  not found.", report.c_str());
+			LOG_MESSAGE(L"Signature report %s not found.", report.c_str());
 			goto END;
 		}
 
