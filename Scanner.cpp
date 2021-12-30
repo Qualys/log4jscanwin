@@ -121,7 +121,7 @@ int32_t ScanFileArchive(bool console, bool verbose, std::wstring file, std::wstr
           // Add Support for nested archive files
           //
           p = &filename[0] + (strlen(filename) - 4);
-          if ((0 == stricmp(p, ".jar")) || (0 == stricmp(p, ".war")) ||
+          if ((0 == stricmp(p, ".jar")) || (0 == stricmp(p, ".war")) || (0 == stricmp(p, ".par")) ||
               (0 == stricmp(p, ".ear")) || (0 == stricmp(p, ".zip"))) {
             if (0 == stricmp(p, ".jar")) {
               repSummary.scannedJARs++;
