@@ -130,7 +130,7 @@ namespace log4jremediate {
 		}
 
 		//Read the content
-		wif.open(report, std::ios::in | std::ios::binary);
+		wif.open(report, std::ios::in);
 
 		if (!wif.is_open()) {
 

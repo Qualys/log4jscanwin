@@ -154,6 +154,14 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
       CloseHandle(hToken);
       goto END;
   }
+
+  if (SetPrivilege(hToken, SE_RESTORE_NAME, TRUE) != ERROR_SUCCESS)
+  {
+      LOG_MESSAGE("You must be logged on as Administrator");
+      CloseHandle(hToken);
+      goto END;
+  }
+
   CloseHandle(hToken);
 
 #ifndef _WIN64
