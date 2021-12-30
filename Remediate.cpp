@@ -116,12 +116,26 @@ namespace log4jremediate {
 	DWORD ReadSignatureReport(const std::wstring& report, std::vector<CReportVulnerabilities>& result) {
 		DWORD status{ ERROR_SUCCESS };
 		std::wstringstream wss;
+		std::wifstream wif;
 		std::vector<std::wstring> lines;
 
-		std::wifstream wif(report);
+		// If we are unable to fetch File Attributes, it simply means file doesn't exist
+		DWORD fileAttr = GetFileAttributes(report.c_str());
+		const bool bFileExists = (fileAttr != INVALID_FILE_ATTRIBUTES);
 
-		if (!wif.is_open()) {			
-			LOG_MESSAGE(L"No signature report found in %s", report.c_str());
+		if (!bFileExists)
+		{
+			LOG_MESSAGE(L"Signature report %s  not found.", report.c_str());
+			goto END;
+		}
+
+		//Read the content
+		wif.open(report, std::ios::in | std::ios::binary);
+
+		if (!wif.is_open()) {
+
+			status = ERROR_OPEN_FAILED;
+			LOG_WIN32_MESSAGE(status, L"Failed to open signature report %s", report.c_str());
 			goto END;
 		}
 
@@ -293,9 +307,18 @@ namespace log4jremediate {
 				return status;
 			}
 
-			// check if file is read only then do not process the jar
-
+			// If we are unable to fetch File Attributes, it simply means file doesn't exist
 			DWORD fileAttr = GetFileAttributes(result[0].c_str());
+			const bool bFileExists = (fileAttr != INVALID_FILE_ATTRIBUTES);
+
+			if (!bFileExists)
+			{
+				status = ERROR_FILE_NOT_FOUND;
+				LOG_WIN32_MESSAGE(status, L"Failed to fix %s because file not found", result[0].c_str());
+				return status;
+			}
+			
+			// check if file is read only then do not process the jar
 			if (fileAttr & FILE_ATTRIBUTE_READONLY)
 			{
 				status = ERROR_ACCESS_DENIED;
