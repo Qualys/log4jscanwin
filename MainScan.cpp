@@ -24,23 +24,23 @@ int32_t PrintHelp(int32_t argc, wchar_t* argv[]) {
   int32_t rv = ERROR_SUCCESS;
 
   wprintf(L"/scan\n");
-  wprintf(L"  Scan local drives for vulnerable JAR, WAR, EAR, PAR, ZIP files used by various Java applications.\n");
+  wprintf(L"  Scan local drives for vulnerable files used by various Java applications.\n");
   wprintf(L"/scan_network\n");
-  wprintf(L"  Scan network drives for vulnerable JAR, WAR, EAR, PAR, ZIP files used by various Java applications.\n");
+  wprintf(L"  Scan network drives for vulnerable files used by various Java applications.\n");
   wprintf(L"/scan_directory \"C:\\Some\\Path\"\n");
-  wprintf(L"  Scan a specific directory for vulnerable JAR, WAR, EAR, PAR, ZIP files used by various Java applications.\n");
+  wprintf(L"  Scan a specific directory for vulnerable files used by various Java applications.\n");
   wprintf(L"/scan_file \"C:\\Some\\Path\\Some.jar\"\n");
   wprintf(L"  Scan a specific file for supported CVE(s).\n");
   wprintf(L"/scaninclmountpoints\n");
-  wprintf(L"  Scan local drives including mount points for vulnerable JAR, WAR, EAR, PAR, ZIP files used by various Java applications.\n");
+  wprintf(L"  Scan local drives including mount points for vulnerable files used by various Java applications.\n");
   wprintf(L"/report\n");
   wprintf(L"  Generate a JSON report of possible detections of supported CVE(s).\n");
-  wprintf(L"/lowpriority\n");
-  wprintf(L"  Lowers the execution and I/O priority of the scanner.\n");
   wprintf(L"/report_pretty\n");
   wprintf(L"  Generate a human readable JSON report of possible detections of supported CVE(s).\n");
   wprintf(L"/report_sig\n");
   wprintf(L"  Generate a signature report of possible detections of supported CVE(s).\n");
+  wprintf(L"/lowpriority\n");
+  wprintf(L"  Lowers the execution and I/O priority of the scanner.\n");
   wprintf(L"/help\n");
   wprintf(L"  Displays this help page.\n");
   wprintf(L"\n");
@@ -207,14 +207,14 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
     if (!cmdline_options.no_logo) {
       wprintf(L"Scanning '%s'...\n", cmdline_options.directory.c_str());
     }
-    ScanDirectory(!cmdline_options.no_logo, cmdline_options.verbose, cmdline_options.directory);
+    ScanDirectory(!cmdline_options.no_logo, cmdline_options.verbose, cmdline_options.directory, L"");
   }
 
   if (cmdline_options.scanFile) {
     if (!cmdline_options.no_logo) {
       wprintf(L"Scanning '%s'...\n", cmdline_options.file.c_str());
     }
-    ScanFile(!cmdline_options.no_logo, cmdline_options.verbose, cmdline_options.file);
+    ScanFile(!cmdline_options.no_logo, cmdline_options.verbose, cmdline_options.file, L"");
   }
 
   repSummary.scanEnd = time(0);

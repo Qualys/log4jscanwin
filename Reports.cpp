@@ -20,12 +20,22 @@ CRemediationSummary remSummary;
 std::vector<CReportVulnerabilities> repVulns;
 
 
+int32_t ReportProcessDirectory(std::wstring Directory) {
+  int32_t rv = ERROR_SUCCESS;
+
+  repSummary.scannedDirectories++;
+
+  return rv;
+}
+
 int32_t ReportProcessFile(std::wstring file) {
   int32_t rv = ERROR_SUCCESS;
   wchar_t drive[_MAX_DRIVE];
   wchar_t dir[_MAX_DIR];
   wchar_t fname[_MAX_FNAME];
   wchar_t ext[_MAX_EXT];
+
+  repSummary.scannedFiles++;
 
   if (0 == _wsplitpath_s(file.c_str(), drive, dir, fname, ext)) {
     if (0 == _wcsicmp(ext, L".jar")) {

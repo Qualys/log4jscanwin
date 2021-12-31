@@ -164,8 +164,34 @@ std::wstring GetRemediationStatusFilename() {
   return GetReportDirectory() + L"\\" + remediation_status_file;
 }
 
-int LogStatusMessage(const wchar_t* fmt, ...) {
-  int retval = 0;
+uint32_t LogErrorMessage(bool verbose, const wchar_t* fmt, ...) {
+  uint32_t retval = 0;
+  va_list ap;
+  wchar_t err[1024] = {0};
+
+  if (fmt == NULL) return 0;
+
+  if (verbose) {
+    va_start(ap, fmt);
+    vfwprintf(stdout, fmt, ap);
+    va_end(ap);
+  }
+
+  va_start(ap, fmt);
+  retval = vswprintf(err, _countof(err), fmt, ap);
+  va_end(ap);
+  error_array.push_back(err);
+
+  return retval;
+}
+
+bool OpenStatusFile(const std::wstring& filename) {
+  errno_t err = _wfopen_s(&status_file, filename.c_str(), L"w+, ccs=UTF-8");
+  return (EINVAL != err);
+}
+
+uint32_t LogStatusMessage(const wchar_t* fmt, ...) {
+  uint32_t retval = 0;
   va_list ap;
 
   if (fmt == NULL) return 0;
@@ -182,11 +208,6 @@ int LogStatusMessage(const wchar_t* fmt, ...) {
   }
 
   return retval;
-}
-
-bool OpenStatusFile(const std::wstring& filename) {
-  errno_t err = _wfopen_s(&status_file, filename.c_str(), L"w+, ccs=UTF-8");
-  return (EINVAL != err);
 }
 
 bool CloseStatusFile() {

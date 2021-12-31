@@ -92,6 +92,7 @@ extern CRemediationSummary remSummary;
 extern std::vector<CReportVulnerabilities> repVulns;
 
 
+int32_t ReportProcessDirectory(std::wstring directory);
 int32_t ReportProcessFile(std::wstring file);
 
 int32_t GenerateJSONReport(bool pretty);

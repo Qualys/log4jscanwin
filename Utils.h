@@ -34,8 +34,9 @@ std::wstring GetSignatureReportFilename();
 std::wstring GetSignatureStatusFilename();
 std::wstring GetRemediationReportFilename();
 std::wstring GetRemediationStatusFilename();
-bool OpenStatusFile(const std::wstring & filename);
-int LogStatusMessage(const wchar_t* fmt, ...);
+uint32_t LogErrorMessage(bool verbose, const wchar_t* fmt, ...);
+bool OpenStatusFile(const std::wstring& filename);
+uint32_t LogStatusMessage(const wchar_t* fmt, ...);
 bool CloseStatusFile();
 
 bool ParseVersion(std::string version, int& major, int& minor, int& build);
