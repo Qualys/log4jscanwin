@@ -241,7 +241,7 @@ namespace log4jremediate {
 					continue; // Not vulnerable
 				}
 
-				if (IsCVE202144228Mitigated(W2A(vuln.log4jVendor), vuln.detectedJNDILookupClass, W2A(vuln.log4jVersion)) ||
+				if (IsCVE202144228Mitigated(W2A(vuln.log4jVendor), vuln.detectedJNDILookupClass, W2A(vuln.log4jVersion)) &&
 					IsCVE202145046Mitigated(W2A(vuln.log4jVendor), vuln.detectedJNDILookupClass, W2A(vuln.log4jVersion))) {
 					continue; // Not vulnerable
 				}
