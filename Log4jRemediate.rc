@@ -52,8 +52,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION VERSION_BINARY
- PRODUCTVERSION VERSION_BINARY
+ FILEVERSION REMEDIATE_VERSION_BINARY
+ PRODUCTVERSION REMEDIATE_VERSION_BINARY
  FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -70,12 +70,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "Qualys, Inc."
             VALUE "FileDescription", "Qualys Log4j Remediate"
-            VALUE "FileVersion", VERSION_STRING
+            VALUE "FileVersion", REMEDIATE_VERSION_STRING
             VALUE "InternalName", "Log4jRemediate.exe"
             VALUE "LegalCopyright", "Copyright (C) 2021"
             VALUE "OriginalFilename", "Log4jRemediate.exe"
             VALUE "ProductName", "Log4jRemediate"
-            VALUE "ProductVersion", VERSION_STRING
+            VALUE "ProductVersion", REMEDIATE_VERSION_STRING
         END
     END
     BLOCK "VarFileInfo"

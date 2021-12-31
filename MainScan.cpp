@@ -138,7 +138,7 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
   }
 
   if (!cmdline_options.no_logo) {
-    wprintf(L"Qualys Log4j Vulnerability Scanner %S\n", VERSION_STRING);
+    wprintf(L"Qualys Log4j Vulnerability Scanner %S\n", SCANNER_VERSION_STRING);
     wprintf(L"https://www.qualys.com/\n");
     wprintf(L"Supported CVE(s): CVE-2021-4104, CVE-2021-44228, CVE-2021-44832, CVE-2021-45046, CVE-2021-45105\n\n");
   }
