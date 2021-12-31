@@ -27,6 +27,7 @@ bool StripWhitespace(std::string& str);
 bool GetDictionaryValue(std::string& dict, std::string name, std::string defaultValue, std::string& value);
 bool ExpandEnvironmentVariables(const wchar_t* source, std::wstring& destination);
 bool DirectoryExists(const wchar_t* dirPath);
+std::wstring FormatLocalTime(time_t datetime);
 std::wstring GetScanUtilityDirectory();
 std::wstring GetReportDirectory();
 std::wstring GetSignatureReportFilename();

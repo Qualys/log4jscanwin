@@ -4,11 +4,12 @@ class CReportSummary {
  public:
   uint64_t scannedFiles;
   uint64_t scannedDirectories;
-  uint64_t scannedZIPs;
+  uint64_t scannedCompressed;
   uint64_t scannedJARs;
   uint64_t scannedWARs;
   uint64_t scannedEARs;
   uint64_t scannedPARs;
+  uint64_t scannedTARs;
   uint64_t foundVunerabilities;
   uint64_t scanStart;
   uint64_t scanEnd;
@@ -16,11 +17,12 @@ class CReportSummary {
   CReportSummary() {
     scannedFiles = 0;
     scannedDirectories = 0;
-    scannedZIPs = 0;
+    scannedCompressed = 0;
     scannedJARs = 0;
     scannedWARs = 0;
     scannedEARs = 0;
     scannedPARs = 0;
+    scannedTARs = 0;
     foundVunerabilities = 0;
     scanStart = 0;
     scanEnd = 0;
@@ -89,6 +91,8 @@ extern CReportSummary repSummary;
 extern CRemediationSummary remSummary;
 extern std::vector<CReportVulnerabilities> repVulns;
 
+
+int32_t ReportProcessFile(std::wstring file);
 
 int32_t GenerateJSONReport(bool pretty);
 int32_t GenerateSignatureReport();

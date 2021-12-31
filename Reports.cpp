@@ -19,6 +19,43 @@ CReportSummary repSummary;
 CRemediationSummary remSummary;
 std::vector<CReportVulnerabilities> repVulns;
 
+
+int32_t ReportProcessFile(std::wstring file) {
+  int32_t rv = ERROR_SUCCESS;
+  wchar_t drive[_MAX_DRIVE];
+  wchar_t dir[_MAX_DIR];
+  wchar_t fname[_MAX_FNAME];
+  wchar_t ext[_MAX_EXT];
+
+  if (0 == _wsplitpath_s(file.c_str(), drive, dir, fname, ext)) {
+    if (0 == _wcsicmp(ext, L".jar")) {
+      repSummary.scannedJARs++;
+    }
+    if (0 == _wcsicmp(ext, L".war")) {
+      repSummary.scannedWARs++;
+    }
+    if (0 == _wcsicmp(ext, L".ear")) {
+      repSummary.scannedEARs++;
+    }
+    if (0 == _wcsicmp(ext, L".par")) {
+      repSummary.scannedPARs++;
+    }
+    if (0 == _wcsicmp(ext, L".tar")) {
+      repSummary.scannedTARs++;
+    }
+    if (0 == _wcsicmp(ext, L".zip")) {
+      repSummary.scannedCompressed++;
+    }
+    if (0 == _wcsicmp(ext, L".tgz")) {
+      repSummary.scannedCompressed++;
+    }
+    if (0 == _wcsicmp(ext, L".gz")) {
+      repSummary.scannedCompressed++;
+    }
+  }
+  return rv;
+}
+
 int32_t GenerateReportSummary(DocumentW& doc) {
   int32_t rv = ERROR_SUCCESS;
 
@@ -30,7 +67,7 @@ int32_t GenerateReportSummary(DocumentW& doc) {
   ValueW vScannedWARs(rapidjson::kNumberType);
   ValueW vScannedEARs(rapidjson::kNumberType);
   ValueW vScannedPARs(rapidjson::kNumberType);
-  ValueW vScannedZIPs(rapidjson::kNumberType);
+  ValueW vScannedCompressed(rapidjson::kNumberType);
   ValueW vVulnerabilitiesFound(rapidjson::kNumberType);
   ValueW oSummary(rapidjson::kObjectType);
 
@@ -48,7 +85,7 @@ int32_t GenerateReportSummary(DocumentW& doc) {
   vScannedWARs.SetInt64(repSummary.scannedWARs);
   vScannedEARs.SetInt64(repSummary.scannedEARs);
   vScannedPARs.SetInt64(repSummary.scannedPARs);
-  vScannedZIPs.SetInt64(repSummary.scannedZIPs);
+  vScannedCompressed.SetInt64(repSummary.scannedCompressed);
   vVulnerabilitiesFound.SetInt64(repSummary.foundVunerabilities);
 
   oSummary.AddMember(L"scanDuration", vScanDuration, doc.GetAllocator());
@@ -58,7 +95,7 @@ int32_t GenerateReportSummary(DocumentW& doc) {
   oSummary.AddMember(L"scannedWARs", vScannedWARs, doc.GetAllocator());
   oSummary.AddMember(L"scannedEARs", vScannedEARs, doc.GetAllocator());
   oSummary.AddMember(L"scannedPARs", vScannedPARs, doc.GetAllocator());
-  oSummary.AddMember(L"scannedZIPs", vScannedZIPs, doc.GetAllocator());
+  oSummary.AddMember(L"scannedCompressed", vScannedCompressed, doc.GetAllocator());
   oSummary.AddMember(L"vulnerabilitiesFound", vVulnerabilitiesFound, doc.GetAllocator());
 
   doc.AddMember(L"scanSummary", oSummary, doc.GetAllocator());
