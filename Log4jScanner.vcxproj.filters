@@ -47,9 +47,6 @@
     <ClInclude Include="Reports.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="MainScan.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Log4jScanner.rc">
