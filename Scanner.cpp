@@ -351,15 +351,16 @@ int32_t ScanFile(bool console, bool verbose, std::wstring file, std::wstring alt
 
 int32_t ScanDirectory(bool console, bool verbose, std::wstring directory, std::wstring alternate) {
   int32_t rv = ERROR_SUCCESS;
-  std::wstring search = directory + std::wstring(L"*.*");
   WIN32_FIND_DATA FindFileData;
   HANDLE hFind;
-  wchar_t err[1024] = {0};
+  std::wstring search;
+
+
+  search = directory + std::wstring(L"*.*");
+
 
   hFind = FindFirstFile(search.c_str(), &FindFileData);
-  if (hFind == INVALID_HANDLE_VALUE) {
-    rv = GetLastError();
-  } else {
+  if (hFind != INVALID_HANDLE_VALUE) {
     do {
       std::wstring filename(FindFileData.cFileName);
 
@@ -395,6 +396,8 @@ int32_t ScanDirectory(bool console, bool verbose, std::wstring directory, std::w
 
     } while (FindNextFile(hFind, &FindFileData));
     FindClose(hFind);
+  }  else {
+    rv = GetLastError();
   }
 
   return rv;

@@ -181,7 +181,6 @@
     <ClCompile Include="Utils.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="MainScan.h" />
     <ClInclude Include="Reports.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="Scanner.h" />
