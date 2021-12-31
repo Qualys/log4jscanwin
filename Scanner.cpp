@@ -9,7 +9,39 @@
 #include "zlib/zlib.h"
 
 
-bool UncompressContents(unzFile zf, std::string& str) {
+bool IsFileZIPArchive(std::wstring file) {
+  wchar_t drive[_MAX_DRIVE];
+  wchar_t dir[_MAX_DIR];
+  wchar_t fname[_MAX_FNAME];
+  wchar_t ext[_MAX_EXT];
+
+  if (0 == _wsplitpath_s(file.c_str(), drive, dir, fname, ext)) {
+    if (0 == _wcsicmp(ext, L".jar")) return true;
+    if (0 == _wcsicmp(ext, L".war")) return true;
+    if (0 == _wcsicmp(ext, L".ear")) return true;
+    if (0 == _wcsicmp(ext, L".par")) return true;
+    if (0 == _wcsicmp(ext, L".zip")) return true;
+    //if (0 == _wcsicmp(ext, L".tgz")) return true;
+    //if (0 == _wcsicmp(ext, L".gz")) return true;
+  }
+
+  return false;
+}
+
+bool IsFileTar(std::wstring file) {
+  wchar_t drive[_MAX_DRIVE];
+  wchar_t dir[_MAX_DIR];
+  wchar_t fname[_MAX_FNAME];
+  wchar_t ext[_MAX_EXT];
+
+  if (0 == _wsplitpath_s(file.c_str(), drive, dir, fname, ext)) {
+    if (0 == _wcsicmp(ext, L".tar")) return true;
+  }
+
+  return false;
+}
+
+bool UncompressContentsToString(unzFile zf, std::string& str) {
   int32_t rv = ERROR_SUCCESS;
   char buf[4096];
 
@@ -27,13 +59,35 @@ bool UncompressContents(unzFile zf, std::string& str) {
   return true;
 }
 
-int32_t ScanFileArchive(bool console, bool verbose, std::wstring file, std::wstring alternate) {
+bool UncompressContentsToFile(unzFile zf, std::wstring file) {
+  int32_t rv = ERROR_SUCCESS;
+  HANDLE h = NULL; 
+  char buf[4096];
+
+  h = CreateFile(file.c_str(), GENERIC_READ | GENERIC_WRITE, NULL, NULL,
+                 CREATE_ALWAYS, FILE_ATTRIBUTE_TEMPORARY, NULL);
+  if (h != INVALID_HANDLE_VALUE) {
+    rv = unzOpenCurrentFile(zf);
+    if (UNZ_OK == rv) {
+      do {
+        memset(buf, 0, sizeof(buf));
+        rv = unzReadCurrentFile(zf, buf, sizeof(buf));
+        if (rv < 0 || rv == 0) break;
+        WriteFile(h, buf, rv, NULL, NULL);
+      } while (rv > 0);
+      unzCloseCurrentFile(zf);
+    }
+    CloseHandle(h);
+  }
+
+  return (h != INVALID_HANDLE_VALUE);
+}
+
+int32_t ScanFileZIPArchive(bool console, bool verbose, std::wstring file, std::wstring alternate) {
   int32_t     rv = ERROR_SUCCESS;
-  unsigned long bytesWritten = 0;
   unzFile     zf = NULL;
   unz_file_info64 file_info;
   char*       p = NULL;
-  char        buf[256];
   char        filename[_MAX_PATH + 1];
   wchar_t     tmpPath[_MAX_PATH + 1];
   wchar_t     tmpFilename[_MAX_PATH + 1];
@@ -97,92 +151,56 @@ int32_t ScanFileArchive(bool console, bool verbose, std::wstring file, std::wstr
           if (0 ==
               stricmp(filename, "META-INF/maven/log4j/log4j/pom.properties")) {
             foundLog4j1xPOM = true;
-            UncompressContents(zf, pomLog4j1x);
+            UncompressContentsToString(zf, pomLog4j1x);
           }
           p = strstr(filename, "META-INF/maven/org.apache.logging.log4j");
           if (NULL != p) {
             if (0 == stricmp(filename, "META-INF/maven/org.apache.logging.log4j/log4j-core/pom.properties")) {
               foundLog4j2xCorePOM = true;
-              UncompressContents(zf, pomLog4j2xCore);
+              UncompressContentsToString(zf, pomLog4j2xCore);
             } else {
               p = strstr(filename, "/pom.properties");
               if (NULL != p) {
                 foundLog4j2xPOM = true;
-                UncompressContents(zf, pomLog4j2x);
+                UncompressContentsToString(zf, pomLog4j2x);
               }
             }
           }
           if (0 == stricmp(filename, "META-INF/MANIFEST.MF")) {
             foundManifest = true;
-            UncompressContents(zf, manifest);
+            UncompressContentsToString(zf, manifest);
           }
 
-          //
-          // Add Support for nested archive files
-          //
-          p = &filename[0] + (strlen(filename) - 4);
-          if ((0 == stricmp(p, ".jar")) || (0 == stricmp(p, ".war")) || (0 == stricmp(p, ".par")) ||
-              (0 == stricmp(p, ".ear")) || (0 == stricmp(p, ".zip"))) {
-            if (0 == stricmp(p, ".jar")) {
-              repSummary.scannedJARs++;
-            }
-            if (0 == stricmp(p, ".war")) {
-              repSummary.scannedWARs++;
-            }
-            if (0 == stricmp(p, ".ear")) {
-              repSummary.scannedEARs++;
-            }
-            if (0 == stricmp(p, ".par")) {
-              repSummary.scannedPARs++;
-            }
-            if (0 == stricmp(p, ".zip")) {
-              repSummary.scannedZIPs++;
-            }
+          if (IsFileZIPArchive(A2W(filename))) {
+            //
+            // Add Support for nested archive files
+            //
+            ReportProcessFile(A2W(filename));
 
             GetTempPath(_countof(tmpPath), tmpPath);
             GetTempFileName(tmpPath, L"qua", 0, tmpFilename);
 
-            HANDLE h =
-                CreateFile(tmpFilename, GENERIC_READ | GENERIC_WRITE, NULL,
-                           NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_TEMPORARY, NULL);
-
-            if (h != INVALID_HANDLE_VALUE) {
-              rv = unzOpenCurrentFile(zf);
-              if (UNZ_OK == rv) {
-                do {
-                  memset(buf, 0, sizeof(buf));
-                  rv = unzReadCurrentFile(zf, buf, sizeof(buf));
-                  if (rv < 0 || rv == 0) break;
-                  WriteFile(h, buf, rv, &bytesWritten, NULL);
-                } while (rv > 0);
-                unzCloseCurrentFile(zf);
-              }
-              CloseHandle(h);
-
+            if (UncompressContentsToFile(zf, tmpFilename)) {
               std::wstring masked_filename = file + L"!" + A2W(filename);
               std::wstring alternate_filename = tmpFilename;
 
-              ScanFileArchive(console, verbose, masked_filename, alternate_filename);
+              ScanFileZIPArchive(console, verbose, masked_filename, alternate_filename);
 
               DeleteFile(alternate_filename.c_str());
             }
           }
+
         }
-
         rv = unzGoToNextFile(zf);
-      } while (UNZ_OK == rv);
+      } while (UNZ_END_OF_LIST_OF_FILE != rv);
     }
-
     unzClose(zf);
   }
-
-  // Reset error conditiomn, unzGoToNextFile returns a non-zero error code to break from loop
-  //
   rv = ERROR_SUCCESS;
 
   //
   // If we have detected some evidence of Log4j then lets check to see if we can
-  // detect CVE-2021-44228
+  // detect CVE-2021-4104, CVE-2021-44228, CVE-2021-44832, CVE-2021-45046, or CVE-2021-45105
   //
   if (foundLog4j) {
     std::string cveStatus;
@@ -310,34 +328,11 @@ int32_t ScanFileArchive(bool console, bool verbose, std::wstring file, std::wstr
 
 int32_t ScanFile(bool console, bool verbose, std::wstring file) {
   int32_t rv = ERROR_SUCCESS;
-  wchar_t drive[_MAX_DRIVE];
-  wchar_t dir[_MAX_DIR];
-  wchar_t fname[_MAX_FNAME];
-  wchar_t ext[_MAX_EXT];
 
-  if (0 == _wsplitpath_s(file.c_str(), drive, dir, fname, ext)) {
-    if (0 == _wcsicmp(ext, L".jar")) {
-      repSummary.scannedJARs++;
-      rv = ScanFileArchive(console, verbose, file, L"");
-    }
-    if (0 == _wcsicmp(ext, L".war")) {
-      repSummary.scannedWARs++;
-      rv = ScanFileArchive(console, verbose, file, L"");
-    }
-    if (0 == _wcsicmp(ext, L".ear")) {
-      repSummary.scannedEARs++;
-      rv = ScanFileArchive(console, verbose, file, L"");
-    }
-    if (0 == _wcsicmp(ext, L".par")) {
-      repSummary.scannedPARs++;
-      rv = ScanFileArchive(console, verbose, file, L"");
-    }
-    if (0 == _wcsicmp(ext, L".zip")) {
-      repSummary.scannedZIPs++;
-      rv = ScanFileArchive(console, verbose, file, L"");
-    }
-  } else {
-    rv = errno;
+  ReportProcessFile(file);
+
+  if (IsFileZIPArchive(file)) {
+    rv = ScanFileZIPArchive(console, verbose, file, L"");
   }
 
   return rv;
@@ -440,6 +435,34 @@ int32_t ScanNetworkDrives(bool console, bool verbose) {
   return rv;
 }
 
+int32_t EnumMountPoints(bool console, bool verbose, LPCWSTR szVolume) {
+  int32_t rv = ERROR_SUCCESS;
+  HANDLE hFindMountPoint;
+  wchar_t szMountPoint[MAX_PATH];
+  std::wstring sBaseMountpoint = szVolume;
+
+  // Find the first mount point.
+  hFindMountPoint = FindFirstVolumeMountPoint(szVolume, szMountPoint, MAX_PATH);
+
+  // If a mount point was found scan it
+  if (hFindMountPoint != INVALID_HANDLE_VALUE) {
+    ScanDirectory(console, verbose, (sBaseMountpoint + szMountPoint));
+  } else {
+    if (verbose) {
+      wprintf(L"No mount points.\n");
+    }
+    return rv;
+  }
+
+  // Find the next mountpoint(s)
+  while (FindNextVolumeMountPoint(hFindMountPoint, szMountPoint, MAX_PATH)) {
+    ScanDirectory(console, verbose, (sBaseMountpoint + szMountPoint));
+  }
+
+  FindVolumeMountPointClose(hFindMountPoint);
+  return rv;
+}
+
 int32_t ScanLocalDrivesInclMountpoints(bool console, bool verbose) {
 	int32_t rv = ERROR_SUCCESS;
 	DWORD rt = 0;
@@ -457,40 +480,6 @@ int32_t ScanLocalDrivesInclMountpoints(bool console, bool verbose) {
 			EnumMountPoints(console, verbose, drive);
 		}
 	}
-
-	return rv;
-}
-
-int32_t EnumMountPoints(bool console, bool verbose, LPCWSTR szVolume)
-{
-	int32_t rv = ERROR_SUCCESS;
-	HANDLE hFindMountPoint;
-	wchar_t szMountPoint[MAX_PATH];
-	std::wstring sBaseMountpoint = szVolume;
-
-	// Find the first mount point.
-	hFindMountPoint = FindFirstVolumeMountPoint(szVolume, szMountPoint, MAX_PATH);
-
-	// If a mount point was found scan it
-	if (hFindMountPoint != INVALID_HANDLE_VALUE)
-	{
-		ScanDirectory(console, verbose, (sBaseMountpoint + szMountPoint));
-	}
-	else
-	{
-		if (verbose) {
-			wprintf(L"No mount points.\n");
-		}
-		return rv;
-	}
-
-	// Find the next mountpoint(s)
-	while (FindNextVolumeMountPoint(hFindMountPoint, szMountPoint, MAX_PATH))
-	{
-		ScanDirectory(console, verbose, (sBaseMountpoint + szMountPoint));
-	}
-
-	FindVolumeMountPointClose(hFindMountPoint);
 
 	return rv;
 }
