@@ -10,7 +10,7 @@
 #include "tarlib/tarlib.h"
 
 
-bool IsFileTar(std::wstring file) {
+bool IsFileTarball(std::wstring file) {
   wchar_t drive[_MAX_DRIVE];
   wchar_t dir[_MAX_DIR];
   wchar_t fname[_MAX_FNAME];
@@ -23,7 +23,7 @@ bool IsFileTar(std::wstring file) {
   return false;
 }
 
-bool IsFileGZIPStream(std::wstring file) {
+bool IsFileCompressedGZIPTarball(std::wstring file) {
   wchar_t drive[_MAX_DRIVE];
   wchar_t dir[_MAX_DIR];
   wchar_t fname[_MAX_FNAME];
@@ -31,7 +31,12 @@ bool IsFileGZIPStream(std::wstring file) {
 
   if (0 == _wsplitpath_s(file.c_str(), drive, dir, fname, ext)) {
     if (0 == _wcsicmp(ext, L".tgz")) return true;
-    if (0 == _wcsicmp(ext, L".gz")) return true;
+    if (0 == _wcsicmp(ext, L".gz")) {
+      std::wstring s = std::wstring(drive) + std::wstring(dir) + std::wstring(fname);
+      if (0 == _wsplitpath_s(s.c_str(), drive, dir, fname, ext)) {
+        if (0 == _wcsicmp(ext, L".tar")) return true;
+      }
+    }
   }
 
   return false;
@@ -96,7 +101,7 @@ bool UncompressZIPContentsToFile(unzFile zf, std::wstring file) {
   return (h != INVALID_HANDLE_VALUE);
 }
 
-int32_t ScanFileZIPArchive(bool console, bool verbose, std::wstring file, std::wstring alternate) {
+int32_t ScanFileZIPArchive(bool console, bool verbose, std::wstring file, std::wstring file_physical) {
   int32_t     rv = ERROR_SUCCESS;
   unzFile     zf = NULL;
   unz_file_info64 file_info;
@@ -132,8 +137,8 @@ int32_t ScanFileZIPArchive(bool console, bool verbose, std::wstring file, std::w
   zlib_filefunc64_def zfm = { 0 };
   fill_win32_filefunc64W(&zfm);
 
-  if (!alternate.empty()) {
-    zf = unzOpen2_64(alternate.c_str(), &zfm);
+  if (!file_physical.empty()) {
+    zf = unzOpen2_64(file_physical.c_str(), &zfm);
   } else {
     zf = unzOpen2_64(file.c_str(), &zfm);
   }
@@ -318,6 +323,8 @@ int32_t ScanFileZIPArchive(bool console, bool verbose, std::wstring file, std::w
       cveStatus = "Mitigated";
     } else if (foundJNDILookupClass && foundLog4j2x && cve202144228Mitigated && cve202144832Mitigated && cve202145046Mitigated && cve202145105Mitigated) {
       cveStatus = "Mitigated";
+    } else if (!foundJNDILookupClass && foundLog4j1x && cve20214104Mitigated) {
+      cveStatus = "Mitigated";
     } else if (!foundJNDILookupClass && foundLog4j1x) {
       cveStatus = "N/A";
     } else {
@@ -339,17 +346,34 @@ int32_t ScanFileZIPArchive(bool console, bool verbose, std::wstring file, std::w
   return rv;
 }
 
-int32_t ScanFile(bool console, bool verbose, std::wstring file, std::wstring alternate) {
+int32_t ScanFileCompressedGZIPTarball(bool console, bool verbose, std::wstring file, std::wstring file_physical) {
   int32_t rv = ERROR_SUCCESS;
 
-  if (IsFileZIPArchive(file)) {
-    rv = ScanFileZIPArchive(console, verbose, file, alternate);
+  return rv;
+}
+
+int32_t ScanFileTarball(bool console, bool verbose, std::wstring file, std::wstring file_physical) {
+  int32_t rv = ERROR_SUCCESS;
+
+  return rv;
+}
+
+int32_t ScanFile(bool console, bool verbose, std::wstring file, std::wstring file_physical) {
+  int32_t rv = ERROR_SUCCESS;
+
+  if (0) {
+  } else if (IsFileZIPArchive(file)) {
+    rv = ScanFileZIPArchive(console, verbose, file, file_physical);
+  } else if (IsFileCompressedGZIPTarball(file)) {
+    rv = ScanFileCompressedGZIPTarball(console, verbose, file, file_physical);
+  } else if (IsFileTarball(file)) {
+    rv = ScanFileTarball(console, verbose, file, file_physical);
   }
 
   return rv;
 }
 
-int32_t ScanDirectory(bool console, bool verbose, std::wstring directory, std::wstring alternate) {
+int32_t ScanDirectory(bool console, bool verbose, std::wstring directory, std::wstring directory_physical) {
   int32_t rv = ERROR_SUCCESS;
   WIN32_FIND_DATA FindFileData;
   HANDLE hFind;
@@ -377,7 +401,7 @@ int32_t ScanDirectory(bool console, bool verbose, std::wstring directory, std::w
         std::wstring dir = directory + std::wstring(FindFileData.cFileName) + std::wstring(L"\\");
         ReportProcessDirectory(dir);
 
-        rv = ScanDirectory(console, verbose, dir, alternate);
+        rv = ScanDirectory(console, verbose, dir, directory_physical);
         if (ERROR_SUCCESS != rv) {
           LogErrorMessage(verbose, L"Failed to process directory '%s' (rv: %d)", dir.c_str(), rv);
         }
@@ -387,7 +411,7 @@ int32_t ScanDirectory(bool console, bool verbose, std::wstring directory, std::w
         std::wstring file = directory + std::wstring(FindFileData.cFileName);
         ReportProcessFile(file);
 
-        rv = ScanFile(console, verbose, file, alternate);
+        rv = ScanFile(console, verbose, file, directory_physical);
         if (ERROR_SUCCESS != rv) {
           LogErrorMessage(verbose, L"Failed to process file '%s' (rv: %d)", file.c_str(), rv);
         }
