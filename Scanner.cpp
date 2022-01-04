@@ -7,9 +7,59 @@
 #include "minizip/unzip.h"
 #include "minizip/iowin32.h"
 #include "zlib/zlib.h"
+#include "tarlib/tarlib.h"
 
 
-bool UncompressContents(unzFile zf, std::string& str) {
+bool IsFileTarball(std::wstring file) {
+  wchar_t drive[_MAX_DRIVE];
+  wchar_t dir[_MAX_DIR];
+  wchar_t fname[_MAX_FNAME];
+  wchar_t ext[_MAX_EXT];
+
+  if (0 == _wsplitpath_s(file.c_str(), drive, dir, fname, ext)) {
+    if (0 == _wcsicmp(ext, L".tar")) return true;
+  }
+
+  return false;
+}
+
+bool IsFileCompressedGZIPTarball(std::wstring file) {
+  wchar_t drive[_MAX_DRIVE];
+  wchar_t dir[_MAX_DIR];
+  wchar_t fname[_MAX_FNAME];
+  wchar_t ext[_MAX_EXT];
+
+  if (0 == _wsplitpath_s(file.c_str(), drive, dir, fname, ext)) {
+    if (0 == _wcsicmp(ext, L".tgz")) return true;
+    if (0 == _wcsicmp(ext, L".gz")) {
+      std::wstring s = std::wstring(drive) + std::wstring(dir) + std::wstring(fname);
+      if (0 == _wsplitpath_s(s.c_str(), drive, dir, fname, ext)) {
+        if (0 == _wcsicmp(ext, L".tar")) return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+bool IsFileZIPArchive(std::wstring file) {
+  wchar_t drive[_MAX_DRIVE];
+  wchar_t dir[_MAX_DIR];
+  wchar_t fname[_MAX_FNAME];
+  wchar_t ext[_MAX_EXT];
+
+  if (0 == _wsplitpath_s(file.c_str(), drive, dir, fname, ext)) {
+    if (0 == _wcsicmp(ext, L".jar")) return true;
+    if (0 == _wcsicmp(ext, L".war")) return true;
+    if (0 == _wcsicmp(ext, L".ear")) return true;
+    if (0 == _wcsicmp(ext, L".par")) return true;
+    if (0 == _wcsicmp(ext, L".zip")) return true;
+  }
+
+  return false;
+}
+
+bool UncompressZIPContentsToString(unzFile zf, std::string& str) {
   int32_t rv = ERROR_SUCCESS;
   char buf[4096];
 
@@ -27,13 +77,55 @@ bool UncompressContents(unzFile zf, std::string& str) {
   return true;
 }
 
-int32_t ScanFileArchive(bool console, bool verbose, std::wstring file, std::wstring alternate) {
+bool UncompressGZIPContentsToFile(gzFile gzf, std::wstring file) {
+  int32_t rv = ERROR_SUCCESS;
+  HANDLE h = NULL; 
+  char buf[4096];
+
+  h = CreateFile(file.c_str(), GENERIC_READ | GENERIC_WRITE, NULL, NULL,
+                 CREATE_ALWAYS, FILE_ATTRIBUTE_TEMPORARY, NULL);
+  if (h != INVALID_HANDLE_VALUE) {
+    do {
+      memset(buf, 0, sizeof(buf));
+      rv = gzread(gzf, buf, sizeof(buf));
+      if (rv < 0 || rv == 0) break;
+      WriteFile(h, buf, rv, NULL, NULL);
+    } while (rv > 0);
+    CloseHandle(h);
+  }
+
+  return (h != INVALID_HANDLE_VALUE);
+}
+
+bool UncompressZIPContentsToFile(unzFile zf, std::wstring file) {
+  int32_t rv = ERROR_SUCCESS;
+  HANDLE h = NULL; 
+  char buf[4096];
+
+  h = CreateFile(file.c_str(), GENERIC_READ | GENERIC_WRITE, NULL, NULL,
+                 CREATE_ALWAYS, FILE_ATTRIBUTE_TEMPORARY, NULL);
+  if (h != INVALID_HANDLE_VALUE) {
+    rv = unzOpenCurrentFile(zf);
+    if (UNZ_OK == rv) {
+      do {
+        memset(buf, 0, sizeof(buf));
+        rv = unzReadCurrentFile(zf, buf, sizeof(buf));
+        if (rv < 0 || rv == 0) break;
+        WriteFile(h, buf, rv, NULL, NULL);
+      } while (rv > 0);
+      unzCloseCurrentFile(zf);
+    }
+    CloseHandle(h);
+  }
+
+  return (h != INVALID_HANDLE_VALUE);
+}
+
+int32_t ScanFileZIPArchive(bool console, bool verbose, std::wstring file, std::wstring file_physical) {
   int32_t     rv = ERROR_SUCCESS;
-  unsigned long bytesWritten = 0;
   unzFile     zf = NULL;
   unz_file_info64 file_info;
   char*       p = NULL;
-  char        buf[256];
   char        filename[_MAX_PATH + 1];
   wchar_t     tmpPath[_MAX_PATH + 1];
   wchar_t     tmpFilename[_MAX_PATH + 1];
@@ -65,8 +157,8 @@ int32_t ScanFileArchive(bool console, bool verbose, std::wstring file, std::wstr
   zlib_filefunc64_def zfm = { 0 };
   fill_win32_filefunc64W(&zfm);
 
-  if (!alternate.empty()) {
-    zf = unzOpen2_64(alternate.c_str(), &zfm);
+  if (!file_physical.empty()) {
+    zf = unzOpen2_64(file_physical.c_str(), &zfm);
   } else {
     zf = unzOpen2_64(file.c_str(), &zfm);
   }
@@ -97,92 +189,56 @@ int32_t ScanFileArchive(bool console, bool verbose, std::wstring file, std::wstr
           if (0 ==
               stricmp(filename, "META-INF/maven/log4j/log4j/pom.properties")) {
             foundLog4j1xPOM = true;
-            UncompressContents(zf, pomLog4j1x);
+            UncompressZIPContentsToString(zf, pomLog4j1x);
           }
           p = strstr(filename, "META-INF/maven/org.apache.logging.log4j");
           if (NULL != p) {
             if (0 == stricmp(filename, "META-INF/maven/org.apache.logging.log4j/log4j-core/pom.properties")) {
               foundLog4j2xCorePOM = true;
-              UncompressContents(zf, pomLog4j2xCore);
+              UncompressZIPContentsToString(zf, pomLog4j2xCore);
             } else {
               p = strstr(filename, "/pom.properties");
               if (NULL != p) {
                 foundLog4j2xPOM = true;
-                UncompressContents(zf, pomLog4j2x);
+                UncompressZIPContentsToString(zf, pomLog4j2x);
               }
             }
           }
           if (0 == stricmp(filename, "META-INF/MANIFEST.MF")) {
             foundManifest = true;
-            UncompressContents(zf, manifest);
+            UncompressZIPContentsToString(zf, manifest);
           }
 
           //
-          // Add Support for nested archive files
+          // Add Support for nested ZIP files
           //
-          p = &filename[0] + (strlen(filename) - 4);
-          if ((0 == stricmp(p, ".jar")) || (0 == stricmp(p, ".war")) || (0 == stricmp(p, ".par")) ||
-              (0 == stricmp(p, ".ear")) || (0 == stricmp(p, ".zip"))) {
-            if (0 == stricmp(p, ".jar")) {
-              repSummary.scannedJARs++;
-            }
-            if (0 == stricmp(p, ".war")) {
-              repSummary.scannedWARs++;
-            }
-            if (0 == stricmp(p, ".ear")) {
-              repSummary.scannedEARs++;
-            }
-            if (0 == stricmp(p, ".par")) {
-              repSummary.scannedPARs++;
-            }
-            if (0 == stricmp(p, ".zip")) {
-              repSummary.scannedZIPs++;
-            }
+          if (IsFileZIPArchive(A2W(filename))) {
+            ReportProcessFile(A2W(filename));
 
             GetTempPath(_countof(tmpPath), tmpPath);
             GetTempFileName(tmpPath, L"qua", 0, tmpFilename);
 
-            HANDLE h =
-                CreateFile(tmpFilename, GENERIC_READ | GENERIC_WRITE, NULL,
-                           NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_TEMPORARY, NULL);
-
-            if (h != INVALID_HANDLE_VALUE) {
-              rv = unzOpenCurrentFile(zf);
-              if (UNZ_OK == rv) {
-                do {
-                  memset(buf, 0, sizeof(buf));
-                  rv = unzReadCurrentFile(zf, buf, sizeof(buf));
-                  if (rv < 0 || rv == 0) break;
-                  WriteFile(h, buf, rv, &bytesWritten, NULL);
-                } while (rv > 0);
-                unzCloseCurrentFile(zf);
-              }
-              CloseHandle(h);
-
+            if (UncompressZIPContentsToFile(zf, tmpFilename)) {
               std::wstring masked_filename = file + L"!" + A2W(filename);
               std::wstring alternate_filename = tmpFilename;
 
-              ScanFileArchive(console, verbose, masked_filename, alternate_filename);
+              ScanFileZIPArchive(console, verbose, masked_filename, alternate_filename);
 
               DeleteFile(alternate_filename.c_str());
             }
           }
+
         }
-
         rv = unzGoToNextFile(zf);
-      } while (UNZ_OK == rv);
+      } while (UNZ_END_OF_LIST_OF_FILE != rv);
     }
-
     unzClose(zf);
   }
-
-  // Reset error conditiomn, unzGoToNextFile returns a non-zero error code to break from loop
-  //
   rv = ERROR_SUCCESS;
 
   //
   // If we have detected some evidence of Log4j then lets check to see if we can
-  // detect CVE-2021-44228
+  // detect CVE-2021-4104, CVE-2021-44228, CVE-2021-44832, CVE-2021-45046, or CVE-2021-45105
   //
   if (foundLog4j) {
     std::string cveStatus;
@@ -287,6 +343,8 @@ int32_t ScanFileArchive(bool console, bool verbose, std::wstring file, std::wstr
       cveStatus = "Mitigated";
     } else if (foundJNDILookupClass && foundLog4j2x && cve202144228Mitigated && cve202144832Mitigated && cve202145046Mitigated && cve202145105Mitigated) {
       cveStatus = "Mitigated";
+    } else if (!foundJNDILookupClass && foundLog4j1x && cve20214104Mitigated) {
+      cveStatus = "Mitigated";
     } else if (!foundJNDILookupClass && foundLog4j1x) {
       cveStatus = "N/A";
     } else {
@@ -308,52 +366,103 @@ int32_t ScanFileArchive(bool console, bool verbose, std::wstring file, std::wstr
   return rv;
 }
 
-int32_t ScanFile(bool console, bool verbose, std::wstring file) {
+int32_t ScanFileTarball(bool console, bool verbose, std::wstring file, std::wstring file_physical) {
   int32_t rv = ERROR_SUCCESS;
-  wchar_t drive[_MAX_DRIVE];
-  wchar_t dir[_MAX_DIR];
-  wchar_t fname[_MAX_FNAME];
-  wchar_t ext[_MAX_EXT];
+  tarlib::tarFile tar_file;
+  tarlib::tarEntry tar_entry;
+  wchar_t tmpPath[_MAX_PATH + 1];
+  wchar_t tmpFilename[_MAX_PATH + 1];
 
-  if (0 == _wsplitpath_s(file.c_str(), drive, dir, fname, ext)) {
-    if (0 == _wcsicmp(ext, L".jar")) {
-      repSummary.scannedJARs++;
-      rv = ScanFileArchive(console, verbose, file, L"");
-    }
-    if (0 == _wcsicmp(ext, L".war")) {
-      repSummary.scannedWARs++;
-      rv = ScanFileArchive(console, verbose, file, L"");
-    }
-    if (0 == _wcsicmp(ext, L".ear")) {
-      repSummary.scannedEARs++;
-      rv = ScanFileArchive(console, verbose, file, L"");
-    }
-    if (0 == _wcsicmp(ext, L".par")) {
-      repSummary.scannedPARs++;
-      rv = ScanFileArchive(console, verbose, file, L"");
-    }
-    if (0 == _wcsicmp(ext, L".zip")) {
-      repSummary.scannedZIPs++;
-      rv = ScanFileArchive(console, verbose, file, L"");
-    }
+  if (file_physical.size()) {
+    tar_file.open(W2A(file_physical.c_str()), tarlib::tarModeRead);
   } else {
-    rv = errno;
+    tar_file.open(W2A(file.c_str()), tarlib::tarModeRead);
+  }
+  if (tar_file.is_open()) {
+    tar_entry = tar_file.get_first_entry();
+    do 
+    {
+      if (tar_entry.header.indicator == tarlib::tarEntryNormalFile) {         
+        if (IsFileZIPArchive(A2W(tar_entry.header.filename.c_str()))) {
+          ReportProcessFile(A2W(tar_entry.header.filename.c_str()));
+
+          GetTempPath(_countof(tmpPath), tmpPath);
+          GetTempFileName(tmpPath, L"qua", 0, tmpFilename);
+
+          if (tar_entry.extractfile_to_file(W2A(tmpFilename))) {
+            std::wstring masked_filename = file + L"!" + A2W(tar_entry.header.filename);
+            std::wstring alternate_filename = tmpFilename;
+
+            ScanFileZIPArchive(console, verbose, masked_filename, alternate_filename);
+
+            DeleteFile(alternate_filename.c_str());
+          }
+        }
+      }
+      tar_entry = tar_file.get_next_entry();
+    } while(!tar_entry.is_empty());
   }
 
   return rv;
 }
 
-int32_t ScanDirectory(bool console, bool verbose, std::wstring directory) {
+int32_t ScanFileCompressedGZIPTarball(bool console, bool verbose, std::wstring file, std::wstring file_physical) {
   int32_t rv = ERROR_SUCCESS;
-  std::wstring search = directory + std::wstring(L"*.*");
+  gzFile gzf = NULL;
+  wchar_t tmpPath[_MAX_PATH + 1];
+  wchar_t tmpFilename[_MAX_PATH + 1];
+
+  if (file_physical.size()) {
+    gzf = gzopen_w(file_physical.c_str(), "rb");
+  } else {
+    gzf = gzopen_w(file.c_str(), "rb");
+  }
+  if (NULL != gzf) {
+    GetTempPath(_countof(tmpPath), tmpPath);
+    GetTempFileName(tmpPath, L"qua", 0, tmpFilename);
+
+    if (UncompressGZIPContentsToFile(gzf, tmpFilename)) {
+      ScanFileTarball(console, verbose, file, tmpFilename);
+      DeleteFile(tmpFilename);
+    }
+  }
+
+  return rv;
+}
+
+int32_t ScanFile(bool console, bool verbose, std::wstring file, std::wstring file_physical) {
+  int32_t rv = ERROR_SUCCESS;
+
+  if (0) {
+  } else if (IsFileZIPArchive(file)) {
+    rv = ScanFileZIPArchive(console, verbose, file, file_physical);
+  } else if (IsFileCompressedGZIPTarball(file)) {
+    rv = ScanFileCompressedGZIPTarball(console, verbose, file, file_physical);
+  } else if (IsFileTarball(file)) {
+    rv = ScanFileTarball(console, verbose, file, file_physical);
+  }
+
+  return rv;
+}
+
+int32_t ScanDirectory(bool console, bool verbose, std::wstring directory, std::wstring directory_physical) {
+  int32_t rv = ERROR_SUCCESS;
   WIN32_FIND_DATA FindFileData;
   HANDLE hFind;
-  wchar_t err[1024] = {0};
+  std::wstring search;
+  std::wstring dir;
+  std::wstring dir_phys;
+  std::wstring file;
+  std::wstring file_phys;
+
+  if (directory_physical.size()) {
+    search = directory_physical + std::wstring(L"*.*");
+  } else {
+    search = directory + std::wstring(L"*.*");
+  }
 
   hFind = FindFirstFile(search.c_str(), &FindFileData);
-  if (hFind == INVALID_HANDLE_VALUE) {
-    rv = GetLastError();
-  } else {
+  if (hFind != INVALID_HANDLE_VALUE) {
     do {
       std::wstring filename(FindFileData.cFileName);
 
@@ -366,39 +475,41 @@ int32_t ScanDirectory(bool console, bool verbose, std::wstring directory) {
       if ((FindFileData.dwFileAttributes & FILE_ATTRIBUTE_VIRTUAL) == FILE_ATTRIBUTE_VIRTUAL) continue;
 
       if ((FindFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY) {
-        repSummary.scannedDirectories++;
 
-        std::wstring dir =
-            directory + std::wstring(FindFileData.cFileName) + std::wstring(L"\\");
-        rv = ScanDirectory(console, verbose, dir);
-        if (ERROR_SUCCESS != rv) {
-          if (verbose) {
-            wprintf(L"Failed to process directory '%s' (rv: %d)\n", dir.c_str(), rv);
-          }
-          swprintf_s(err, L"Failed to process directory '%s' (rv: %d)", dir.c_str(), rv);
-          error_array.push_back(err);
+        dir = directory + filename + std::wstring(L"\\");
+        if (directory_physical.size()) {
+          dir_phys = directory_physical + filename + std::wstring(L"\\");
+        } else {
+          dir_phys.clear();
         }
+        ReportProcessDirectory(dir);
 
-        // TODO: Look for suspect directory structures containing raw log4j java
-        // classes
-        //
+        rv = ScanDirectory(console, verbose, dir, dir_phys);
+        if (ERROR_SUCCESS != rv) {
+          LogErrorMessage(verbose, L"Failed to process directory '%s' (rv: %d)", dir.c_str(), rv);
+        }
 
       } else {
-        repSummary.scannedFiles++;
 
-        std::wstring file = directory + std::wstring(FindFileData.cFileName);
-        rv = ScanFile(console, verbose, file);
-        if (ERROR_SUCCESS != rv) {
-          if (verbose) {
-            wprintf(L"Failed to process file '%s' (rv: %d)\n", file.c_str(), rv);
-          }
-          swprintf_s(err, L"Failed to process file '%s' (rv: %d)", file.c_str(), rv);
-          error_array.push_back(err);
+        file = directory + filename;
+        if (directory_physical.size()) {
+          file_phys = directory_physical + filename;
+        } else {
+          file_phys.clear();
         }
+        ReportProcessFile(file);
+
+        rv = ScanFile(console, verbose, file, file_phys);
+        if (ERROR_SUCCESS != rv) {
+          LogErrorMessage(verbose, L"Failed to process file '%s' (rv: %d)", file.c_str(), rv);
+        }
+
       }
 
     } while (FindNextFile(hFind, &FindFileData));
     FindClose(hFind);
+  }  else {
+    rv = GetLastError();
   }
 
   return rv;
@@ -415,7 +526,7 @@ int32_t ScanLocalDrives(bool console, bool verbose) {
     wchar_t* drive = &drives[i];
     DWORD type = GetDriveType(drive);
     if ((DRIVE_FIXED == type) || (DRIVE_RAMDISK == type)) {
-      ScanDirectory(console, verbose, drive);
+      ScanDirectory(console, verbose, drive, L"");
     }
   }
 
@@ -433,10 +544,38 @@ int32_t ScanNetworkDrives(bool console, bool verbose) {
     wchar_t* drive = &drives[i];
     DWORD type = GetDriveType(drive);
     if (DRIVE_REMOTE == type) {
-      ScanDirectory(console, verbose, drive);
+      ScanDirectory(console, verbose, drive, L"");
     }
   }
 
+  return rv;
+}
+
+int32_t EnumMountPoints(bool console, bool verbose, LPCWSTR szVolume) {
+  int32_t rv = ERROR_SUCCESS;
+  HANDLE hFindMountPoint;
+  wchar_t szMountPoint[MAX_PATH];
+  std::wstring sBaseMountpoint = szVolume;
+
+  // Find the first mount point.
+  hFindMountPoint = FindFirstVolumeMountPoint(szVolume, szMountPoint, MAX_PATH);
+
+  // If a mount point was found scan it
+  if (hFindMountPoint != INVALID_HANDLE_VALUE) {
+    ScanDirectory(console, verbose, (sBaseMountpoint + szMountPoint), L"");
+  } else {
+    if (verbose) {
+      wprintf(L"No mount points.\n");
+    }
+    return rv;
+  }
+
+  // Find the next mountpoint(s)
+  while (FindNextVolumeMountPoint(hFindMountPoint, szMountPoint, MAX_PATH)) {
+    ScanDirectory(console, verbose, (sBaseMountpoint + szMountPoint), L"");
+  }
+
+  FindVolumeMountPointClose(hFindMountPoint);
   return rv;
 }
 
@@ -451,46 +590,12 @@ int32_t ScanLocalDrivesInclMountpoints(bool console, bool verbose) {
 		wchar_t* drive = &drives[i];
 		DWORD type = GetDriveType(drive);
 		if ((DRIVE_FIXED == type) || (DRIVE_RAMDISK == type)) {
-			ScanDirectory(console, verbose, drive);
+      ScanDirectory(console, verbose, drive, L"");
 
-			//Enumerate mount points on the drive and scan them
+			// Enumerate mount points on the drive and scan them
 			EnumMountPoints(console, verbose, drive);
 		}
 	}
-
-	return rv;
-}
-
-int32_t EnumMountPoints(bool console, bool verbose, LPCWSTR szVolume)
-{
-	int32_t rv = ERROR_SUCCESS;
-	HANDLE hFindMountPoint;
-	wchar_t szMountPoint[MAX_PATH];
-	std::wstring sBaseMountpoint = szVolume;
-
-	// Find the first mount point.
-	hFindMountPoint = FindFirstVolumeMountPoint(szVolume, szMountPoint, MAX_PATH);
-
-	// If a mount point was found scan it
-	if (hFindMountPoint != INVALID_HANDLE_VALUE)
-	{
-		ScanDirectory(console, verbose, (sBaseMountpoint + szMountPoint));
-	}
-	else
-	{
-		if (verbose) {
-			wprintf(L"No mount points.\n");
-		}
-		return rv;
-	}
-
-	// Find the next mountpoint(s)
-	while (FindNextVolumeMountPoint(hFindMountPoint, szMountPoint, MAX_PATH))
-	{
-		ScanDirectory(console, verbose, (sBaseMountpoint + szMountPoint));
-	}
-
-	FindVolumeMountPointClose(hFindMountPoint);
 
 	return rv;
 }

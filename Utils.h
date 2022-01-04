@@ -27,14 +27,16 @@ bool StripWhitespace(std::string& str);
 bool GetDictionaryValue(std::string& dict, std::string name, std::string defaultValue, std::string& value);
 bool ExpandEnvironmentVariables(const wchar_t* source, std::wstring& destination);
 bool DirectoryExists(const wchar_t* dirPath);
+std::wstring FormatLocalTime(time_t datetime);
 std::wstring GetScanUtilityDirectory();
 std::wstring GetReportDirectory();
 std::wstring GetSignatureReportFilename();
 std::wstring GetSignatureStatusFilename();
 std::wstring GetRemediationReportFilename();
 std::wstring GetRemediationStatusFilename();
-bool OpenStatusFile(const std::wstring & filename);
-int LogStatusMessage(const wchar_t* fmt, ...);
+uint32_t LogErrorMessage(bool verbose, const wchar_t* fmt, ...);
+bool OpenStatusFile(const std::wstring& filename);
+uint32_t LogStatusMessage(const wchar_t* fmt, ...);
 bool CloseStatusFile();
 
 bool ParseVersion(std::string version, int& major, int& minor, int& build);
@@ -47,4 +49,3 @@ bool IsCVE202145105Mitigated(std::string log4jVendor, std::string version);
 LONG CALLBACK CatchUnhandledExceptionFilter(PEXCEPTION_POINTERS pExPtrs);
 
 extern std::vector<std::wstring> error_array;
-

@@ -1,3 +1,3 @@
 #pragma once                                                                 
-#define VERSION_BINARY 1,2,24,0   
-#define VERSION_STRING "1.2.24.0" 
+#define VERSION_BINARY 2,0,1,0   
+#define VERSION_STRING "2.0.1.0" 

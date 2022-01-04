@@ -6,7 +6,6 @@
 #include "Utils.h"
 #include "Reports.h"
 #include "Scanner.h"
-#include "MainScan.h"
 
 #include "Version.info"
 
@@ -17,30 +16,67 @@
 #define ARGPARAMCOUNT(X) ((i + X) <= (argc - 1))
 
 
+class CCommandLineOptions {
+ public:
+  bool scanLocalDrives;
+  bool scanLocalDrivesInclMountpoints;
+  bool scanNetworkDrives;
+  bool scanFile;
+  std::wstring file;
+  bool scanDirectory;
+  std::wstring directory;
+  bool report;
+  bool reportPretty;
+  bool reportSig;
+  bool lowpriority;
+  bool verbose;
+  bool no_logo;
+  bool help;
+
+  CCommandLineOptions() {
+    scanLocalDrives = false;
+    scanLocalDrivesInclMountpoints = false;
+    scanNetworkDrives = false;
+    scanFile = false;
+    file.clear();
+    scanDirectory = false;
+    directory.clear();
+    report = false;
+    reportPretty = false;
+    reportSig = false;
+    lowpriority = false;
+    verbose = false;
+    no_logo = false;
+    help = false;
+  }
+};
+
 CCommandLineOptions cmdline_options;
 
 
 int32_t PrintHelp(int32_t argc, wchar_t* argv[]) {
   int32_t rv = ERROR_SUCCESS;
 
-  wprintf(L"/help\n");
-  wprintf(L"  Displays this help page.\n");
-  wprintf(L"/lowpriority\n");
-  wprintf(L"  Lowers priority of Log4JScanner other processes have priority.\n");
   wprintf(L"/scan\n");
-  wprintf(L"  Scan local drives for vulnerable JAR, WAR, EAR, PAR, ZIP files used by various Java applications.\n");
+  wprintf(L"  Scan local drives for vulnerable files used by various Java applications.\n");
+  wprintf(L"/scan_network\n");
+  wprintf(L"  Scan network drives for vulnerable files used by various Java applications.\n");
   wprintf(L"/scan_directory \"C:\\Some\\Path\"\n");
-  wprintf(L"  Scan a specific directory for vulnerable JAR, WAR, EAR, PAR, ZIP files used by various Java applications.\n");
+  wprintf(L"  Scan a specific directory for vulnerable files used by various Java applications.\n");
   wprintf(L"/scan_file \"C:\\Some\\Path\\Some.jar\"\n");
   wprintf(L"  Scan a specific file for supported CVE(s).\n");
   wprintf(L"/scaninclmountpoints\n");
-  wprintf(L"  Scan local drives including mount points for vulnerable JAR, WAR, EAR, PAR, ZIP files used by various Java applications.\n");
+  wprintf(L"  Scan local drives including mount points for vulnerable files used by various Java applications.\n");
   wprintf(L"/report\n");
   wprintf(L"  Generate a JSON report of possible detections of supported CVE(s).\n");
   wprintf(L"/report_pretty\n");
   wprintf(L"  Generate a human readable JSON report of possible detections of supported CVE(s).\n");
   wprintf(L"/report_sig\n");
   wprintf(L"  Generate a signature report of possible detections of supported CVE(s).\n");
+  wprintf(L"/lowpriority\n");
+  wprintf(L"  Lowers the execution and I/O priority of the scanner.\n");
+  wprintf(L"/help\n");
+  wprintf(L"  Displays this help page.\n");
   wprintf(L"\n");
 
   return rv;
@@ -53,6 +89,8 @@ int32_t ProcessCommandLineOptions(int32_t argc, wchar_t* argv[]) {
     if (0) {
     } else if (ARG(scan)) {
       cmdline_options.scanLocalDrives = true;
+    } else if (ARG(scan_network)) {
+      cmdline_options.scanNetworkDrives = true;
     } else if (ARG(scan_file) && ARGPARAMCOUNT(1)) {
       cmdline_options.scanFile = true;
       cmdline_options.file = argv[i + 1];
@@ -149,7 +187,8 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
   }
 
   if (!cmdline_options.scanLocalDrives && !cmdline_options.scanNetworkDrives &&
-      !cmdline_options.scanDirectory && !cmdline_options.scanFile && !cmdline_options.scanLocalDrivesInclMountpoints) {
+      !cmdline_options.scanDirectory && !cmdline_options.scanFile &&
+      !cmdline_options.scanLocalDrivesInclMountpoints) {
     cmdline_options.scanLocalDrives = true;
   }
 
@@ -158,28 +197,23 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
   }
   
   if (cmdline_options.lowpriority) {
-      if (!SetPriorityClass(GetCurrentProcess(), PROCESS_MODE_BACKGROUND_BEGIN))
-      {
-          wprintf(L"Failed to set process priority.\n");
+    SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_LOWEST | THREAD_MODE_BACKGROUND_BEGIN);
+    if (!SetPriorityClass(GetCurrentProcess(), PROCESS_MODE_BACKGROUND_BEGIN))
+    {
+      wprintf(L"Failed to set process priority.\n");
+    }
+    else
+    {
+      if (cmdline_options.verbose) {
+        wprintf(L"CPU and I/O priority lowered.\n");
       }
-      else
-      {
-          if (cmdline_options.verbose) {
-              wprintf(L"CPU and I/O priority lowered.\n");
-          }
-      }
+    }
   }
 
   repSummary.scanStart = time(0);
 
   if (cmdline_options.reportSig) {
-    wchar_t buf[64] = {0};
-    struct tm* tm = NULL;
-
-    tm = localtime((time_t*)&repSummary.scanStart);
-    wcsftime(buf, _countof(buf) - 1, L"%FT%T%z", tm);
-
-    LogStatusMessage(L"Scan start time : %s\n", buf);
+    LogStatusMessage(L"Scan start time : %s\n", FormatLocalTime(repSummary.scanStart).c_str());
   }
 
   if (cmdline_options.scanLocalDrives) {
@@ -207,54 +241,44 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
     if (!cmdline_options.no_logo) {
       wprintf(L"Scanning '%s'...\n", cmdline_options.directory.c_str());
     }
-    ScanDirectory(!cmdline_options.no_logo, cmdline_options.verbose, cmdline_options.directory);
+    ScanDirectory(!cmdline_options.no_logo, cmdline_options.verbose, cmdline_options.directory, L"");
   }
 
   if (cmdline_options.scanFile) {
     if (!cmdline_options.no_logo) {
       wprintf(L"Scanning '%s'...\n", cmdline_options.file.c_str());
     }
-    ScanFile(!cmdline_options.no_logo, cmdline_options.verbose, cmdline_options.file);
+    ScanFile(!cmdline_options.no_logo, cmdline_options.verbose, cmdline_options.file, L"");
   }
 
   repSummary.scanEnd = time(0);
   
   if (cmdline_options.lowpriority) {
-      if (!SetPriorityClass(GetCurrentProcess(), PROCESS_MODE_BACKGROUND_END))
-      {
-          wprintf(L"Failed to set process priority");
-      }
+    if (!SetPriorityClass(GetCurrentProcess(), PROCESS_MODE_BACKGROUND_END))
+    {
+      wprintf(L"Failed to set process priority");
+    }
+    SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL | THREAD_MODE_BACKGROUND_END);
   }
   
   if (cmdline_options.reportSig) {
-    wchar_t buf[64] = {0};
-    struct tm* tm = NULL;
-
-    tm = localtime((time_t*)&repSummary.scanEnd);
-    wcsftime(buf, _countof(buf) - 1, L"%FT%T%z", tm);
-
-    LogStatusMessage(L"\nScan end time : %s\n", buf);
+    LogStatusMessage(L"\nScan end time : %s\n", FormatLocalTime(repSummary.scanEnd).c_str());
   }
 
 
   if (!cmdline_options.no_logo) {
-    wchar_t buf[64] = {0};
-    struct tm* tm = NULL;
-
-    tm = localtime((time_t*)&repSummary.scanEnd);
-    wcsftime(buf, _countof(buf) - 1, L"%FT%T%z", tm);
-
     wprintf(L"\nScan Summary:\n");
-    wprintf(L"\tScan Date:\t\t %s\n", buf);
-    wprintf(L"\tScan Duration:\t\t %lld Seconds\n", repSummary.scanEnd - repSummary.scanStart);
-    wprintf(L"\tFiles Scanned:\t\t %lld\n", repSummary.scannedFiles);
-    wprintf(L"\tDirectories Scanned:\t %lld\n", repSummary.scannedDirectories);
-    wprintf(L"\tJAR(s) Scanned:\t\t %lld\n", repSummary.scannedJARs);
-    wprintf(L"\tWAR(s) Scanned:\t\t %lld\n", repSummary.scannedWARs);
-    wprintf(L"\tEAR(s) Scanned:\t\t %lld\n", repSummary.scannedEARs);
-    wprintf(L"\tPAR(s) Scanned:\t\t %lld\n", repSummary.scannedPARs);
-    wprintf(L"\tZIP(s) Scanned:\t\t %lld\n", repSummary.scannedZIPs);
-    wprintf(L"\tVulnerabilities Found:\t %lld\n", repSummary.foundVunerabilities);
+    wprintf(L"\tScan Date:\t\t\t %s\n", FormatLocalTime(repSummary.scanStart).c_str());
+    wprintf(L"\tScan Duration:\t\t\t %lld Seconds\n", repSummary.scanEnd - repSummary.scanStart);
+    wprintf(L"\tFiles Scanned:\t\t\t %lld\n", repSummary.scannedFiles);
+    wprintf(L"\tDirectories Scanned:\t\t %lld\n", repSummary.scannedDirectories);
+    wprintf(L"\tCompressed File(s) Scanned:\t %lld\n", repSummary.scannedCompressed);
+    wprintf(L"\tJAR(s) Scanned:\t\t\t %lld\n", repSummary.scannedJARs);
+    wprintf(L"\tWAR(s) Scanned:\t\t\t %lld\n", repSummary.scannedWARs);
+    wprintf(L"\tEAR(s) Scanned:\t\t\t %lld\n", repSummary.scannedEARs);
+    wprintf(L"\tPAR(s) Scanned:\t\t\t %lld\n", repSummary.scannedPARs);
+    wprintf(L"\tTAR(s) Scanned:\t\t\t %lld\n", repSummary.scannedTARs);
+    wprintf(L"\tVulnerabilities Found:\t\t %lld\n", repSummary.foundVunerabilities);
   }
 
   if (cmdline_options.report) {

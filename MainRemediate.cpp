@@ -81,11 +81,80 @@ int32_t ProcessCommandLineOptions(int32_t argc, wchar_t* argv[]) {
   return rv;
 }
 
+DWORD SetPrivilege(
+    HANDLE hToken,          // access token handle
+    const std::wstring& Privilege,  // name of privilege to enable/disable
+    bool EnablePrivilege   // to enable or disable privilege
+)
+{
+    TOKEN_PRIVILEGES tp = { 0 };
+    LUID luid = { 0 };
+
+    DWORD status = ERROR_SUCCESS;
+
+    if (!LookupPrivilegeValue(
+        nullptr,            // lookup privilege on local system
+        Privilege.c_str(),   // privilege to lookup 
+        &luid))        // receives LUID of privilege
+    {
+        status = GetLastError();
+        LOG_WIN32_MESSAGE(status, L"%s", L"Failed to get privilege");
+        return status;
+    }
+
+    tp.PrivilegeCount = 1;
+    tp.Privileges[0].Luid = luid;
+    tp.Privileges[0].Attributes = EnablePrivilege ? SE_PRIVILEGE_ENABLED : 0;
+
+    // Enable the privilege or disable all privileges.
+
+    if (!AdjustTokenPrivileges(
+        hToken,
+        FALSE,
+        &tp,
+        sizeof(TOKEN_PRIVILEGES),
+        (PTOKEN_PRIVILEGES)nullptr,
+        (PDWORD)nullptr))
+    {
+        status = GetLastError();
+        LOG_WIN32_MESSAGE(status, L"%s", L"Failed to set privilege");
+        return status;
+    }
+    
+    status = GetLastError();
+    if (status == ERROR_NOT_ALL_ASSIGNED)
+    {
+        LOG_WIN32_MESSAGE(status, L"%s", L"The token does not have the specified privilege");
+        return status;
+    }
+
+    return status;
+}
+
 int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
   int32_t rv = ERROR_SUCCESS;
 
   SetUnhandledExceptionFilter(CatchUnhandledExceptionFilter);
   _setmode(_fileno(stdout), _O_U16TEXT);
+
+  HANDLE hToken = nullptr;
+  // Open a handle to the access token for the calling process.
+  if (!OpenProcessToken(GetCurrentProcess(),
+      TOKEN_ADJUST_PRIVILEGES,
+      &hToken))
+  {
+      LOG_WIN32_MESSAGE(GetLastError(), L"%s", L"Failed to open process token");
+      goto END;
+  }
+
+  // Enable the SE_TAKE_OWNERSHIP_NAME privilege.
+  if (SetPrivilege(hToken, SE_TAKE_OWNERSHIP_NAME, TRUE) != ERROR_SUCCESS)
+  {
+      LOG_MESSAGE("You must be logged on as Administrator");
+      CloseHandle(hToken);
+      goto END;
+  }
+  CloseHandle(hToken);
 
 #ifndef _WIN64
   using typeWow64DisableWow64FsRedirection = BOOL(WINAPI*)(PVOID OlValue);

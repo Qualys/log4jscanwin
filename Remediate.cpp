@@ -116,12 +116,26 @@ namespace log4jremediate {
 	DWORD ReadSignatureReport(const std::wstring& report, std::vector<CReportVulnerabilities>& result) {
 		DWORD status{ ERROR_SUCCESS };
 		std::wstringstream wss;
+		std::wifstream wif;
 		std::vector<std::wstring> lines;
 
-		std::wifstream wif(report);
+		// If we are unable to fetch File Attributes, it simply means file doesn't exist
+		DWORD fileAttr = GetFileAttributes(report.c_str());
+		const bool bFileExists = (fileAttr != INVALID_FILE_ATTRIBUTES);
 
-		if (!wif.is_open()) {			
-			LOG_MESSAGE(L"No signature report found in %s", report.c_str());
+		if (!bFileExists)
+		{
+			LOG_MESSAGE(L"Signature report %s not found.", report.c_str());
+			goto END;
+		}
+
+		//Read the content
+		wif.open(report, std::ios::in | std::ios::binary);
+
+		if (!wif.is_open()) {
+
+			status = ERROR_OPEN_FAILED;
+			LOG_WIN32_MESSAGE(status, L"Failed to open signature report %s", report.c_str());
 			goto END;
 		}
 
@@ -264,11 +278,11 @@ namespace log4jremediate {
 		}
 		catch (std::bad_alloc&) {
 			status = ERROR_OUTOFMEMORY;
-			LOG_WIN32_MESSAGE(status, L"Failed to allocate memory in %s", __func__);
+			LOG_WIN32_MESSAGE(status, L"Failed to allocate memory in %S", __func__);
 		}
 		catch (std::exception& e) {
 			status = ERROR_INVALID_OPERATION;
-			LOG_WIN32_MESSAGE(status, L"Exception %S caught in %s", e.what(), __func__);
+			LOG_WIN32_MESSAGE(status, L"Exception %S caught in %S", e.what(), __func__);
 		}
 
 	END:
@@ -293,9 +307,18 @@ namespace log4jremediate {
 				return status;
 			}
 
-			// check if file is read only then do not process the jar
-
+			// If we are unable to fetch File Attributes, it simply means file doesn't exist
 			DWORD fileAttr = GetFileAttributes(result[0].c_str());
+			const bool bFileExists = (fileAttr != INVALID_FILE_ATTRIBUTES);
+
+			if (!bFileExists)
+			{
+				status = ERROR_FILE_NOT_FOUND;
+				LOG_WIN32_MESSAGE(status, L"Failed to fix %s because file not found", result[0].c_str());
+				return status;
+			}
+			
+			// check if file is read only then do not process the jar
 			if (fileAttr & FILE_ATTRIBUTE_READONLY)
 			{
 				status = ERROR_ACCESS_DENIED;
@@ -313,6 +336,20 @@ namespace log4jremediate {
 				LOG_WIN32_MESSAGE(status, L"Failed to copy %s to %s", result[0].c_str(), tmpFilename);
 				return status;
 			}			
+
+			PACL pOldDACL = nullptr;
+			PSID psidGroup = nullptr;
+			PSID psidOwner = nullptr;
+			PSECURITY_DESCRIPTOR pSD = nullptr;			
+
+			if (GetNamedSecurityInfo(result[0].c_str(), SE_FILE_OBJECT,
+				GROUP_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION | OWNER_SECURITY_INFORMATION,
+				&psidOwner, &psidGroup, &pOldDACL, nullptr, &pSD) != ERROR_SUCCESS)
+			{
+				status = GetLastError();
+				LOG_WIN32_MESSAGE(status, L"Failed to get permissions of file %s", result[0].c_str());
+				return status;
+			}
 
 			// Map outermost file with corresponding temp file
 			archives_mapping.emplace(result[0], tmpFilename);
@@ -367,6 +404,28 @@ namespace log4jremediate {
 				return status;
 			}
 
+			WCHAR file_path[MAX_PATH] = { '\0' };
+			wcscpy_s(file_path, result[0].c_str());
+
+			if (SetNamedSecurityInfo(file_path, SE_FILE_OBJECT,
+				GROUP_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION | OWNER_SECURITY_INFORMATION,
+				psidOwner, psidGroup, pOldDACL, nullptr) != ERROR_SUCCESS)
+			{
+				status = GetLastError();
+				LOG_WIN32_MESSAGE(status, L"Failed to set permissions to file %s", result[0].c_str());
+
+				if (pSD != nullptr)
+				{
+					LocalFree((HLOCAL)pSD);
+				}
+
+				return status;
+			}
+			if (pSD != nullptr)
+			{
+				LocalFree((HLOCAL)pSD);
+			}
+			
 			LOG_MESSAGE("Copied fixed file: %s", result[0].c_str());
 
 			// Delete temporary files
@@ -374,11 +433,11 @@ namespace log4jremediate {
 		}
 		catch (std::bad_alloc&) {
 			status = ERROR_OUTOFMEMORY;
-			LOG_WIN32_MESSAGE(status, L"Failed to allocate memory in %s", __func__);
+			LOG_WIN32_MESSAGE(status, L"Failed to allocate memory in %S", __func__);
 		}
 		catch (std::exception& e) {
 			status = ERROR_INVALID_OPERATION;
-			LOG_WIN32_MESSAGE(status, L"Exception %S caught in %s", e.what(), __func__);
+			LOG_WIN32_MESSAGE(status, L"Exception %S caught in %S", e.what(), __func__);
 		}		
 
 		return status;
