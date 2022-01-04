@@ -77,6 +77,26 @@ bool UncompressZIPContentsToString(unzFile zf, std::string& str) {
   return true;
 }
 
+bool UncompressGZIPContentsToFile(gzFile gzf, std::wstring file) {
+  int32_t rv = ERROR_SUCCESS;
+  HANDLE h = NULL; 
+  char buf[4096];
+
+  h = CreateFile(file.c_str(), GENERIC_READ | GENERIC_WRITE, NULL, NULL,
+                 CREATE_ALWAYS, FILE_ATTRIBUTE_TEMPORARY, NULL);
+  if (h != INVALID_HANDLE_VALUE) {
+    do {
+      memset(buf, 0, sizeof(buf));
+      rv = gzread(gzf, buf, sizeof(buf));
+      if (rv < 0 || rv == 0) break;
+      WriteFile(h, buf, rv, NULL, NULL);
+    } while (rv > 0);
+    CloseHandle(h);
+  }
+
+  return (h != INVALID_HANDLE_VALUE);
+}
+
 bool UncompressZIPContentsToFile(unzFile zf, std::wstring file) {
   int32_t rv = ERROR_SUCCESS;
   HANDLE h = NULL; 
@@ -346,14 +366,6 @@ int32_t ScanFileZIPArchive(bool console, bool verbose, std::wstring file, std::w
   return rv;
 }
 
-int32_t ScanFileCompressedGZIPTarball(bool console, bool verbose, std::wstring file, std::wstring file_physical) {
-  int32_t rv = ERROR_SUCCESS;
-
-
-
-  return rv;
-}
-
 int32_t ScanFileTarball(bool console, bool verbose, std::wstring file, std::wstring file_physical) {
   int32_t rv = ERROR_SUCCESS;
   tarlib::tarFile tar_file;
@@ -361,7 +373,11 @@ int32_t ScanFileTarball(bool console, bool verbose, std::wstring file, std::wstr
   wchar_t tmpPath[_MAX_PATH + 1];
   wchar_t tmpFilename[_MAX_PATH + 1];
 
-  tar_file.open(W2A(file.c_str()), tarlib::tarModeRead);
+  if (file_physical.size()) {
+    tar_file.open(W2A(file_physical.c_str()), tarlib::tarModeRead);
+  } else {
+    tar_file.open(W2A(file.c_str()), tarlib::tarModeRead);
+  }
   if (tar_file.is_open()) {
     tar_entry = tar_file.get_first_entry();
     do 
@@ -385,6 +401,30 @@ int32_t ScanFileTarball(bool console, bool verbose, std::wstring file, std::wstr
       }
       tar_entry = tar_file.get_next_entry();
     } while(!tar_entry.is_empty());
+  }
+
+  return rv;
+}
+
+int32_t ScanFileCompressedGZIPTarball(bool console, bool verbose, std::wstring file, std::wstring file_physical) {
+  int32_t rv = ERROR_SUCCESS;
+  gzFile gzf = NULL;
+  wchar_t tmpPath[_MAX_PATH + 1];
+  wchar_t tmpFilename[_MAX_PATH + 1];
+
+  if (file_physical.size()) {
+    gzf = gzopen_w(file_physical.c_str(), "rb");
+  } else {
+    gzf = gzopen_w(file.c_str(), "rb");
+  }
+  if (NULL != gzf) {
+    GetTempPath(_countof(tmpPath), tmpPath);
+    GetTempFileName(tmpPath, L"qua", 0, tmpFilename);
+
+    if (UncompressGZIPContentsToFile(gzf, tmpFilename)) {
+      ScanFileTarball(console, verbose, file, tmpFilename);
+      DeleteFile(tmpFilename);
+    }
   }
 
   return rv;
