@@ -16,17 +16,25 @@ https://github.com/Qualys/log4jscanwin/releases/download/1.2.19/Log4jScanner-1.2
 ## Usage
 ```
 /scan
-  Scan local drives for vulnerable JAR, WAR, EAR, ZIP files used by various Java applications.
+  Scan local drives for vulnerable files used by various Java applications.
+/scan_network
+  Scan network drives for vulnerable files used by various Java applications.
 /scan_directory "C:\Some\Path"
-  Scan a specific directory for vulnerable JAR, WAR, EAR, ZIP files used by various Java applications.
+  Scan a specific directory for vulnerable files used by various Java applications.
 /scan_file "C:\Some\Path\Some.jar"
   Scan a specific file for supported CVE(s).
+/scaninclmountpoints
+  Scan local drives including mount points for vulnerable files used by various Java applications.
 /report
   Generate a JSON report of possible detections of supported CVE(s).
 /report_pretty
   Generate a human readable JSON report of possible detections of supported CVE(s).
 /report_sig
   Generate a signature report of possible detections of supported CVE(s).
+/lowpriority
+  Lowers the execution and I/O priority of the scanner.
+/help
+  Displays this help page.
 ```
 
 Sample Usage (from an elevated command prompt) - The following command helps you scan local drives for vulnerable JAR, WAR, EAR, and ZIP.
