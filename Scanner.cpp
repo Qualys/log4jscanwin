@@ -349,11 +349,43 @@ int32_t ScanFileZIPArchive(bool console, bool verbose, std::wstring file, std::w
 int32_t ScanFileCompressedGZIPTarball(bool console, bool verbose, std::wstring file, std::wstring file_physical) {
   int32_t rv = ERROR_SUCCESS;
 
+
+
   return rv;
 }
 
 int32_t ScanFileTarball(bool console, bool verbose, std::wstring file, std::wstring file_physical) {
   int32_t rv = ERROR_SUCCESS;
+  tarlib::tarFile tar_file;
+  tarlib::tarEntry tar_entry;
+  wchar_t tmpPath[_MAX_PATH + 1];
+  wchar_t tmpFilename[_MAX_PATH + 1];
+
+  tar_file.open(W2A(file.c_str()), tarlib::tarModeRead);
+  if (tar_file.is_open()) {
+    tar_entry = tar_file.get_first_entry();
+    do 
+    {
+      if (tar_entry.header.indicator == tarlib::tarEntryNormalFile) {         
+        if (IsFileZIPArchive(A2W(tar_entry.header.filename.c_str()))) {
+          ReportProcessFile(A2W(tar_entry.header.filename.c_str()));
+
+          GetTempPath(_countof(tmpPath), tmpPath);
+          GetTempFileName(tmpPath, L"qua", 0, tmpFilename);
+
+          if (tar_entry.extractfile_to_file(W2A(tmpFilename))) {
+            std::wstring masked_filename = file + L"!" + A2W(tar_entry.header.filename);
+            std::wstring alternate_filename = tmpFilename;
+
+            ScanFileZIPArchive(console, verbose, masked_filename, alternate_filename);
+
+            DeleteFile(alternate_filename.c_str());
+          }
+        }
+      }
+      tar_entry = tar_file.get_next_entry();
+    } while(!tar_entry.is_empty());
+  }
 
   return rv;
 }
@@ -378,10 +410,16 @@ int32_t ScanDirectory(bool console, bool verbose, std::wstring directory, std::w
   WIN32_FIND_DATA FindFileData;
   HANDLE hFind;
   std::wstring search;
+  std::wstring dir;
+  std::wstring dir_phys;
+  std::wstring file;
+  std::wstring file_phys;
 
-
-  search = directory + std::wstring(L"*.*");
-
+  if (directory_physical.size()) {
+    search = directory_physical + std::wstring(L"*.*");
+  } else {
+    search = directory + std::wstring(L"*.*");
+  }
 
   hFind = FindFirstFile(search.c_str(), &FindFileData);
   if (hFind != INVALID_HANDLE_VALUE) {
@@ -398,20 +436,30 @@ int32_t ScanDirectory(bool console, bool verbose, std::wstring directory, std::w
 
       if ((FindFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY) {
 
-        std::wstring dir = directory + std::wstring(FindFileData.cFileName) + std::wstring(L"\\");
+        dir = directory + filename + std::wstring(L"\\");
+        if (directory_physical.size()) {
+          dir_phys = directory_physical + filename + std::wstring(L"\\");
+        } else {
+          dir_phys.clear();
+        }
         ReportProcessDirectory(dir);
 
-        rv = ScanDirectory(console, verbose, dir, directory_physical);
+        rv = ScanDirectory(console, verbose, dir, dir_phys);
         if (ERROR_SUCCESS != rv) {
           LogErrorMessage(verbose, L"Failed to process directory '%s' (rv: %d)", dir.c_str(), rv);
         }
 
       } else {
 
-        std::wstring file = directory + std::wstring(FindFileData.cFileName);
+        file = directory + filename;
+        if (directory_physical.size()) {
+          file_phys = directory_physical + filename;
+        } else {
+          file_phys.clear();
+        }
         ReportProcessFile(file);
 
-        rv = ScanFile(console, verbose, file, directory_physical);
+        rv = ScanFile(console, verbose, file, file_phys);
         if (ERROR_SUCCESS != rv) {
           LogErrorMessage(verbose, L"Failed to process file '%s' (rv: %d)", file.c_str(), rv);
         }
