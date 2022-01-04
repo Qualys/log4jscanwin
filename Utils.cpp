@@ -111,16 +111,6 @@ bool DirectoryExists(const wchar_t* dirPath) {
           (fileAttr & FILE_ATTRIBUTE_DIRECTORY));
 }
 
-std::wstring FormatLocalTime(time_t datetime) {
-  wchar_t buf[64] = {0};
-  struct tm* tm = NULL;
-
-  tm = localtime(&datetime);
-  wcsftime(buf, _countof(buf) - 1, L"%FT%T%z", tm);
-
-  return std::wstring(buf);
-}
-
 std::wstring GetHostName() {
   wchar_t buf[1024] = {0};
   DWORD size = _countof(buf);
