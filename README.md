@@ -1,5 +1,8 @@
 THIS SCRIPT IS PROVIDED TO YOU "AS IS." TO THE EXTENT PERMITTED BY LAW, QUALYS HEREBY DISCLAIMS ALL WARRANTIES AND LIABILITY FOR THE PROVISION OR USE OF THIS SCRIPT. IN NO EVENT SHALL THESE SCRIPTS BE DEEMED TO BE CLOUD SERVICES AS PROVIDED BY QUALYS
 
+# Direct Download Link
+https://github.com/Qualys/log4jscanwin/releases/download/1.2.19/Log4jScanner-1.2.19.zip
+
 # Log4jScanner
 ## Description
 The Log4jScanner.exe utility helps to detect CVE-2021-4104, CVE-2021-44228, CVE-2021-44832, CVE-2021-45046, and CVE-2021-45105 vulnerabilities.
@@ -9,9 +12,6 @@ Qualys has added a new QID (376160) that is designed to look for the results of 
 
 Qualys customers should use the following to run the tool on any asset they want to scan, from an elevated command prompt:
 > Log4jScanner.exe /scan /report_sig
-
-## Direct Download Link
-https://github.com/Qualys/log4jscanwin/releases/download/1.2.19/Log4jScanner-1.2.19.zip
 
 ## Usage
 ```
