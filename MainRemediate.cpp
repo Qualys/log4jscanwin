@@ -154,6 +154,14 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
       CloseHandle(hToken);
       goto END;
   }
+
+  if (SetPrivilege(hToken, SE_RESTORE_NAME, TRUE) != ERROR_SUCCESS)
+  {
+      LOG_MESSAGE("You must be logged on as Administrator");
+      CloseHandle(hToken);
+      goto END;
+  }
+
   CloseHandle(hToken);
 
 #ifndef _WIN64
@@ -185,7 +193,7 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
   }
 
   if (!cmdline_options.no_logo) {
-    wprintf(L"Qualys Log4j Remediation Utility %S\n", VERSION_STRING);
+    wprintf(L"Qualys Log4j Remediation Utility %S\n", REMEDIATE_VERSION_STRING);
     wprintf(L"https://www.qualys.com/\n");
     wprintf(L"Supported CVE(s): CVE-2021-44228, CVE-2021-45046\n\n");
   }

@@ -130,7 +130,7 @@ namespace log4jremediate {
 		}
 
 		//Read the content
-		wif.open(report, std::ios::in | std::ios::binary);
+		wif.open(report, std::ios::in);
 
 		if (!wif.is_open()) {
 
@@ -241,7 +241,7 @@ namespace log4jremediate {
 					continue; // Not vulnerable
 				}
 
-				if (IsCVE202144228Mitigated(W2A(vuln.log4jVendor), vuln.detectedJNDILookupClass, W2A(vuln.log4jVersion)) ||
+				if (IsCVE202144228Mitigated(W2A(vuln.log4jVendor), vuln.detectedJNDILookupClass, W2A(vuln.log4jVersion)) &&
 					IsCVE202145046Mitigated(W2A(vuln.log4jVendor), vuln.detectedJNDILookupClass, W2A(vuln.log4jVersion))) {
 					continue; // Not vulnerable
 				}

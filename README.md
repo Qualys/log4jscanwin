@@ -1,7 +1,8 @@
 THIS SCRIPT IS PROVIDED TO YOU "AS IS." TO THE EXTENT PERMITTED BY LAW, QUALYS HEREBY DISCLAIMS ALL WARRANTIES AND LIABILITY FOR THE PROVISION OR USE OF THIS SCRIPT. IN NO EVENT SHALL THESE SCRIPTS BE DEEMED TO BE CLOUD SERVICES AS PROVIDED BY QUALYS
 
-# Description
-The Log4jScanner.exe utility helps to detect CVE-2021-4104, CVE-2021-44228, CVE-2021-44832, CVE-2021-45046 and CVE-2021-45105 vulnerabilities.
+# Log4jScanner
+## Description
+The Log4jScanner.exe utility helps to detect CVE-2021-4104, CVE-2021-44228, CVE-2021-44832, CVE-2021-45046, and CVE-2021-45105 vulnerabilities.
 The utility will scan the entire hard drive(s) including archives (and nested JARs) for the Java class that indicates the Java application contains a vulnerable log4j library. The utility will output its results to a console.
 
 Qualys has added a new QID (376160) that is designed to look for the results of this scan and mark the asset as vulnerable if the vulnerable log4j library was found.
@@ -9,10 +10,10 @@ Qualys has added a new QID (376160) that is designed to look for the results of 
 Qualys customers should use the following to run the tool on any asset they want to scan, from an elevated command prompt:
 > Log4jScanner.exe /scan /report_sig
 
-# Direct Download Link
+## Direct Download Link
 https://github.com/Qualys/log4jscanwin/releases/download/1.2.19/Log4jScanner-1.2.19.zip
 
-# Usage
+## Usage
 ```
 /scan
   Scan local drives for vulnerable JAR, WAR, EAR, ZIP files used by various Java applications.
@@ -34,7 +35,7 @@ Sample Usage (from an elevated command prompt) - The following command helps you
 Sample Usage (from an elevated command prompt) - The following command helps you scan local drives for vulnerable files and writes a signature report to C:\ProgramData\Qualys
 > Log4jScanner.exe /scan /report_sig
 
-# Output - The following output shows detection
+## Output - The following output shows the detection
 ```
 Qualys Log4j Vulnerability Scanner 1.2.18.0
 https://www.qualys.com/
@@ -73,4 +74,43 @@ Scan Summary:
         EAR(s) Scanned:          0
         ZIP(s) Scanned:          110
         Vulnerabilities Found:   12
+```
+
+# Log4jRemediate
+## Description
+The Log4jRemediate.exe utility helps in mitigating CVE-2021-44228 and CVE-2021-45046 vulnerabilities.
+The utility will remove the JndiLookup.class from vulnerable log4j core libraries (including archives and nested JARs). The utility will output its results to a console.
+
+Users should use the following to run the tool on any asset they want to mitigate the vulnerability, from an elevated command prompt:
+> Log4jRemediate.exe /remediate_sig
+
+## Prerequisites
+1. Log4jRemediate.exe mitigates vulnerabilities in the report file created by the Log4jScanner.exe utility. Therefore, Log4jScanner.exe has to be executed with the following from an elevated command prompt before running the remediation utility:
+	> Log4jScanner.exe /scan /report_sig
+2. It is necessary to shut down running JVM processes before running the utility. JVM processes can be started again after the utility completes execution.
+3. If required, users should backup copies of vulnerable libraries reported by Log4jScanner.exe in %ProgramData%\Qualys\log4j_findings.out.
+
+## Usage
+```
+/remediate_sig
+  Remove JndiLookup.class from JAR, WAR, EAR, ZIP files detected by scanner utility.
+/report
+  Generate a JSON for mitigations of supported CVE(s).
+/report_pretty
+  Generate a pretty JSON for mitigations of supported CVE(s).
+```
+
+Sample Usage (from an elevated command prompt) - The following command helps you mitigate vulnerable JAR, WAR, EAR, and ZIP files detected by the scanner utility.
+> Log4jRemediate.exe /remediate_sig
+
+## Output - The following output shows remediation
+```
+Remediation start time : 2022-01-03T11:04:52+0530
+Processing file: C:\log4j-core-2.15.0\log4j-core-2.15.0.jar
+Copied fixed file: C:\log4j-core-2.15.0\log4j-core-2.15.0.jar
+Fixed file: C:\log4j-core-2.15.0\log4j-core-2.15.0.jar
+Remediation end time : 2022-01-03T11:04:54+0530
+
+Run status : Success
+Result file location : C:\ProgramData\Qualys\log4j_remediate.out
 ```

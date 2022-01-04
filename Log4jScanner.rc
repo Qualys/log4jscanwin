@@ -53,8 +53,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION VERSION_BINARY
- PRODUCTVERSION VERSION_BINARY
+ FILEVERSION SCANNER_VERSION_BINARY
+ PRODUCTVERSION SCANNER_VERSION_BINARY
  FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -71,12 +71,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "Qualys, Inc."
             VALUE "FileDescription", "Qualys Log4j Vulnerability Scanner"
-            VALUE "FileVersion", VERSION_STRING
+            VALUE "FileVersion", SCANNER_VERSION_STRING
             VALUE "InternalName", "Log4jScanner.exe"
             VALUE "LegalCopyright", "Copyright (C) 2021"
             VALUE "OriginalFilename", "Log4jScanner.exe"
             VALUE "ProductName", "Log4jScanner"
-            VALUE "ProductVersion", VERSION_STRING
+            VALUE "ProductVersion", SCANNER_VERSION_STRING
         END
     END
     BLOCK "VarFileInfo"

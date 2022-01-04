@@ -69,6 +69,7 @@ int32_t ReportProcessFile(std::wstring file) {
 int32_t GenerateReportSummary(DocumentW& doc) {
   int32_t rv = ERROR_SUCCESS;
 
+  ValueW vScanHostname(rapidjson::kStringType);
   ValueW vScanDate(rapidjson::kStringType);
   ValueW vScanDuration(rapidjson::kNumberType);
   ValueW vScannedFiles(rapidjson::kNumberType);
@@ -81,13 +82,8 @@ int32_t GenerateReportSummary(DocumentW& doc) {
   ValueW vVulnerabilitiesFound(rapidjson::kNumberType);
   ValueW oSummary(rapidjson::kObjectType);
 
-  wchar_t buf[64] = {0};
-  struct tm* tm = NULL;
-
-  tm = localtime((time_t*)&repSummary.scanStart);
-  wcsftime(buf, _countof(buf) - 1, L"%FT%T%z", tm);
-
-  vScanDate.SetString(&buf[0], doc.GetAllocator());
+  vScanHostname.SetString(GetHostName().c_str(), doc.GetAllocator());
+  vScanDate.SetString(FormatLocalTime(repSummary.scanStart).c_str(), doc.GetAllocator());
   vScanDuration.SetInt64(repSummary.scanEnd - repSummary.scanStart);
   vScannedFiles.SetInt64(repSummary.scannedFiles);
   vScannedDirectories.SetInt64(repSummary.scannedDirectories);
@@ -98,6 +94,8 @@ int32_t GenerateReportSummary(DocumentW& doc) {
   vScannedCompressed.SetInt64(repSummary.scannedCompressed);
   vVulnerabilitiesFound.SetInt64(repSummary.foundVunerabilities);
 
+  oSummary.AddMember(L"scanHostname", vScanHostname, doc.GetAllocator());
+  oSummary.AddMember(L"scanDate", vScanDate, doc.GetAllocator());
   oSummary.AddMember(L"scanDuration", vScanDuration, doc.GetAllocator());
   oSummary.AddMember(L"scannedFiles", vScannedFiles, doc.GetAllocator());
   oSummary.AddMember(L"scannedDirectories", vScannedDirectories, doc.GetAllocator());

@@ -72,6 +72,9 @@ ECHO Building - %BUILD_TARGET%
 MSBuild ..\Log4jScanner.sln /m /nodeReuse:false /t:Clean,Rebuild /p:Configuration=Release,Platform=x86 >%LOG_FILE%
 SET BUILD_STATUS=%ERRORLEVEL%
 
+REM Copy unsigned binary
+xcopy /vy %BUILD_OUTPUT%\*.exe %BUILD_OUTPUT%\unsigned\ >>%LOG_FILE%
+
 REM Sign executable binaries 
 signtool sign /f "%bamboo_winsign_pfxfile%" /p "%bamboo_winsign_password%" /fd SHA256 /n "Qualys" /d http://www.qualys.com /tr http://timestamp.digicert.com /td SHA256 /v "%BUILD_OUTPUT%\Log4jScanner.exe"
 signtool sign /f "%bamboo_winsign_pfxfile%" /p "%bamboo_winsign_password%" /fd SHA256 /n "Qualys" /d http://www.qualys.com /tr http://timestamp.digicert.com /td SHA256 /v "%BUILD_OUTPUT%\Log4jRemediate.exe"
@@ -104,6 +107,9 @@ set PACKAGE_FILE=..\build\%BUILD_TARGET%.zip
 ECHO Building - %BUILD_TARGET%
 MSBuild ..\Log4jScanner.sln /m /nodeReuse:false /t:Clean,Rebuild /p:Configuration=Release,Platform=x64 >%LOG_FILE%
 SET BUILD_STATUS=%ERRORLEVEL%
+
+REM Copy unsigned binary
+xcopy /vy %BUILD_OUTPUT%\*.exe %BUILD_OUTPUT%\unsigned\ >>%LOG_FILE%
 
 REM Sign executable binaries 
 signtool sign /f "%bamboo_winsign_pfxfile%" /p "%bamboo_winsign_password%" /fd SHA256 /n "Qualys" /d http://www.qualys.com /tr http://timestamp.digicert.com /td SHA256 /v "%BUILD_OUTPUT%\Log4jScanner.exe"
