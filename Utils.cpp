@@ -133,6 +133,16 @@ std::wstring GetHostName() {
   return hostname;
 }
 
+std::wstring FormatLocalTime(time_t datetime) {
+  wchar_t buf[64] = {0};
+  struct tm* tm = NULL;
+
+  tm = localtime(&datetime);
+  wcsftime(buf, _countof(buf) - 1, L"%FT%T%z", tm);
+
+  return std::wstring(buf);
+}
+
 std::wstring GetScanUtilityDirectory() {
   wchar_t path[MAX_PATH] = {0};
   std::wstring utility_dir;
