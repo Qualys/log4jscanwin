@@ -28,6 +28,7 @@ bool GetDictionaryValue(std::string& dict, std::string name, std::string default
 bool ExpandEnvironmentVariables(const wchar_t* source, std::wstring& destination);
 bool DirectoryExists(const wchar_t* dirPath);
 std::wstring FormatLocalTime(time_t datetime);
+std::wstring GetHostName();
 std::wstring GetScanUtilityDirectory();
 std::wstring GetReportDirectory();
 std::wstring GetSignatureReportFilename();

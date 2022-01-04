@@ -121,6 +121,18 @@ std::wstring FormatLocalTime(time_t datetime) {
   return std::wstring(buf);
 }
 
+std::wstring GetHostName() {
+  wchar_t buf[1024] = {0};
+  DWORD size = _countof(buf);
+  std::wstring hostname;
+
+  if (GetComputerNameEx(ComputerNameDnsFullyQualified, buf, &size)) {
+    hostname = buf;
+  }
+
+  return hostname;
+}
+
 std::wstring GetScanUtilityDirectory() {
   wchar_t path[MAX_PATH] = {0};
   std::wstring utility_dir;
