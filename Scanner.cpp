@@ -61,7 +61,7 @@ bool IsFileZIPArchive(std::wstring file) {
 
 bool UncompressZIPContentsToString(unzFile zf, std::string& str) {
   int32_t rv = ERROR_SUCCESS;
-  char buf[4096];
+  char buf[1024];
 
   rv = unzOpenCurrentFile(zf);
   if (UNZ_OK == rv) {
@@ -80,16 +80,17 @@ bool UncompressZIPContentsToString(unzFile zf, std::string& str) {
 bool UncompressGZIPContentsToFile(gzFile gzf, std::wstring file) {
   int32_t rv = ERROR_SUCCESS;
   HANDLE h = NULL; 
-  char buf[4096];
+  DWORD dwBytesWritten = 0;
+  char buf[1024];
 
-  h = CreateFile(file.c_str(), GENERIC_READ | GENERIC_WRITE, NULL, NULL,
-                 CREATE_ALWAYS, FILE_ATTRIBUTE_TEMPORARY, NULL);
+  h = CreateFile(file.c_str(), GENERIC_WRITE, NULL, NULL, CREATE_ALWAYS,
+                 FILE_ATTRIBUTE_TEMPORARY, NULL);
   if (h != INVALID_HANDLE_VALUE) {
     do {
       memset(buf, 0, sizeof(buf));
       rv = gzread(gzf, buf, sizeof(buf));
       if (rv < 0 || rv == 0) break;
-      WriteFile(h, buf, rv, NULL, NULL);
+      WriteFile(h, buf, rv, &dwBytesWritten, NULL);
     } while (rv > 0);
     CloseHandle(h);
   }
@@ -99,11 +100,12 @@ bool UncompressGZIPContentsToFile(gzFile gzf, std::wstring file) {
 
 bool UncompressZIPContentsToFile(unzFile zf, std::wstring file) {
   int32_t rv = ERROR_SUCCESS;
-  HANDLE h = NULL; 
-  char buf[4096];
+  HANDLE h = NULL;
+  DWORD dwBytesWritten = 0;
+  char buf[1024];
 
-  h = CreateFile(file.c_str(), GENERIC_READ | GENERIC_WRITE, NULL, NULL,
-                 CREATE_ALWAYS, FILE_ATTRIBUTE_TEMPORARY, NULL);
+  h = CreateFile(file.c_str(), GENERIC_WRITE, NULL, NULL, CREATE_ALWAYS,
+                 FILE_ATTRIBUTE_TEMPORARY, NULL);
   if (h != INVALID_HANDLE_VALUE) {
     rv = unzOpenCurrentFile(zf);
     if (UNZ_OK == rv) {
@@ -111,7 +113,7 @@ bool UncompressZIPContentsToFile(unzFile zf, std::wstring file) {
         memset(buf, 0, sizeof(buf));
         rv = unzReadCurrentFile(zf, buf, sizeof(buf));
         if (rv < 0 || rv == 0) break;
-        WriteFile(h, buf, rv, NULL, NULL);
+        WriteFile(h, buf, rv, &dwBytesWritten, NULL);
       } while (rv > 0);
       unzCloseCurrentFile(zf);
     }

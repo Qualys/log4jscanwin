@@ -186,6 +186,7 @@ uint32_t LogErrorMessage(bool verbose, const wchar_t* fmt, ...) {
   if (verbose) {
     va_start(ap, fmt);
     vfwprintf(stdout, fmt, ap);
+    fwprintf(stdout, L"\n");
     va_end(ap);
   }
 
@@ -209,7 +210,8 @@ uint32_t LogStatusMessage(const wchar_t* fmt, ...) {
   if (fmt == NULL) return 0;
 
   va_start(ap, fmt);
-  retval = vfwprintf(stdout, fmt, ap);
+  vfwprintf(stdout, fmt, ap);
+  fwprintf(stdout, L"\n");
   va_end(ap);
 
   if (status_file) {
