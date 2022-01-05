@@ -1,6 +1,6 @@
 #pragma once                                                                 
-#define SCANNER_VERSION_BINARY 2,0,2,1   
-#define SCANNER_VERSION_STRING "2.0.2.1"
+#define SCANNER_VERSION_BINARY 2,0,2,2   
+#define SCANNER_VERSION_STRING "2.0.2.2"
 
 #define REMEDIATE_VERSION_BINARY 1,2,1,1   
 #define REMEDIATE_VERSION_STRING "1.2.1.1" 
