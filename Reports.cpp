@@ -78,6 +78,7 @@ int32_t GenerateReportSummary(DocumentW& doc) {
   ValueW vScannedWARs(rapidjson::kNumberType);
   ValueW vScannedEARs(rapidjson::kNumberType);
   ValueW vScannedPARs(rapidjson::kNumberType);
+  ValueW vScannedTARs(rapidjson::kNumberType);
   ValueW vScannedCompressed(rapidjson::kNumberType);
   ValueW vVulnerabilitiesFound(rapidjson::kNumberType);
   ValueW oSummary(rapidjson::kObjectType);
@@ -91,6 +92,7 @@ int32_t GenerateReportSummary(DocumentW& doc) {
   vScannedWARs.SetInt64(repSummary.scannedWARs);
   vScannedEARs.SetInt64(repSummary.scannedEARs);
   vScannedPARs.SetInt64(repSummary.scannedPARs);
+  vScannedTARs.SetInt64(repSummary.scannedTARs);
   vScannedCompressed.SetInt64(repSummary.scannedCompressed);
   vVulnerabilitiesFound.SetInt64(repSummary.foundVunerabilities);
 
@@ -103,6 +105,7 @@ int32_t GenerateReportSummary(DocumentW& doc) {
   oSummary.AddMember(L"scannedWARs", vScannedWARs, doc.GetAllocator());
   oSummary.AddMember(L"scannedEARs", vScannedEARs, doc.GetAllocator());
   oSummary.AddMember(L"scannedPARs", vScannedPARs, doc.GetAllocator());
+  oSummary.AddMember(L"scannedTARs", vScannedTARs, doc.GetAllocator());
   oSummary.AddMember(L"scannedCompressed", vScannedCompressed, doc.GetAllocator());
   oSummary.AddMember(L"vulnerabilitiesFound", vVulnerabilitiesFound, doc.GetAllocator());
 
