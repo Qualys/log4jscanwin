@@ -198,14 +198,14 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
   
   if (cmdline_options.lowpriority) {
     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_LOWEST | THREAD_MODE_BACKGROUND_BEGIN);
-    if (!SetPriorityClass(GetCurrentProcess(), PROCESS_MODE_BACKGROUND_BEGIN))
+    if (!SetPriorityClass(GetCurrentProcess(), BELOW_NORMAL_PRIORITY_CLASS | PROCESS_MODE_BACKGROUND_BEGIN))
     {
-      wprintf(L"Failed to set process priority.\n");
+      wprintf(L"Failed to set process priority.\n\n");
     }
     else
     {
       if (cmdline_options.verbose) {
-        wprintf(L"CPU and I/O priority lowered.\n");
+        wprintf(L"CPU and I/O priority lowered.\n\n");
       }
     }
   }
@@ -213,7 +213,7 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
   repSummary.scanStart = time(0);
 
   if (cmdline_options.reportSig) {
-    LogStatusMessage(L"Scan start time : %s\n", FormatLocalTime(repSummary.scanStart).c_str());
+    LogStatusMessage(L"Scan start time : %s", FormatLocalTime(repSummary.scanStart).c_str());
   }
 
   if (cmdline_options.scanLocalDrives) {
@@ -254,15 +254,12 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
   repSummary.scanEnd = time(0);
   
   if (cmdline_options.lowpriority) {
-    if (!SetPriorityClass(GetCurrentProcess(), PROCESS_MODE_BACKGROUND_END))
-    {
-      wprintf(L"Failed to set process priority");
-    }
+    SetPriorityClass(GetCurrentProcess(), NORMAL_PRIORITY_CLASS | PROCESS_MODE_BACKGROUND_END);
     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL | THREAD_MODE_BACKGROUND_END);
   }
   
   if (cmdline_options.reportSig) {
-    LogStatusMessage(L"\nScan end time : %s\n", FormatLocalTime(repSummary.scanEnd).c_str());
+    LogStatusMessage(L"\nScan end time : %s", FormatLocalTime(repSummary.scanEnd).c_str());
   }
 
 
@@ -293,15 +290,15 @@ END:
 
   if (cmdline_options.reportSig) {
     if (error_array.empty()) {
-      LogStatusMessage(L"Run status : Success\n");
-      LogStatusMessage(L"Result file location : %s\n", GetSignatureReportFilename().c_str());
+      LogStatusMessage(L"Run status : Success");
+      LogStatusMessage(L"Result file location : %s", GetSignatureReportFilename().c_str());
     } else {
-      LogStatusMessage(L"Run status : Partially Successful\n");
-      LogStatusMessage(L"Result file location : %s\n", GetSignatureReportFilename().c_str());
+      LogStatusMessage(L"Run status : Partially Successful");
+      LogStatusMessage(L"Result file location : %s", GetSignatureReportFilename().c_str());
 
-      LogStatusMessage(L"Errors :\n");
+      LogStatusMessage(L"Errors :");
       for (const auto& e : error_array) {
-        LogStatusMessage(L"%s\n", e.c_str());
+        LogStatusMessage(L"%s", e.c_str());
       }
     }
   }
