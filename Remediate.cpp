@@ -173,7 +173,7 @@ namespace log4jremediate {
 		DWORD status{ ERROR_SUCCESS };
 		std::vector<CReportVulnerabilities> signature_report;
 
-		std::wstring sig_report_file = GetSignatureReportFilename();
+		std::wstring sig_report_file = GetSignatureReportFindingsFilename();
 
 		status = ReadSignatureReport(sig_report_file, signature_report);
 		if (status != ERROR_SUCCESS) {
@@ -218,7 +218,7 @@ namespace log4jremediate {
     
 		try
 		{
-			sig_report_file = GetSignatureReportFilename();
+			sig_report_file = GetSignatureReportFindingsFilename();
 			rem_report_file = GetRemediationReportFilename();
 
 			// Truncate/Create remediation report

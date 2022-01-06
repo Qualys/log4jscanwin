@@ -160,8 +160,12 @@ std::wstring GetReportDirectory() {
   return report_dir;
 }
 
-std::wstring GetSignatureReportFilename() {
+std::wstring GetSignatureReportFindingsFilename() {
   return GetReportDirectory() + L"\\" + report_sig_output_file;
+}
+
+std::wstring GetSignatureReportSummaryFilename() {
+  return GetReportDirectory() + L"\\" + report_sig_summary_file;
 }
 
 std::wstring GetSignatureStatusFilename() {
@@ -217,6 +221,7 @@ uint32_t LogStatusMessage(const wchar_t* fmt, ...) {
   if (status_file) {
     va_start(ap, fmt);
     retval = vfwprintf(status_file, fmt, ap);
+    fwprintf(status_file, L"\n");
     va_end(ap);
     fflush(status_file);
   }

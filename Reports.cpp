@@ -205,13 +205,26 @@ int32_t GenerateJSONReport(bool pretty) {
 int32_t GenerateSignatureReport() {
   int32_t rv = ERROR_SUCCESS;
 
-  // signature output should go into a file always
-  // 1. First check if %programdata%\Qualys\QualysAgent exist
-  // 2. If not exist then current direcotry will be used
+  FILE* signature_summary = nullptr;
+  _wfopen_s(&signature_summary, GetSignatureReportSummaryFilename().c_str(), L"w+, ccs=UTF-8");
+  if (signature_summary) {
+    fwprintf_s(signature_summary, L"scanHostname: %s\n", GetHostName().c_str());
+    fwprintf_s(signature_summary, L"scanDate: %s\n", FormatLocalTime(repSummary.scanStart).c_str());
+    fwprintf_s(signature_summary, L"scanDuration: %I64d\n", repSummary.scanEnd - repSummary.scanStart);
+    fwprintf_s(signature_summary, L"scanFiles: %I64d\n", repSummary.scannedFiles);
+    fwprintf_s(signature_summary, L"scannedDirectories: %I64d\n", repSummary.scannedDirectories);
+    fwprintf_s(signature_summary, L"scannedCompressed: %I64d\n", repSummary.scannedCompressed);
+    fwprintf_s(signature_summary, L"scannedJARS: %I64d\n", repSummary.scannedJARs);
+    fwprintf_s(signature_summary, L"scannedWARS: %I64d\n", repSummary.scannedWARs);
+    fwprintf_s(signature_summary, L"scannedEARS: %I64d\n", repSummary.scannedEARs);
+    fwprintf_s(signature_summary, L"scannedPARS: %I64d\n", repSummary.scannedPARs);
+    fwprintf_s(signature_summary, L"scannedTARS: %I64d\n", repSummary.scannedTARs);
+    fwprintf_s(signature_summary, L"vulnerabilitiesFound: %I64d\n", repSummary.foundVunerabilities);
+    fclose(signature_summary);
+  } 
 
   FILE* signature_file = nullptr;
-  _wfopen_s(&signature_file, GetSignatureReportFilename().c_str(), L"w+, ccs=UTF-8");
-
+  _wfopen_s(&signature_file, GetSignatureReportFindingsFilename().c_str(), L"w+, ccs=UTF-8");
   if (signature_file) {
     for (size_t i = 0; i < repVulns.size(); i++) {
       CReportVulnerabilities vuln = repVulns[i];
@@ -239,21 +252,19 @@ int32_t AddToRemediationReport(const CReportVulnerabilities& vuln) {
 
   FILE* remediation_file = nullptr;
   _wfopen_s(&remediation_file, GetRemediationReportFilename().c_str(), L"a, ccs=UTF-8");
-
   if (remediation_file) {
-          
-  fwprintf_s(remediation_file,
-    L"Source: Signature File, Vendor: %s, Manifest Version: %s, JNDI Class: %s, Log4j Vendor: %s, Log4j Version: %s\n",
-    vuln.manifestVendor.c_str(),
-    vuln.manifestVersion.c_str(),
-    vuln.detectedJNDILookupClass ? L"Found" : L"NOT Found",
-    vuln.log4jVendor.c_str(),
-    vuln.log4jVersion.c_str());
-  fwprintf_s(remediation_file, L"Path=%s\n", vuln.file.c_str());
-  fwprintf_s(remediation_file, L"Mitigated=%s\n", (vuln.cve202144228Mitigated && vuln.cve202145046Mitigated ? L"true": L"false"));
-  fwprintf_s(remediation_file, L"------------------------------------------------------------------------\n");
+    fwprintf_s(remediation_file,
+      L"Source: Signature File, Vendor: %s, Manifest Version: %s, JNDI Class: %s, Log4j Vendor: %s, Log4j Version: %s\n",
+      vuln.manifestVendor.c_str(),
+      vuln.manifestVersion.c_str(),
+      vuln.detectedJNDILookupClass ? L"Found" : L"NOT Found",
+      vuln.log4jVendor.c_str(),
+      vuln.log4jVersion.c_str());
+    fwprintf_s(remediation_file, L"Path=%s\n", vuln.file.c_str());
+    fwprintf_s(remediation_file, L"Mitigated=%s\n", (vuln.cve202144228Mitigated && vuln.cve202145046Mitigated ? L"true": L"false"));
+    fwprintf_s(remediation_file, L"------------------------------------------------------------------------\n");
     
-  fclose(remediation_file);
+    fclose(remediation_file);
   }
 
   return rv;
@@ -270,13 +281,7 @@ int32_t GenerateRemediationReportSummary(DocumentW& doc) {
   ValueW vRemediatedEARs(rapidjson::kNumberType);  
   ValueW oSummary(rapidjson::kObjectType);
 
-  wchar_t buf[64] = { 0 };
-  struct tm* tm = NULL;
-
-  tm = localtime((time_t*)&remSummary.scanStart);
-  wcsftime(buf, _countof(buf) - 1, L"%FT%T%z", tm);
-
-  vRemediationDate.SetString(&buf[0], doc.GetAllocator());
+  vRemediationDate.SetString(FormatLocalTime(repSummary.scanStart).c_str(), doc.GetAllocator());
   vRemediationDuration.SetInt64(remSummary.scanEnd - remSummary.scanStart);      
 
   oSummary.AddMember(L"remediationDuration", vRemediationDuration, doc.GetAllocator());  
@@ -349,3 +354,4 @@ int32_t GenerateRemediationJSONReport(bool pretty) {
   wprintf(L"%S", buffer.GetString());
   return rv;
 }
+
