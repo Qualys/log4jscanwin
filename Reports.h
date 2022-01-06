@@ -13,6 +13,8 @@ class CReportSummary {
   uint64_t foundVunerabilities;
   uint64_t scanStart;
   uint64_t scanEnd;
+  uint64_t scanErrorCount;
+  std::wstring scanStatus;
 
   CReportSummary() {
     scannedFiles = 0;
@@ -26,6 +28,8 @@ class CReportSummary {
     foundVunerabilities = 0;
     scanStart = 0;
     scanEnd = 0;
+    scanErrorCount = 0;
+    scanStatus.clear();
   }
 };
 
