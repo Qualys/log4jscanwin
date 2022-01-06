@@ -1,7 +1,7 @@
 THIS SCRIPT IS PROVIDED TO YOU "AS IS." TO THE EXTENT PERMITTED BY LAW, QUALYS HEREBY DISCLAIMS ALL WARRANTIES AND LIABILITY FOR THE PROVISION OR USE OF THIS SCRIPT. IN NO EVENT SHALL THESE SCRIPTS BE DEEMED TO BE CLOUD SERVICES AS PROVIDED BY QUALYS
 
 # Direct Download Link
-https://github.com/Qualys/log4jscanwin/releases/download/1.2.19/Log4jScanner-1.2.19.zip
+https://github.com/Qualys/log4jscanwin/releases/download/2.0.2.3/Log4jScanner-2.0.2.3.zip
 
 # Log4jScanner
 ## Description
