@@ -213,7 +213,7 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
   repSummary.scanStart = time(0);
 
   if (cmdline_options.reportSig) {
-    LogStatusMessage(L"Scan start time : %s", FormatLocalTime(repSummary.scanStart).c_str());
+    LogStatusMessage(L"Scan Start: %s", FormatLocalTime(repSummary.scanStart).c_str());
   }
 
   if (cmdline_options.scanLocalDrives) {
@@ -259,7 +259,7 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
   }
   
   if (cmdline_options.reportSig) {
-    LogStatusMessage(L"\nScan end time : %s", FormatLocalTime(repSummary.scanEnd).c_str());
+    LogStatusMessage(L"\nScan End: %s", FormatLocalTime(repSummary.scanEnd).c_str());
   }
 
 
@@ -289,13 +289,12 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
 END:
 
   if (cmdline_options.reportSig) {
+    LogStatusMessage(L"Result File: %s", GetSignatureReportFindingsFilename().c_str());
+    LogStatusMessage(L"Summary File: %s", GetSignatureReportSummaryFilename().c_str());
     if (error_array.empty()) {
-      LogStatusMessage(L"Run status : Success");
-      LogStatusMessage(L"Result file location : %s", GetSignatureReportFilename().c_str());
+      LogStatusMessage(L"Run Status: Success");
     } else {
-      LogStatusMessage(L"Run status : Partially Successful");
-      LogStatusMessage(L"Result file location : %s", GetSignatureReportFilename().c_str());
-
+      LogStatusMessage(L"Run Status: Partially Successful");
       LogStatusMessage(L"Errors :");
       for (const auto& e : error_array) {
         LogStatusMessage(L"%s", e.c_str());

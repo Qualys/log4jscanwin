@@ -14,6 +14,7 @@ typedef std::pair<std::wstring, std::wstring> StringPair;
 
 constexpr wchar_t* qualys_program_data_location = L"%ProgramData%\\Qualys";
 constexpr wchar_t* report_sig_output_file = L"log4j_findings.out";
+constexpr wchar_t* report_sig_summary_file = L"log4j_summary.out";
 constexpr wchar_t* report_sig_status_file = L"status.txt";
 
 constexpr wchar_t* remediation_report_file = L"log4j_remediate.out";
@@ -31,7 +32,8 @@ std::wstring FormatLocalTime(time_t datetime);
 std::wstring GetHostName();
 std::wstring GetScanUtilityDirectory();
 std::wstring GetReportDirectory();
-std::wstring GetSignatureReportFilename();
+std::wstring GetSignatureReportFindingsFilename();
+std::wstring GetSignatureReportSummaryFilename();
 std::wstring GetSignatureStatusFilename();
 std::wstring GetRemediationReportFilename();
 std::wstring GetRemediationStatusFilename();
