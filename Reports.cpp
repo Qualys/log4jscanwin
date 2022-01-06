@@ -106,7 +106,7 @@ int32_t GenerateReportSummary(DocumentW& doc) {
   oSummary.AddMember(L"scanEngine", vScanEngine, doc.GetAllocator());
   oSummary.AddMember(L"scanHostname", vScanHostname, doc.GetAllocator());
   oSummary.AddMember(L"scanDate", vScanDate, doc.GetAllocator());
-  oSummary.AddMember(L"scanDuration", vScanDuration, doc.GetAllocator());
+  oSummary.AddMember(L"scanDurationSeconds", vScanDuration, doc.GetAllocator());
   oSummary.AddMember(L"scanErrorCount", vScanErrorCount, doc.GetAllocator());
   oSummary.AddMember(L"scanStatus", vScanStatus, doc.GetAllocator());
   oSummary.AddMember(L"scannedFiles", vScannedFiles, doc.GetAllocator());
@@ -221,7 +221,7 @@ int32_t GenerateSignatureReport() {
     fwprintf_s(signature_summary, L"scanEngine: %S\n", SCANNER_VERSION_STRING);
     fwprintf_s(signature_summary, L"scanHostname: %s\n", GetHostName().c_str());
     fwprintf_s(signature_summary, L"scanDate: %s\n", FormatLocalTime(repSummary.scanStart).c_str());
-    fwprintf_s(signature_summary, L"scanDuration: %I64d\n", repSummary.scanEnd - repSummary.scanStart);
+    fwprintf_s(signature_summary, L"scanDurationSeconds: %I64d\n", repSummary.scanEnd - repSummary.scanStart);
     fwprintf_s(signature_summary, L"scanErrorCount: %I64d\n", repSummary.scanErrorCount);
     fwprintf_s(signature_summary, L"scanStatus: %s\n", repSummary.scanStatus.c_str());
     fwprintf_s(signature_summary, L"scanFiles: %I64d\n", repSummary.scannedFiles);
