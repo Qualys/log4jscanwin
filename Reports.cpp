@@ -2,6 +2,7 @@
 #include "stdafx.h"
 #include "Utils.h"
 #include "Reports.h"
+#include "Version.info"
 
 #include "rapidjson/document.h"
 #include "rapidjson/prettywriter.h"
@@ -69,9 +70,12 @@ int32_t ReportProcessFile(std::wstring file) {
 int32_t GenerateReportSummary(DocumentW& doc) {
   int32_t rv = ERROR_SUCCESS;
 
+  ValueW vScanEngine(rapidjson::kStringType);
   ValueW vScanHostname(rapidjson::kStringType);
   ValueW vScanDate(rapidjson::kStringType);
   ValueW vScanDuration(rapidjson::kNumberType);
+  ValueW vScanErrorCount(rapidjson::kNumberType);
+  ValueW vScanStatus(rapidjson::kStringType);
   ValueW vScannedFiles(rapidjson::kNumberType);
   ValueW vScannedDirectories(rapidjson::kNumberType);
   ValueW vScannedJARs(rapidjson::kNumberType);
@@ -83,9 +87,12 @@ int32_t GenerateReportSummary(DocumentW& doc) {
   ValueW vVulnerabilitiesFound(rapidjson::kNumberType);
   ValueW oSummary(rapidjson::kObjectType);
 
+  vScanEngine.SetString(A2W(SCANNER_VERSION_STRING).c_str(), doc.GetAllocator());
   vScanHostname.SetString(GetHostName().c_str(), doc.GetAllocator());
   vScanDate.SetString(FormatLocalTime(repSummary.scanStart).c_str(), doc.GetAllocator());
   vScanDuration.SetInt64(repSummary.scanEnd - repSummary.scanStart);
+  vScanErrorCount.SetInt64(repSummary.scanErrorCount);
+  vScanStatus.SetString(repSummary.scanStatus.c_str(), doc.GetAllocator());
   vScannedFiles.SetInt64(repSummary.scannedFiles);
   vScannedDirectories.SetInt64(repSummary.scannedDirectories);
   vScannedJARs.SetInt64(repSummary.scannedJARs);
@@ -96,9 +103,12 @@ int32_t GenerateReportSummary(DocumentW& doc) {
   vScannedCompressed.SetInt64(repSummary.scannedCompressed);
   vVulnerabilitiesFound.SetInt64(repSummary.foundVunerabilities);
 
+  oSummary.AddMember(L"scanEngine", vScanEngine, doc.GetAllocator());
   oSummary.AddMember(L"scanHostname", vScanHostname, doc.GetAllocator());
   oSummary.AddMember(L"scanDate", vScanDate, doc.GetAllocator());
   oSummary.AddMember(L"scanDuration", vScanDuration, doc.GetAllocator());
+  oSummary.AddMember(L"scanErrorCount", vScanErrorCount, doc.GetAllocator());
+  oSummary.AddMember(L"scanStatus", vScanStatus, doc.GetAllocator());
   oSummary.AddMember(L"scannedFiles", vScannedFiles, doc.GetAllocator());
   oSummary.AddMember(L"scannedDirectories", vScannedDirectories, doc.GetAllocator());
   oSummary.AddMember(L"scannedJARs", vScannedJARs, doc.GetAllocator());
@@ -208,9 +218,12 @@ int32_t GenerateSignatureReport() {
   FILE* signature_summary = nullptr;
   _wfopen_s(&signature_summary, GetSignatureReportSummaryFilename().c_str(), L"w+, ccs=UTF-8");
   if (signature_summary) {
+    fwprintf_s(signature_summary, L"scanEngine: %S\n", SCANNER_VERSION_STRING);
     fwprintf_s(signature_summary, L"scanHostname: %s\n", GetHostName().c_str());
     fwprintf_s(signature_summary, L"scanDate: %s\n", FormatLocalTime(repSummary.scanStart).c_str());
     fwprintf_s(signature_summary, L"scanDuration: %I64d\n", repSummary.scanEnd - repSummary.scanStart);
+    fwprintf_s(signature_summary, L"scanErrorCount: %I64d\n", repSummary.scanErrorCount);
+    fwprintf_s(signature_summary, L"scanStatus: %s\n", repSummary.scanStatus.c_str());
     fwprintf_s(signature_summary, L"scanFiles: %I64d\n", repSummary.scannedFiles);
     fwprintf_s(signature_summary, L"scannedDirectories: %I64d\n", repSummary.scannedDirectories);
     fwprintf_s(signature_summary, L"scannedCompressed: %I64d\n", repSummary.scannedCompressed);

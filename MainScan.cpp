@@ -252,6 +252,12 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
   }
 
   repSummary.scanEnd = time(0);
+  repSummary.scanErrorCount = error_array.size();
+  if (error_array.empty()) {
+    repSummary.scanStatus = L"Success";
+  } else {
+    repSummary.scanStatus = L"Partially Successful";
+  }
   
   if (cmdline_options.lowpriority) {
     SetPriorityClass(GetCurrentProcess(), NORMAL_PRIORITY_CLASS | PROCESS_MODE_BACKGROUND_END);
@@ -267,6 +273,8 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
     wprintf(L"\nScan Summary:\n");
     wprintf(L"\tScan Date:\t\t\t %s\n", FormatLocalTime(repSummary.scanStart).c_str());
     wprintf(L"\tScan Duration:\t\t\t %lld Seconds\n", repSummary.scanEnd - repSummary.scanStart);
+    wprintf(L"\tScan Error Count:\t\t\t %I64d\n", repSummary.scanErrorCount);
+    wprintf(L"\tScan Status:\t\t\t %s\n", repSummary.scanStatus.c_str());
     wprintf(L"\tFiles Scanned:\t\t\t %lld\n", repSummary.scannedFiles);
     wprintf(L"\tDirectories Scanned:\t\t %lld\n", repSummary.scannedDirectories);
     wprintf(L"\tCompressed File(s) Scanned:\t %lld\n", repSummary.scannedCompressed);
@@ -291,10 +299,8 @@ END:
   if (cmdline_options.reportSig) {
     LogStatusMessage(L"Result File: %s", GetSignatureReportFindingsFilename().c_str());
     LogStatusMessage(L"Summary File: %s", GetSignatureReportSummaryFilename().c_str());
-    if (error_array.empty()) {
-      LogStatusMessage(L"Run Status: Success");
-    } else {
-      LogStatusMessage(L"Run Status: Partially Successful");
+    LogStatusMessage(L"Run Status: %s", repSummary.scanStatus.c_str());
+    if (repSummary.scanErrorCount) {
       LogStatusMessage(L"Errors :");
       for (const auto& e : error_array) {
         LogStatusMessage(L"%s", e.c_str());
