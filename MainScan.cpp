@@ -197,14 +197,8 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
   }
   
   if (cmdline_options.lowpriority) {
-#ifndef _WIN64
-      //PROCESS_MODE_BACKGROUND_BEGIN and THREAD_MODE_BACKGROUND_BEGIN is not supported on 32-bit systems
-      SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_LOWEST);
-      if (!SetPriorityClass(GetCurrentProcess(), BELOW_NORMAL_PRIORITY_CLASS))
-#else
-      SetThreadPriority(GetCurrentThread(), THREAD_MODE_BACKGROUND_BEGIN);
-      if (!SetPriorityClass(GetCurrentProcess(), PROCESS_MODE_BACKGROUND_BEGIN)) 
-#endif  
+    SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_LOWEST | THREAD_MODE_BACKGROUND_BEGIN);
+    if (!SetPriorityClass(GetCurrentProcess(), PROCESS_MODE_BACKGROUND_BEGIN))
     {
       wprintf(L"Failed to set process priority.\n\n");
     }
@@ -266,14 +260,8 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
   }
   
   if (cmdline_options.lowpriority) {
-#ifndef _WIN64
-      //PROCESS_MODE_BACKGROUND_END and THREAD_MODE_BACKGROUND_END is not supported on 32-bit systems
-      SetPriorityClass(GetCurrentProcess(), NORMAL_PRIORITY_CLASS);
-      SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL);
-#else
-      SetPriorityClass(GetCurrentProcess(), PROCESS_MODE_BACKGROUND_END);
-      SetThreadPriority(GetCurrentThread(), THREAD_MODE_BACKGROUND_END);
-#endif
+    SetPriorityClass(GetCurrentProcess(), PROCESS_MODE_BACKGROUND_END);
+    SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL | THREAD_MODE_BACKGROUND_END);
   }
   
   if (cmdline_options.reportSig) {
