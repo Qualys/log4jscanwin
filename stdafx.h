@@ -23,4 +23,7 @@
 #include "minizip/unzip.h"
 #include "minizip/iowin32.h"
 
+#include "archive.h"
+#include "archive_entry.h"
+
 #include "Log.h"
