@@ -266,7 +266,11 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
   }
   
   if (cmdline_options.lowpriority) {
-#ifdef _WIN64
+#ifndef _WIN64
+      //PROCESS_MODE_BACKGROUND_END and THREAD_MODE_BACKGROUND_END is not supported on 32-bit systems
+      SetPriorityClass(GetCurrentProcess(), NORMAL_PRIORITY_CLASS);
+      SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL);
+#else
       SetPriorityClass(GetCurrentProcess(), PROCESS_MODE_BACKGROUND_END);
       SetThreadPriority(GetCurrentThread(), THREAD_MODE_BACKGROUND_END);
 #endif
