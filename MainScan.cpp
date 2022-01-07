@@ -295,11 +295,10 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
   }
 
   if (cmdline_options.report) {
-    if (!cmdline_options.reportSig) {
-      GenerateJSONReport(cmdline_options.reportPretty);
-    } else {
-      GenerateSignatureReport();
-    }
+    GenerateJSONReport(cmdline_options.reportPretty);
+  }
+  if (cmdline_options.reportSig) {
+    GenerateSignatureReport();
   }
 
 END:
