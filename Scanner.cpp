@@ -4,60 +4,11 @@
 #include "Reports.h"
 #include "Scanner.h"
 
+#include "zlib/zlib.h"
 #include "minizip/unzip.h"
 #include "minizip/iowin32.h"
-#include "zlib/zlib.h"
 #include "tarlib/tarlib.h"
 
-
-bool IsFileTarball(std::wstring file) {
-  wchar_t drive[_MAX_DRIVE];
-  wchar_t dir[_MAX_DIR];
-  wchar_t fname[_MAX_FNAME];
-  wchar_t ext[_MAX_EXT];
-
-  if (0 == _wsplitpath_s(file.c_str(), drive, dir, fname, ext)) {
-    if (0 == _wcsicmp(ext, L".tar")) return true;
-  }
-
-  return false;
-}
-
-bool IsFileCompressedGZIPTarball(std::wstring file) {
-  wchar_t drive[_MAX_DRIVE];
-  wchar_t dir[_MAX_DIR];
-  wchar_t fname[_MAX_FNAME];
-  wchar_t ext[_MAX_EXT];
-
-  if (0 == _wsplitpath_s(file.c_str(), drive, dir, fname, ext)) {
-    if (0 == _wcsicmp(ext, L".tgz")) return true;
-    if (0 == _wcsicmp(ext, L".gz")) {
-      std::wstring s = std::wstring(drive) + std::wstring(dir) + std::wstring(fname);
-      if (0 == _wsplitpath_s(s.c_str(), drive, dir, fname, ext)) {
-        if (0 == _wcsicmp(ext, L".tar")) return true;
-      }
-    }
-  }
-
-  return false;
-}
-
-bool IsFileZIPArchive(std::wstring file) {
-  wchar_t drive[_MAX_DRIVE];
-  wchar_t dir[_MAX_DIR];
-  wchar_t fname[_MAX_FNAME];
-  wchar_t ext[_MAX_EXT];
-
-  if (0 == _wsplitpath_s(file.c_str(), drive, dir, fname, ext)) {
-    if (0 == _wcsicmp(ext, L".jar")) return true;
-    if (0 == _wcsicmp(ext, L".war")) return true;
-    if (0 == _wcsicmp(ext, L".ear")) return true;
-    if (0 == _wcsicmp(ext, L".par")) return true;
-    if (0 == _wcsicmp(ext, L".zip")) return true;
-  }
-
-  return false;
-}
 
 bool UncompressZIPContentsToString(unzFile zf, std::string& str) {
   int32_t rv = ERROR_SUCCESS;
@@ -435,6 +386,10 @@ int32_t ScanFileCompressedGZIPTarball(bool console, bool verbose, std::wstring f
 int32_t ScanFile(bool console, bool verbose, std::wstring file, std::wstring file_physical) {
   int32_t rv = ERROR_SUCCESS;
 
+  if (verbose) {
+    wprintf(L"Processing File '%s'\n", file.c_str());
+  }
+
   if (0) {
   } else if (IsFileZIPArchive(file)) {
     rv = ScanFileZIPArchive(console, verbose, file, file_physical);
@@ -456,6 +411,10 @@ int32_t ScanDirectory(bool console, bool verbose, std::wstring directory, std::w
   std::wstring dir_phys;
   std::wstring file;
   std::wstring file_phys;
+
+  if (verbose) {
+    wprintf(L"Processing Directory '%s'\n", directory.c_str());
+  }
 
   if (directory_physical.size()) {
     search = directory_physical + std::wstring(L"*.*");

@@ -2,12 +2,72 @@
 #include "stdafx.h"
 #include "Utils.h"
 
+#include "zlib/zlib.h"
 #include "minizip/unzip.h"
 #include "minizip/iowin32.h"
-#include "zlib/zlib.h"
+
+
+constexpr wchar_t* qualys_program_data_location = L"%ProgramData%\\Qualys";
+constexpr wchar_t* report_sig_output_file = L"log4j_findings.out";
+constexpr wchar_t* report_sig_summary_file = L"log4j_summary.out";
+constexpr wchar_t* report_sig_status_file = L"status.txt";
+
+constexpr wchar_t* remediation_report_file = L"log4j_remediate.out";
+constexpr wchar_t* remediation_status_file = L"remediation_status.out";
+
 
 FILE* status_file = nullptr;
 std::vector<std::wstring> error_array;
+
+
+bool IsFileTarball(std::wstring file) {
+  wchar_t drive[_MAX_DRIVE];
+  wchar_t dir[_MAX_DIR];
+  wchar_t fname[_MAX_FNAME];
+  wchar_t ext[_MAX_EXT];
+
+  if (0 == _wsplitpath_s(file.c_str(), drive, dir, fname, ext)) {
+    if (0 == _wcsicmp(ext, L".tar")) return true;
+  }
+
+  return false;
+}
+
+bool IsFileCompressedGZIPTarball(std::wstring file) {
+  wchar_t drive[_MAX_DRIVE];
+  wchar_t dir[_MAX_DIR];
+  wchar_t fname[_MAX_FNAME];
+  wchar_t ext[_MAX_EXT];
+
+  if (0 == _wsplitpath_s(file.c_str(), drive, dir, fname, ext)) {
+    if (0 == _wcsicmp(ext, L".tgz")) return true;
+    if (0 == _wcsicmp(ext, L".gz")) {
+      std::wstring s = std::wstring(drive) + std::wstring(dir) + std::wstring(fname);
+      if (0 == _wsplitpath_s(s.c_str(), drive, dir, fname, ext)) {
+        if (0 == _wcsicmp(ext, L".tar")) return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+bool IsFileZIPArchive(std::wstring file) {
+  wchar_t drive[_MAX_DRIVE];
+  wchar_t dir[_MAX_DIR];
+  wchar_t fname[_MAX_FNAME];
+  wchar_t ext[_MAX_EXT];
+
+  if (0 == _wsplitpath_s(file.c_str(), drive, dir, fname, ext)) {
+    if (0 == _wcsicmp(ext, L".jar")) return true;
+    if (0 == _wcsicmp(ext, L".war")) return true;
+    if (0 == _wcsicmp(ext, L".ear")) return true;
+    if (0 == _wcsicmp(ext, L".par")) return true;
+    if (0 == _wcsicmp(ext, L".zip")) return true;
+  }
+
+  return false;
+}
 
 std::wstring A2W(const std::string& str) {
   int length_wide = MultiByteToWideChar(CP_ACP, 0, str.data(), -1, NULL, 0);

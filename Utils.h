@@ -9,26 +9,27 @@
     }                                         \
   } while (FALSE)
 
+
 typedef std::stack<std::pair<std::wstring, std::wstring>> PairStack;
 typedef std::pair<std::wstring, std::wstring> StringPair;
 
-constexpr wchar_t* qualys_program_data_location = L"%ProgramData%\\Qualys";
-constexpr wchar_t* report_sig_output_file = L"log4j_findings.out";
-constexpr wchar_t* report_sig_summary_file = L"log4j_summary.out";
-constexpr wchar_t* report_sig_status_file = L"status.txt";
 
-constexpr wchar_t* remediation_report_file = L"log4j_remediate.out";
-constexpr wchar_t* remediation_status_file = L"remediation_status.out";
+bool IsFileTarball(std::wstring file);
+bool IsFileCompressedGZIPTarball(std::wstring file);
+bool IsFileZIPArchive(std::wstring file);
 
 std::wstring A2W(const std::string& str);
 std::string W2A(const std::wstring& str);
-void SplitWideString(std::wstring str, const std::wstring& token, std::vector<std::wstring>& result);
-bool SanitizeContents(std::string& str);
-bool StripWhitespace(std::string& str);
+
+std::wstring FormatLocalTime(time_t datetime);
 bool GetDictionaryValue(std::string& dict, std::string name, std::string defaultValue, std::string& value);
+bool SanitizeContents(std::string& str);
+void SplitWideString(std::wstring str, const std::wstring& token, std::vector<std::wstring>& result);
+bool StripWhitespace(std::string& str);
+
 bool ExpandEnvironmentVariables(const wchar_t* source, std::wstring& destination);
 bool DirectoryExists(const wchar_t* dirPath);
-std::wstring FormatLocalTime(time_t datetime);
+
 std::wstring GetHostName();
 std::wstring GetScanUtilityDirectory();
 std::wstring GetReportDirectory();
@@ -37,10 +38,11 @@ std::wstring GetSignatureReportSummaryFilename();
 std::wstring GetSignatureStatusFilename();
 std::wstring GetRemediationReportFilename();
 std::wstring GetRemediationStatusFilename();
-uint32_t LogErrorMessage(bool verbose, const wchar_t* fmt, ...);
+
 bool OpenStatusFile(const std::wstring& filename);
-uint32_t LogStatusMessage(const wchar_t* fmt, ...);
 bool CloseStatusFile();
+uint32_t LogStatusMessage(const wchar_t* fmt, ...);
+uint32_t LogErrorMessage(bool verbose, const wchar_t* fmt, ...);
 
 bool ParseVersion(std::string version, int& major, int& minor, int& build);
 bool IsCVE20214104Mitigated(std::string log4jVendor, std::string version);
