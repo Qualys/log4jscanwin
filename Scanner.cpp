@@ -5,6 +5,7 @@
 #include "Scanner.h"
 
 #include "zlib/zlib.h"
+#include "bzip2/bzlib.h"
 #include "minizip/unzip.h"
 #include "minizip/iowin32.h"
 #include "tarlib/tarlib.h"
@@ -183,9 +184,9 @@ int32_t ScanFileZIPArchive(bool console, bool verbose, std::wstring file, std::w
               std::wstring alternate_filename = tmpFilename;
 
               ScanFileZIPArchive(console, verbose, masked_filename, alternate_filename);
-
-              DeleteFile(alternate_filename.c_str());
             }
+
+            DeleteFile(tmpFilename);
           }
 
         }
@@ -354,10 +355,10 @@ int32_t ScanFileTarball(bool console, bool verbose, std::wstring file, std::wstr
             ReportProcessFile(alternate_filename.c_str());
 
             ScanFileZIPArchive(console, verbose, masked_filename, alternate_filename);
-
-            DeleteFile(alternate_filename.c_str());
           }
         }
+
+        DeleteFile(tmpFilename);
       }
       tar_entry = tar_file.get_next_entry();
     } while(!tar_entry.is_empty());
@@ -383,10 +384,10 @@ int32_t ScanFileCompressedGZIPTarball(bool console, bool verbose, std::wstring f
 
     if (UncompressGZIPContentsToFile(gzf, tmpFilename)) {
       ScanFileTarball(console, verbose, file, tmpFilename);
-
-      gzclose(gzf);
-      DeleteFile(tmpFilename);
     }
+
+    gzclose(gzf);
+    DeleteFile(tmpFilename);
   }
 
   return rv;
