@@ -8,7 +8,6 @@ class CReportSummary {
   uint64_t scannedJARs;
   uint64_t scannedWARs;
   uint64_t scannedEARs;
-  uint64_t scannedPARs;
   uint64_t scannedTARs;
   uint64_t foundVunerabilities;
   uint64_t scanStart;
@@ -23,7 +22,6 @@ class CReportSummary {
     scannedJARs = 0;
     scannedWARs = 0;
     scannedEARs = 0;
-    scannedPARs = 0;
     scannedTARs = 0;
     foundVunerabilities = 0;
     scanStart = 0;
@@ -95,7 +93,9 @@ extern CReportSummary repSummary;
 extern CRemediationSummary remSummary;
 extern std::vector<CReportVulnerabilities> repVulns;
 
-
+int32_t ReportProcessJARFile();
+int32_t ReportProcessWARFile();
+int32_t ReportProcessEARFile();
 int32_t ReportProcessDirectory(std::wstring directory);
 int32_t ReportProcessFile(std::wstring file);
 

@@ -159,7 +159,14 @@ int32_t ScanFileZIPArchive(bool console, bool verbose, std::wstring file, std::w
           }
           if (0 == stricmp(filename, "META-INF/MANIFEST.MF")) {
             foundManifest = true;
+            ReportProcessJARFile();
             UncompressZIPContentsToString(zf, manifest);
+          }
+          if (0 == stricmp(filename, "META-INF/application.xml")) {
+            ReportProcessEARFile();
+          }
+          if (0 == stricmp(filename, "/WEB-INF/web.xml")) {
+            ReportProcessWARFile();
           }
 
           //
@@ -336,15 +343,15 @@ int32_t ScanFileTarball(bool console, bool verbose, std::wstring file, std::wstr
     do 
     {
       if (tar_entry.header.indicator == tarlib::tarEntryNormalFile) {         
-        if (IsFileZIPArchive(A2W(tar_entry.header.filename.c_str()))) {
-          ReportProcessFile(A2W(tar_entry.header.filename.c_str()));
+        GetTempPath(_countof(tmpPath), tmpPath);
+        GetTempFileName(tmpPath, L"qua", 0, tmpFilename);
 
-          GetTempPath(_countof(tmpPath), tmpPath);
-          GetTempFileName(tmpPath, L"qua", 0, tmpFilename);
+        std::wstring masked_filename = file + L"!" + A2W(tar_entry.header.filename);
+        std::wstring alternate_filename = tmpFilename;
 
-          if (tar_entry.extractfile_to_file(W2A(tmpFilename))) {
-            std::wstring masked_filename = file + L"!" + A2W(tar_entry.header.filename);
-            std::wstring alternate_filename = tmpFilename;
+        if (tar_entry.extractfile_to_file(W2A(alternate_filename.c_str()))) {
+          if (IsFileZIPArchive(alternate_filename.c_str())) {
+            ReportProcessFile(alternate_filename.c_str());
 
             ScanFileZIPArchive(console, verbose, masked_filename, alternate_filename);
 
