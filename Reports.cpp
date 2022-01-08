@@ -21,12 +21,24 @@ CRemediationSummary remSummary;
 std::vector<CReportVulnerabilities> repVulns;
 
 
+int32_t ReportProcessJARFile() {
+  repSummary.scannedJARs++;
+  return ERROR_SUCCESS;
+}
+
+int32_t ReportProcessWARFile() {
+  repSummary.scannedWARs++;
+  return ERROR_SUCCESS;
+}
+
+int32_t ReportProcessEARFile() {
+  repSummary.scannedEARs++;
+  return ERROR_SUCCESS;
+}
+
 int32_t ReportProcessDirectory(std::wstring Directory) {
-  int32_t rv = ERROR_SUCCESS;
-
   repSummary.scannedDirectories++;
-
-  return rv;
+  return ERROR_SUCCESS;
 }
 
 int32_t ReportProcessFile(std::wstring file) {
@@ -37,25 +49,13 @@ int32_t ReportProcessFile(std::wstring file) {
   wchar_t ext[_MAX_EXT];
 
   repSummary.scannedFiles++;
+  if (IsFileZIPArchive(file)) {
+    repSummary.scannedCompressed++;
+  }
 
   if (0 == _wsplitpath_s(file.c_str(), drive, dir, fname, ext)) {
-    if (0 == _wcsicmp(ext, L".jar")) {
-      repSummary.scannedJARs++;
-    }
-    if (0 == _wcsicmp(ext, L".war")) {
-      repSummary.scannedWARs++;
-    }
-    if (0 == _wcsicmp(ext, L".ear")) {
-      repSummary.scannedEARs++;
-    }
-    if (0 == _wcsicmp(ext, L".par")) {
-      repSummary.scannedPARs++;
-    }
     if (0 == _wcsicmp(ext, L".tar")) {
       repSummary.scannedTARs++;
-    }
-    if (0 == _wcsicmp(ext, L".zip")) {
-      repSummary.scannedCompressed++;
     }
     if (0 == _wcsicmp(ext, L".tgz")) {
       repSummary.scannedCompressed++;
@@ -98,7 +98,6 @@ int32_t GenerateReportSummary(DocumentW& doc) {
   vScannedJARs.SetInt64(repSummary.scannedJARs);
   vScannedWARs.SetInt64(repSummary.scannedWARs);
   vScannedEARs.SetInt64(repSummary.scannedEARs);
-  vScannedPARs.SetInt64(repSummary.scannedPARs);
   vScannedTARs.SetInt64(repSummary.scannedTARs);
   vScannedCompressed.SetInt64(repSummary.scannedCompressed);
   vVulnerabilitiesFound.SetInt64(repSummary.foundVunerabilities);
@@ -114,7 +113,6 @@ int32_t GenerateReportSummary(DocumentW& doc) {
   oSummary.AddMember(L"scannedJARs", vScannedJARs, doc.GetAllocator());
   oSummary.AddMember(L"scannedWARs", vScannedWARs, doc.GetAllocator());
   oSummary.AddMember(L"scannedEARs", vScannedEARs, doc.GetAllocator());
-  oSummary.AddMember(L"scannedPARs", vScannedPARs, doc.GetAllocator());
   oSummary.AddMember(L"scannedTARs", vScannedTARs, doc.GetAllocator());
   oSummary.AddMember(L"scannedCompressed", vScannedCompressed, doc.GetAllocator());
   oSummary.AddMember(L"vulnerabilitiesFound", vVulnerabilitiesFound, doc.GetAllocator());
@@ -230,7 +228,6 @@ int32_t GenerateSignatureReport() {
     fwprintf_s(signature_summary, L"scannedJARS: %I64d\n", repSummary.scannedJARs);
     fwprintf_s(signature_summary, L"scannedWARS: %I64d\n", repSummary.scannedWARs);
     fwprintf_s(signature_summary, L"scannedEARS: %I64d\n", repSummary.scannedEARs);
-    fwprintf_s(signature_summary, L"scannedPARS: %I64d\n", repSummary.scannedPARs);
     fwprintf_s(signature_summary, L"scannedTARS: %I64d\n", repSummary.scannedTARs);
     fwprintf_s(signature_summary, L"vulnerabilitiesFound: %I64d\n", repSummary.foundVunerabilities);
     fclose(signature_summary);

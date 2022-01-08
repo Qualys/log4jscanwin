@@ -53,20 +53,17 @@ bool IsFileCompressedGZIPTarball(std::wstring file) {
 }
 
 bool IsFileZIPArchive(std::wstring file) {
-  wchar_t drive[_MAX_DRIVE];
-  wchar_t dir[_MAX_DIR];
-  wchar_t fname[_MAX_FNAME];
-  wchar_t ext[_MAX_EXT];
+  unzFile zf = NULL;
 
-  if (0 == _wsplitpath_s(file.c_str(), drive, dir, fname, ext)) {
-    if (0 == _wcsicmp(ext, L".jar")) return true;
-    if (0 == _wcsicmp(ext, L".war")) return true;
-    if (0 == _wcsicmp(ext, L".ear")) return true;
-    if (0 == _wcsicmp(ext, L".par")) return true;
-    if (0 == _wcsicmp(ext, L".zip")) return true;
+  zlib_filefunc64_def zfm = { 0 };
+  fill_win32_filefunc64W(&zfm);
+
+  zf = unzOpen2_64(file.c_str(), &zfm);
+  if (NULL != zf) {
+    unzClose(zf);
   }
 
-  return false;
+  return (NULL != zf);
 }
 
 std::wstring A2W(const std::string& str) {

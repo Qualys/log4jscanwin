@@ -281,7 +281,6 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
     wprintf(L"\tJAR(s) Scanned:\t\t\t %lld\n", repSummary.scannedJARs);
     wprintf(L"\tWAR(s) Scanned:\t\t\t %lld\n", repSummary.scannedWARs);
     wprintf(L"\tEAR(s) Scanned:\t\t\t %lld\n", repSummary.scannedEARs);
-    wprintf(L"\tPAR(s) Scanned:\t\t\t %lld\n", repSummary.scannedPARs);
     wprintf(L"\tTAR(s) Scanned:\t\t\t %lld\n", repSummary.scannedTARs);
     wprintf(L"\tVulnerabilities Found:\t\t %lld\n", repSummary.foundVunerabilities);
   }

@@ -348,8 +348,8 @@ namespace tarlib
       _headersize += bytesRead;
       _nextentrypos += (streamoff)bytesRead;
 
-      // if we don't have 2 chunks, we don't have a valid tar file
-      if(bytesRead < tarChunkSize*2)
+      // if we don't have 1 chunks, we don't have a valid tar file
+      if(bytesRead < tarChunkSize)
       {
          return tarEntry();
       }
