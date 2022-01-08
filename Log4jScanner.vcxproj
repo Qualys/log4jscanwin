@@ -97,13 +97,13 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_USING_V110_SDK71_;_CONSOLE;_DEBUG;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_DEPRECATE;_CRT_NONSTDC_NO_WARNINGS;UNICODE;_UNICODE;_WIN32</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
-      <AdditionalIncludeDirectories>zlib;rapidjson\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>bzip2;zlib;rapidjson\include</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4091;</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>zlib.lib;minizip.lib;tarlib.lib;dbghelp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>bzip2.lib;zlib.lib;minizip.lib;tarlib.lib;dbghelp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(OutDir)</AdditionalLibraryDirectories>
       <UACExecutionLevel>RequireAdministrator</UACExecutionLevel>
       <StackReserveSize>10</StackReserveSize>
@@ -118,7 +118,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_USING_V110_SDK71_;_CONSOLE;_NDEBUG;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_DEPRECATE;_CRT_NONSTDC_NO_WARNINGS;UNICODE;_UNICODE;_WIN32</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
-      <AdditionalIncludeDirectories>zlib;rapidjson\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>bzip2;zlib;rapidjson\include</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4091;</DisableSpecificWarnings>
     </ClCompile>
     <Link>
@@ -126,7 +126,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>zlib.lib;minizip.lib;tarlib.lib;dbghelp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>bzip2.lib;zlib.lib;minizip.lib;tarlib.lib;dbghelp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(OutDir)</AdditionalLibraryDirectories>
       <UACExecutionLevel>RequireAdministrator</UACExecutionLevel>
       <StackReserveSize>10</StackReserveSize>
@@ -140,13 +140,13 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_USING_V110_SDK71_;_CONSOLE;_DEBUG;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_DEPRECATE;_CRT_NONSTDC_NO_WARNINGS;UNICODE;_UNICODE;_WIN32;_WIN64</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
-      <AdditionalIncludeDirectories>zlib;rapidjson\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>bzip2;zlib;rapidjson\include</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4091;</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>zlib.lib;minizip.lib;tarlib.lib;dbghelp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>bzip2.lib;zlib.lib;minizip.lib;tarlib.lib;dbghelp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(OutDir)</AdditionalLibraryDirectories>
       <UACExecutionLevel>RequireAdministrator</UACExecutionLevel>
       <StackReserveSize>10</StackReserveSize>
@@ -161,7 +161,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_USING_V110_SDK71_;_CONSOLE;_NDEBUG;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_DEPRECATE;_CRT_NONSTDC_NO_WARNINGS;UNICODE;_UNICODE;_WIN32;_WIN64</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
-      <AdditionalIncludeDirectories>zlib;rapidjson\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>bzip2;zlib;rapidjson\include</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4091;</DisableSpecificWarnings>
     </ClCompile>
     <Link>
@@ -169,7 +169,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>zlib.lib;minizip.lib;tarlib.lib;dbghelp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>bzip2.lib;zlib.lib;minizip.lib;tarlib.lib;dbghelp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(OutDir)</AdditionalLibraryDirectories>
       <UACExecutionLevel>RequireAdministrator</UACExecutionLevel>
       <StackReserveSize>10</StackReserveSize>
