@@ -376,6 +376,8 @@ int32_t ScanFileCompressedGZIPTarball(bool console, bool verbose, std::wstring f
 
     if (UncompressGZIPContentsToFile(gzf, tmpFilename)) {
       ScanFileTarball(console, verbose, file, tmpFilename);
+
+      gzclose(gzf);
       DeleteFile(tmpFilename);
     }
   }

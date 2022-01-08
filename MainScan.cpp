@@ -273,7 +273,7 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
     wprintf(L"\nScan Summary:\n");
     wprintf(L"\tScan Date:\t\t\t %s\n", FormatLocalTime(repSummary.scanStart).c_str());
     wprintf(L"\tScan Duration:\t\t\t %lld Seconds\n", repSummary.scanEnd - repSummary.scanStart);
-    wprintf(L"\tScan Error Count:\t\t\t %I64d\n", repSummary.scanErrorCount);
+    wprintf(L"\tScan Error Count:\t\t %I64d\n", repSummary.scanErrorCount);
     wprintf(L"\tScan Status:\t\t\t %s\n", repSummary.scanStatus.c_str());
     wprintf(L"\tFiles Scanned:\t\t\t %lld\n", repSummary.scannedFiles);
     wprintf(L"\tDirectories Scanned:\t\t %lld\n", repSummary.scannedDirectories);
