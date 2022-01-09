@@ -85,6 +85,9 @@ int32_t GenerateReportSummary(DocumentW& doc) {
   ValueW vScannedTARs(rapidjson::kNumberType);
   ValueW vScannedCompressed(rapidjson::kNumberType);
   ValueW vVulnerabilitiesFound(rapidjson::kNumberType);
+  ValueW vExcludedDrives(rapidjson::kArrayType);
+  ValueW vExcludedDirectories(rapidjson::kArrayType);
+  ValueW vExcludedFiles(rapidjson::kArrayType);
   ValueW oSummary(rapidjson::kObjectType);
 
   vScanEngine.SetString(A2W(SCANNER_VERSION_STRING).c_str(), doc.GetAllocator());
@@ -100,6 +103,18 @@ int32_t GenerateReportSummary(DocumentW& doc) {
   vScannedEARs.SetInt64(repSummary.scannedEARs);
   vScannedTARs.SetInt64(repSummary.scannedTARs);
   vScannedCompressed.SetInt64(repSummary.scannedCompressed);
+  for (size_t i = 0; i < repSummary.excludedDrives.size(); ++i) {
+    ValueW vDrive(repSummary.excludedDrives[i].c_str(), doc.GetAllocator());
+    vExcludedDrives.PushBack(vDrive, doc.GetAllocator());
+  }
+  for (size_t i = 0; i < repSummary.excludedDirectories.size(); ++i) {
+    ValueW vDirectory(repSummary.excludedDirectories[i].c_str(), doc.GetAllocator());
+    vExcludedDirectories.PushBack(vDirectory, doc.GetAllocator());
+  }
+  for (size_t i = 0; i < repSummary.excludedFiles.size(); ++i) {
+    ValueW vFile(repSummary.excludedFiles[i].c_str(), doc.GetAllocator());
+    vExcludedFiles.PushBack(vFile, doc.GetAllocator());
+  }
   vVulnerabilitiesFound.SetInt64(repSummary.foundVunerabilities);
 
   oSummary.AddMember(L"scanEngine", vScanEngine, doc.GetAllocator());
@@ -115,6 +130,9 @@ int32_t GenerateReportSummary(DocumentW& doc) {
   oSummary.AddMember(L"scannedEARs", vScannedEARs, doc.GetAllocator());
   oSummary.AddMember(L"scannedTARs", vScannedTARs, doc.GetAllocator());
   oSummary.AddMember(L"scannedCompressed", vScannedCompressed, doc.GetAllocator());
+  oSummary.AddMember(L"excludedDrives", vExcludedDrives, doc.GetAllocator());
+  oSummary.AddMember(L"excludedDirectories", vExcludedDirectories, doc.GetAllocator());
+  oSummary.AddMember(L"excludedFiles", vExcludedFiles, doc.GetAllocator());
   oSummary.AddMember(L"vulnerabilitiesFound", vVulnerabilitiesFound, doc.GetAllocator());
 
   doc.AddMember(L"scanSummary", oSummary, doc.GetAllocator());
@@ -229,6 +247,15 @@ int32_t GenerateSignatureReport() {
     fwprintf_s(signature_summary, L"scannedWARS: %I64d\n", repSummary.scannedWARs);
     fwprintf_s(signature_summary, L"scannedEARS: %I64d\n", repSummary.scannedEARs);
     fwprintf_s(signature_summary, L"scannedTARS: %I64d\n", repSummary.scannedTARs);
+    for (size_t i = 0; i < repSummary.excludedDrives.size(); ++i) {
+      fwprintf_s(signature_summary, L"excludedDrive: %s\n", repSummary.excludedDrives[i].c_str());
+    }
+    for (size_t i = 0; i < repSummary.excludedDirectories.size(); ++i) {
+      fwprintf_s(signature_summary, L"excludedDirectory: %s\n", repSummary.excludedDirectories[i].c_str());
+    }
+    for (size_t i = 0; i < repSummary.excludedFiles.size(); ++i) {
+      fwprintf_s(signature_summary, L"excludedFile: %s\n", repSummary.excludedFiles[i].c_str());
+    }
     fwprintf_s(signature_summary, L"vulnerabilitiesFound: %I64d\n", repSummary.foundVunerabilities);
     fclose(signature_summary);
   } 
