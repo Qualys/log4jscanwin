@@ -33,6 +33,25 @@ bool IsFileTarball(std::wstring file) {
   return false;
 }
 
+bool IsFileCompressedBZIPTarball(std::wstring file) {
+  wchar_t drive[_MAX_DRIVE];
+  wchar_t dir[_MAX_DIR];
+  wchar_t fname[_MAX_FNAME];
+  wchar_t ext[_MAX_EXT];
+
+  if (0 == _wsplitpath_s(file.c_str(), drive, dir, fname, ext)) {
+    if ( (0 == _wcsicmp(ext, L".tbz")) || (0 == _wcsicmp(ext, L".tbz2")) ) return true;
+    if ( (0 == _wcsicmp(ext, L".bz")) || (0 == _wcsicmp(ext, L".bz2")) ) {
+      std::wstring s = std::wstring(drive) + std::wstring(dir) + std::wstring(fname);
+      if (0 == _wsplitpath_s(s.c_str(), drive, dir, fname, ext)) {
+        if (0 == _wcsicmp(ext, L".tar")) return true;
+      }
+    }
+  }
+
+  return false;
+}
+
 bool IsFileCompressedGZIPTarball(std::wstring file) {
   wchar_t drive[_MAX_DRIVE];
   wchar_t dir[_MAX_DIR];

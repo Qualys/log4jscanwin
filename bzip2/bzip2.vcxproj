@@ -217,7 +217,6 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="blocksort.c" />
-    <ClCompile Include="bzip2.c" />
     <ClCompile Include="bzlib.c" />
     <ClCompile Include="compress.c" />
     <ClCompile Include="crctable.c" />
