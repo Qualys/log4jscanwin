@@ -14,6 +14,9 @@ class CReportSummary {
   uint64_t scanEnd;
   uint64_t scanErrorCount;
   std::wstring scanStatus;
+  std::vector<std::wstring> excludedDrives;
+  std::vector<std::wstring> excludedDirectories;
+  std::vector<std::wstring> excludedFiles;
 
   CReportSummary() {
     scannedFiles = 0;
@@ -28,6 +31,9 @@ class CReportSummary {
     scanEnd = 0;
     scanErrorCount = 0;
     scanStatus.clear();
+    excludedDrives.clear();
+    excludedDirectories.clear();
+    excludedFiles.clear();
   }
 };
 

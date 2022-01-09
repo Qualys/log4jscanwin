@@ -30,6 +30,9 @@ class CCommandLineOptions {
   std::wstring file;
   bool scanDirectory;
   std::wstring directory;
+  std::vector<std::wstring> excludedDrives;
+  std::vector<std::wstring> excludedDirectories;
+  std::vector<std::wstring> excludedFiles;
   bool report;
   bool reportPretty;
   bool reportSig;
@@ -46,6 +49,9 @@ class CCommandLineOptions {
     file.clear();
     scanDirectory = false;
     directory.clear();
+    excludedDrives.clear();
+    excludedDirectories.clear();
+    excludedFiles.clear();
     report = false;
     reportPretty = false;
     reportSig = false;
@@ -72,6 +78,12 @@ int32_t PrintHelp(int32_t argc, wchar_t* argv[]) {
   wprintf(L"  Scan a specific file for supported CVE(s).\n");
   wprintf(L"/scaninclmountpoints\n");
   wprintf(L"  Scan local drives including mount points for vulnerable files used by various Java applications.\n");
+  wprintf(L"/exclude_drive \"C:\\\"\n");
+  wprintf(L"  Exclude a drive from the scan.\n");
+  wprintf(L"/exclude_directory \"C:\\Some\\Path\"\n");
+  wprintf(L"  Exclude a directory from a scan.\n");
+  wprintf(L"/exclude_file \"C:\\Some\\Path\\Some.jar\"\n");
+  wprintf(L"  Exclude a file from a scan.\n");
   wprintf(L"/report\n");
   wprintf(L"  Generate a JSON report of possible detections of supported CVE(s).\n");
   wprintf(L"/report_pretty\n");
@@ -88,7 +100,8 @@ int32_t PrintHelp(int32_t argc, wchar_t* argv[]) {
 }
 
 int32_t ProcessCommandLineOptions(int32_t argc, wchar_t* argv[]) {
-  int32_t rv = ERROR_SUCCESS;
+  int32_t       rv = ERROR_SUCCESS;
+  std::wstring  str;
 
   for (int32_t i = 1; i < argc; i++) {
     if (0) {
@@ -98,12 +111,33 @@ int32_t ProcessCommandLineOptions(int32_t argc, wchar_t* argv[]) {
       cmdline_options.scanNetworkDrives = true;
     } else if (ARG(scan_file) && ARGPARAMCOUNT(1)) {
       cmdline_options.scanFile = true;
-      cmdline_options.file = argv[i + 1];
+      str = argv[i + 1];
+      if (NormalizeFileName(str)) {
+        cmdline_options.file = str;
+      }
     } else if (ARG(scan_directory) && ARGPARAMCOUNT(1)) {
       cmdline_options.scanDirectory = true;
-      cmdline_options.directory = argv[i + 1];
+      str = argv[i + 1];
+      if (NormalizeDirectoryName(str)) {
+        cmdline_options.directory = str;
+      }
     } else if (ARG(scaninclmountpoints)) {
       cmdline_options.scanLocalDrivesInclMountpoints = true;
+    } else if (ARG(exclude_file) && ARGPARAMCOUNT(1)) {
+      str = argv[i + 1];
+      if (NormalizeFileName(str)) {
+        cmdline_options.excludedFiles.push_back(str);
+      }
+    } else if (ARG(exclude_directory) && ARGPARAMCOUNT(1)) {
+      str = argv[i + 1];
+      if (NormalizeDirectoryName(str)) {
+        cmdline_options.excludedDirectories.push_back(str);
+      }
+    } else if (ARG(exclude_drive) && ARGPARAMCOUNT(1)) {
+      str = argv[i + 1];
+      if (NormalizeDriveName(str)) {
+        cmdline_options.excludedDrives.push_back(str);
+      }
     } else if (ARG(report)) {
       cmdline_options.no_logo = true;
       cmdline_options.report = true;
@@ -126,28 +160,12 @@ int32_t ProcessCommandLineOptions(int32_t argc, wchar_t* argv[]) {
     }
   }
 
-  //
-  // Check to make sure the directory path is normalized
-  //
-  if (cmdline_options.scanDirectory) {
-    if ((0 == cmdline_options.directory.substr(0, 1).compare(L"\"")) ||
-        (0 == cmdline_options.directory.substr(0, 1).compare(L"'"))) {
-      cmdline_options.directory.erase(0, 1);
-    }
-    if ((0 == cmdline_options.directory.substr(cmdline_options.directory.size() - 1, 1).compare(L"\"")) ||
-        (0 == cmdline_options.directory.substr(cmdline_options.directory.size() - 1, 1).compare(L"'"))) {
-      cmdline_options.directory.erase(cmdline_options.directory.size() - 1, 1);
-    }
-    if (0 != cmdline_options.directory.substr(cmdline_options.directory.size() - 1, 1).compare(L"\\")) {
-      cmdline_options.directory += L"\\";
-    }
-  }
-
   return rv;
 }
 
 int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
   int32_t rv = ERROR_SUCCESS;
+  CScannerOptions options;
 
   SetUnhandledExceptionFilter(CatchUnhandledExceptionFilter);
   _setmode(_fileno(stdout), _O_U16TEXT);
@@ -216,6 +234,52 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
     }
   }
 
+  //
+  // Configure Scanner Options
+  //
+  options.console = !cmdline_options.no_logo;
+  options.verbose = cmdline_options.verbose;
+  options.excludedDrives = cmdline_options.excludedDrives;
+  options.excludedDirectories = cmdline_options.excludedDirectories;
+  options.excludedFiles = cmdline_options.excludedFiles;
+
+  //
+  // Configure Reports
+  //
+  repSummary.excludedDrives = cmdline_options.excludedDrives;
+  repSummary.excludedDirectories = cmdline_options.excludedDirectories;
+  repSummary.excludedFiles = cmdline_options.excludedFiles;
+
+  //
+  // Report Configured Options
+  //
+  if (!cmdline_options.no_logo && cmdline_options.excludedDrives.size()) {
+    wprintf(L"Excluding Drives:\n");
+    for (size_t i = 0; i < cmdline_options.excludedDrives.size(); ++i) {
+      wprintf(L"\t%s\n", cmdline_options.excludedDrives[i].c_str());
+    }
+    wprintf(L"\n");
+  }
+  if (!cmdline_options.no_logo && cmdline_options.excludedDirectories.size()) {
+    wprintf(L"Excluding Directories:\n");
+    for (size_t i = 0; i < cmdline_options.excludedDirectories.size(); ++i) {
+      wprintf(L"\t%s\n", cmdline_options.excludedDirectories[i].c_str());
+    }
+    wprintf(L"\n");
+  }
+  if (!cmdline_options.no_logo && cmdline_options.excludedFiles.size()) {
+    wprintf(L"Excluding Files:\n");
+    for (size_t i = 0; i < cmdline_options.excludedFiles.size(); ++i) {
+      wprintf(L"\t%s\n", cmdline_options.excludedFiles[i].c_str());
+    }
+    wprintf(L"\n");
+  }
+
+  //
+  // Scan Started
+  //
+  ScanPrepareEnvironment(options);
+
   repSummary.scanStart = time(0);
 
   if (cmdline_options.reportSig) {
@@ -226,35 +290,35 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
     if (!cmdline_options.no_logo) {
       wprintf(L"Scanning Local Drives...\n");
     }
-    ScanLocalDrives(!cmdline_options.no_logo, cmdline_options.verbose);
+    ScanLocalDrives(options);
   }
   
   if (cmdline_options.scanLocalDrivesInclMountpoints) {
      if (!cmdline_options.no_logo) {
        wprintf(L"Scanning Local Drives including Mountpoints...\n");
       }
-      ScanLocalDrivesInclMountpoints(!cmdline_options.no_logo, cmdline_options.verbose);
+      ScanLocalDrivesInclMountpoints(options);
   }
   
   if (cmdline_options.scanNetworkDrives) {
     if (!cmdline_options.no_logo) {
       wprintf(L"Scanning Network Drives...\n");
     }
-    ScanNetworkDrives(!cmdline_options.no_logo, cmdline_options.verbose);
+    ScanNetworkDrives(options);
   }
 
   if (cmdline_options.scanDirectory) {
     if (!cmdline_options.no_logo) {
       wprintf(L"Scanning '%s'...\n", cmdline_options.directory.c_str());
     }
-    ScanDirectory(!cmdline_options.no_logo, cmdline_options.verbose, cmdline_options.directory, L"");
+    ScanDirectory(options, cmdline_options.directory, L"");
   }
 
   if (cmdline_options.scanFile) {
     if (!cmdline_options.no_logo) {
       wprintf(L"Scanning '%s'...\n", cmdline_options.file.c_str());
     }
-    ScanFile(!cmdline_options.no_logo, cmdline_options.verbose, cmdline_options.file, L"");
+    ScanFile(options, cmdline_options.file, L"");
   }
 
   repSummary.scanEnd = time(0);
@@ -264,7 +328,11 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
   } else {
     repSummary.scanStatus = L"Partially Successful";
   }
-  
+
+  //
+  // Scan Completed
+  //
+
   if (cmdline_options.lowpriority) {
     SetPriorityClass(GetCurrentProcess(), PROCESS_MODE_BACKGROUND_END);
     SetThreadPriority(GetCurrentThread(), THREAD_MODE_BACKGROUND_END);

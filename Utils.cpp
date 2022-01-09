@@ -178,13 +178,49 @@ bool ExpandEnvironmentVariables(const wchar_t* source, std::wstring& destination
   return true;
 }
 
-bool DirectoryExists(const wchar_t* dirPath) {
-  if (dirPath == NULL) {
+bool DirectoryExists(std::wstring directory) {
+  if (directory.empty()) {
     return false;
   }
-  DWORD fileAttr = GetFileAttributes(dirPath);
+  DWORD fileAttr = GetFileAttributes(directory.c_str());
   return (fileAttr != INVALID_FILE_ATTRIBUTES &&
           (fileAttr & FILE_ATTRIBUTE_DIRECTORY));
+}
+
+bool NormalizeDriveName(std::wstring& drive) {
+  if ((0 == drive.substr(0, 1).compare(L"\"")) || (0 == drive.substr(0, 1).compare(L"'"))) {
+    drive.erase(0, 1);
+  }
+  if ((0 == drive.substr(drive.size() - 1, 1).compare(L"\"")) || (0 == drive.substr(drive.size() - 1, 1).compare(L"'"))) {
+    drive.erase(drive.size() - 1, 1);
+  }
+  if (0 != drive.substr(drive.size() - 1, 1).compare(L"\\")) {
+    drive += L"\\";
+  }
+  return true;
+}
+
+bool NormalizeDirectoryName(std::wstring& dir) {
+  if ((0 == dir.substr(0, 1).compare(L"\"")) || (0 == dir.substr(0, 1).compare(L"'"))) {
+    dir.erase(0, 1);
+  }
+  if ((0 == dir.substr(dir.size() - 1, 1).compare(L"\"")) || (0 == dir.substr(dir.size() - 1, 1).compare(L"'"))) {
+    dir.erase(dir.size() - 1, 1);
+  }
+  if (0 != dir.substr(dir.size() - 1, 1).compare(L"\\")) {
+    dir += L"\\";
+  }
+  return true;
+}
+
+bool NormalizeFileName(std::wstring& file) {
+  if ((0 == file.substr(0, 1).compare(L"\"")) || (0 == file.substr(0, 1).compare(L"'"))) {
+    file.erase(0, 1);
+  }
+  if ((0 == file.substr(file.size() - 1, 1).compare(L"\"")) || (0 == file.substr(file.size() - 1, 1).compare(L"'"))) {
+    file.erase(file.size() - 1, 1);
+  }
+  return true;
 }
 
 std::wstring GetHostName() {
@@ -212,9 +248,10 @@ std::wstring FormatLocalTime(time_t datetime) {
 std::wstring GetScanUtilityDirectory() {
   wchar_t path[MAX_PATH] = {0};
   std::wstring utility_dir;
+  std::wstring::size_type pos;
   if (GetModuleFileName(NULL, path, _countof(path))) {
     utility_dir = path;
-    std::wstring::size_type pos = std::wstring(utility_dir).find_last_of(L"\\");
+    pos = utility_dir.find_last_of(L"\\");
     utility_dir = utility_dir.substr(0, pos);
   }
   return utility_dir;

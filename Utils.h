@@ -29,7 +29,10 @@ void SplitWideString(std::wstring str, const std::wstring& token, std::vector<st
 bool StripWhitespace(std::string& str);
 
 bool ExpandEnvironmentVariables(const wchar_t* source, std::wstring& destination);
-bool DirectoryExists(const wchar_t* dirPath);
+bool DirectoryExists(std::wstring directory);
+bool NormalizeDriveName(std::wstring& drive);
+bool NormalizeDirectoryName(std::wstring& dir);
+bool NormalizeFileName(std::wstring& file);
 
 std::wstring GetHostName();
 std::wstring GetScanUtilityDirectory();
