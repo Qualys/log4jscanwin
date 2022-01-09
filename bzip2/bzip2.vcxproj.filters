@@ -15,9 +15,6 @@
     <ClCompile Include="blocksort.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="bzip2.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="bzlib.c">
       <Filter>Source Files</Filter>
     </ClCompile>

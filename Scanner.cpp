@@ -29,6 +29,27 @@ bool UncompressZIPContentsToString(unzFile zf, std::string& str) {
   return true;
 }
 
+bool UncompressBZIPContentsToFile(BZFILE* bzf, std::wstring file) {
+  int32_t rv = ERROR_SUCCESS;
+  HANDLE h = NULL; 
+  DWORD dwBytesWritten = 0;
+  char buf[1024];
+
+  h = CreateFile(file.c_str(), GENERIC_WRITE, NULL, NULL, CREATE_ALWAYS,
+                 FILE_ATTRIBUTE_TEMPORARY, NULL);
+  if (h != INVALID_HANDLE_VALUE) {
+    do {
+      memset(buf, 0, sizeof(buf));
+      rv = BZ2_bzread(bzf, buf, sizeof(buf));
+      if (rv < 0 || rv == 0) break;
+      WriteFile(h, buf, rv, &dwBytesWritten, NULL);
+    } while (rv > 0);
+    CloseHandle(h);
+  }
+
+  return (h != INVALID_HANDLE_VALUE);
+}
+
 bool UncompressGZIPContentsToFile(gzFile gzf, std::wstring file) {
   int32_t rv = ERROR_SUCCESS;
   HANDLE h = NULL; 
@@ -367,6 +388,32 @@ int32_t ScanFileTarball(bool console, bool verbose, std::wstring file, std::wstr
   return rv;
 }
 
+int32_t ScanFileCompressedBZIPTarball(bool console, bool verbose, std::wstring file, std::wstring file_physical) {
+  int32_t rv = ERROR_SUCCESS;
+  BZFILE* bzf = NULL;
+  wchar_t tmpPath[_MAX_PATH + 1];
+  wchar_t tmpFilename[_MAX_PATH + 1];
+
+  if (file_physical.size()) {
+    bzf = BZ2_bzopen(W2A(file_physical).c_str(), "rb");
+  } else {
+    bzf = BZ2_bzopen(W2A(file).c_str(), "rb");
+  }
+  if (NULL != bzf) {
+    GetTempPath(_countof(tmpPath), tmpPath);
+    GetTempFileName(tmpPath, L"qua", 0, tmpFilename);
+
+    if (UncompressBZIPContentsToFile(bzf, tmpFilename)) {
+      ScanFileTarball(console, verbose, file, tmpFilename);
+    }
+
+    BZ2_bzclose(bzf);
+    DeleteFile(tmpFilename);
+  }
+
+  return rv;
+}
+
 int32_t ScanFileCompressedGZIPTarball(bool console, bool verbose, std::wstring file, std::wstring file_physical) {
   int32_t rv = ERROR_SUCCESS;
   gzFile gzf = NULL;
@@ -403,6 +450,8 @@ int32_t ScanFile(bool console, bool verbose, std::wstring file, std::wstring fil
   if (0) {
   } else if (IsFileZIPArchive(file)) {
     rv = ScanFileZIPArchive(console, verbose, file, file_physical);
+  } else if (IsFileCompressedBZIPTarball(file)) {
+    rv = ScanFileCompressedBZIPTarball(console, verbose, file, file_physical);
   } else if (IsFileCompressedGZIPTarball(file)) {
     rv = ScanFileCompressedGZIPTarball(console, verbose, file, file_physical);
   } else if (IsFileTarball(file)) {

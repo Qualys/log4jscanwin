@@ -15,6 +15,7 @@ typedef std::pair<std::wstring, std::wstring> StringPair;
 
 
 bool IsFileTarball(std::wstring file);
+bool IsFileCompressedBZIPTarball(std::wstring file);
 bool IsFileCompressedGZIPTarball(std::wstring file);
 bool IsFileZIPArchive(std::wstring file);
 
