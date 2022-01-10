@@ -13,12 +13,6 @@
 typedef std::stack<std::pair<std::wstring, std::wstring>> PairStack;
 typedef std::pair<std::wstring, std::wstring> StringPair;
 
-
-bool IsFileTarball(std::wstring file);
-bool IsFileCompressedBZIPTarball(std::wstring file);
-bool IsFileCompressedGZIPTarball(std::wstring file);
-bool IsFileZIPArchive(std::wstring file);
-
 std::wstring A2W(const std::string& str);
 std::string W2A(const std::wstring& str);
 
@@ -30,9 +24,11 @@ bool StripWhitespace(std::string& str);
 
 bool ExpandEnvironmentVariables(const wchar_t* source, std::wstring& destination);
 bool DirectoryExists(std::wstring directory);
+bool IsKnownFileExtension(std::vector<std::wstring>& exts, std::wstring file);
 bool NormalizeDriveName(std::wstring& drive);
 bool NormalizeDirectoryName(std::wstring& dir);
 bool NormalizeFileName(std::wstring& file);
+bool NormalizeFileExtension(std::wstring& ext);
 
 std::wstring GetHostName();
 std::wstring GetScanUtilityDirectory();

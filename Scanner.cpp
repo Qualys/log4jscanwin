@@ -206,6 +206,8 @@ int32_t ScanFileZIPArchive(CScannerOptions& options, std::wstring file, std::wst
     zf = unzOpen2_64(file.c_str(), &zfm);
   }
   if (NULL != zf) {
+    ReportProcessCompressedFile();
+
     //
     // Check to see if there is evidence of Log4j being in the archive
     //
@@ -261,9 +263,7 @@ int32_t ScanFileZIPArchive(CScannerOptions& options, std::wstring file, std::wst
           // Add Support for nested ZIP files
           //
           wFilename = A2W(filename);
-          if (IsFileZIPArchive(wFilename)) {
-            ReportProcessFile(wFilename);
-
+          if (IsKnownFileExtension(options.knownZipExtensions, wFilename)) {
             tmpFilename = GetTempporaryFilename();
 
             if (UncompressZIPContentsToFile(zf, tmpFilename)) {
@@ -426,6 +426,7 @@ int32_t ScanFileTarball(CScannerOptions& options, std::wstring file, std::wstrin
     tar_file.open(W2A(file.c_str()), tarlib::tarModeRead);
   }
   if (tar_file.is_open()) {
+    ReportProcessTARFile();
     tar_entry = tar_file.get_first_entry();
     do 
     {
@@ -436,9 +437,8 @@ int32_t ScanFileTarball(CScannerOptions& options, std::wstring file, std::wstrin
         std::wstring alternate_filename = tmpFilename;
 
         if (tar_entry.extractfile_to_file(W2A(alternate_filename.c_str()))) {
-          if (IsFileZIPArchive(alternate_filename.c_str())) {
-            ReportProcessFile(alternate_filename.c_str());
-
+          if (IsKnownFileExtension(options.knownZipExtensions, masked_filename.c_str())) {
+            ReportProcessCompressedFile();
             ScanFileZIPArchive(options, masked_filename, alternate_filename);
           }
         }
@@ -463,6 +463,7 @@ int32_t ScanFileCompressedBZIPTarball(CScannerOptions& options, std::wstring fil
     bzf = BZ2_bzopen(W2A(file).c_str(), "rb");
   }
   if (NULL != bzf) {
+    ReportProcessCompressedFile();
     tmpFilename = GetTempporaryFilename();
 
     if (UncompressBZIPContentsToFile(bzf, tmpFilename)) {
@@ -487,6 +488,7 @@ int32_t ScanFileCompressedGZIPTarball(CScannerOptions& options, std::wstring fil
     gzf = gzopen_w(file.c_str(), "rb");
   }
   if (NULL != gzf) {
+    ReportProcessCompressedFile();
     tmpFilename = GetTempporaryFilename();
 
     if (UncompressGZIPContentsToFile(gzf, tmpFilename)) {
@@ -511,13 +513,13 @@ int32_t ScanFile(CScannerOptions& options, std::wstring file, std::wstring file_
   }
 
   if (0) {
-  } else if (IsFileZIPArchive(file)) {
+  } else if (IsKnownFileExtension(options.knownZipExtensions, file)) {
     rv = ScanFileZIPArchive(options, file, file_physical);
-  } else if (IsFileCompressedBZIPTarball(file)) {
+  } else if (IsKnownFileExtension(options.knownBZipTarExtensions, file)) {
     rv = ScanFileCompressedBZIPTarball(options, file, file_physical);
-  } else if (IsFileCompressedGZIPTarball(file)) {
+  } else if (IsKnownFileExtension(options.knownGZipTarExtensions, file)) {
     rv = ScanFileCompressedGZIPTarball(options, file, file_physical);
-  } else if (IsFileTarball(file)) {
+  } else if (IsKnownFileExtension(options.knownTarExtensions, file)) {
     rv = ScanFileTarball(options, file, file_physical);
   }
 
@@ -569,7 +571,7 @@ int32_t ScanDirectory(CScannerOptions& options, std::wstring directory, std::wst
         // Checking for excluded directories
         if (IsDirectoryExcluded(options, dir)) continue;
 
-        ReportProcessDirectory(dir);
+        ReportProcessDirectory();
 
         rv = ScanDirectory(options, dir, dir_phys);
         if (ERROR_SUCCESS != rv) {
@@ -584,7 +586,7 @@ int32_t ScanDirectory(CScannerOptions& options, std::wstring directory, std::wst
         } else {
           file_phys.clear();
         }
-        ReportProcessFile(file);
+        ReportProcessFile();
 
         rv = ScanFile(options, file, file_phys);
         if (ERROR_SUCCESS != rv) {

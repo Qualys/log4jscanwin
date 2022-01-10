@@ -36,35 +36,24 @@ int32_t ReportProcessEARFile() {
   return ERROR_SUCCESS;
 }
 
-int32_t ReportProcessDirectory(std::wstring Directory) {
+int32_t ReportProcessTARFile() {
+  repSummary.scannedTARs++;
+  return ERROR_SUCCESS;
+}
+
+int32_t ReportProcessCompressedFile() {
+  repSummary.scannedCompressed++;
+  return ERROR_SUCCESS;
+}
+
+int32_t ReportProcessDirectory() {
   repSummary.scannedDirectories++;
   return ERROR_SUCCESS;
 }
 
-int32_t ReportProcessFile(std::wstring file) {
-  int32_t rv = ERROR_SUCCESS;
-  wchar_t drive[_MAX_DRIVE];
-  wchar_t dir[_MAX_DIR];
-  wchar_t fname[_MAX_FNAME];
-  wchar_t ext[_MAX_EXT];
-
+int32_t ReportProcessFile() {
   repSummary.scannedFiles++;
-  if (IsFileZIPArchive(file)) {
-    repSummary.scannedCompressed++;
-  }
-
-  if (0 == _wsplitpath_s(file.c_str(), drive, dir, fname, ext)) {
-    if (0 == _wcsicmp(ext, L".tar")) {
-      repSummary.scannedTARs++;
-    }
-    if (0 == _wcsicmp(ext, L".tgz")) {
-      repSummary.scannedCompressed++;
-    }
-    if (0 == _wcsicmp(ext, L".gz")) {
-      repSummary.scannedCompressed++;
-    }
-  }
-  return rv;
+  return ERROR_SUCCESS;
 }
 
 int32_t GenerateReportSummary(DocumentW& doc) {
@@ -88,6 +77,10 @@ int32_t GenerateReportSummary(DocumentW& doc) {
   ValueW vExcludedDrives(rapidjson::kArrayType);
   ValueW vExcludedDirectories(rapidjson::kArrayType);
   ValueW vExcludedFiles(rapidjson::kArrayType);
+  ValueW vKnownTarExtensions(rapidjson::kArrayType);
+  ValueW vKnownGZipTarExtensions(rapidjson::kArrayType);
+  ValueW vKnownBZipTarExtensions(rapidjson::kArrayType);
+  ValueW vKnownZipExtensions(rapidjson::kArrayType);
   ValueW oSummary(rapidjson::kObjectType);
 
   vScanEngine.SetString(A2W(SCANNER_VERSION_STRING).c_str(), doc.GetAllocator());
@@ -115,6 +108,22 @@ int32_t GenerateReportSummary(DocumentW& doc) {
     ValueW vFile(repSummary.excludedFiles[i].c_str(), doc.GetAllocator());
     vExcludedFiles.PushBack(vFile, doc.GetAllocator());
   }
+  for (size_t i = 0; i < repSummary.knownTarExtensions.size(); ++i) {
+    ValueW vExtension(repSummary.knownTarExtensions[i].c_str(), doc.GetAllocator());
+    vKnownTarExtensions.PushBack(vExtension, doc.GetAllocator());
+  }
+  for (size_t i = 0; i < repSummary.knownGZipTarExtensions.size(); ++i) {
+    ValueW vExtension(repSummary.knownGZipTarExtensions[i].c_str(), doc.GetAllocator());
+    vKnownGZipTarExtensions.PushBack(vExtension, doc.GetAllocator());
+  }
+  for (size_t i = 0; i < repSummary.knownBZipTarExtensions.size(); ++i) {
+    ValueW vExtension(repSummary.knownBZipTarExtensions[i].c_str(), doc.GetAllocator());
+    vKnownBZipTarExtensions.PushBack(vExtension, doc.GetAllocator());
+  }
+  for (size_t i = 0; i < repSummary.knownZipExtensions.size(); ++i) {
+    ValueW vExtension(repSummary.knownZipExtensions[i].c_str(), doc.GetAllocator());
+    vKnownZipExtensions.PushBack(vExtension, doc.GetAllocator());
+  }
   vVulnerabilitiesFound.SetInt64(repSummary.foundVunerabilities);
 
   oSummary.AddMember(L"scanEngine", vScanEngine, doc.GetAllocator());
@@ -133,6 +142,10 @@ int32_t GenerateReportSummary(DocumentW& doc) {
   oSummary.AddMember(L"excludedDrives", vExcludedDrives, doc.GetAllocator());
   oSummary.AddMember(L"excludedDirectories", vExcludedDirectories, doc.GetAllocator());
   oSummary.AddMember(L"excludedFiles", vExcludedFiles, doc.GetAllocator());
+  oSummary.AddMember(L"knownTarExtensions", vKnownTarExtensions, doc.GetAllocator());
+  oSummary.AddMember(L"knownGZipTarExtensions", vKnownGZipTarExtensions, doc.GetAllocator());
+  oSummary.AddMember(L"knownBZipTarExtensions", vKnownBZipTarExtensions, doc.GetAllocator());
+  oSummary.AddMember(L"knownZipExtensions", vKnownZipExtensions, doc.GetAllocator());
   oSummary.AddMember(L"vulnerabilitiesFound", vVulnerabilitiesFound, doc.GetAllocator());
 
   doc.AddMember(L"scanSummary", oSummary, doc.GetAllocator());
@@ -255,6 +268,18 @@ int32_t GenerateSignatureReport() {
     }
     for (size_t i = 0; i < repSummary.excludedFiles.size(); ++i) {
       fwprintf_s(signature_summary, L"excludedFile: %s\n", repSummary.excludedFiles[i].c_str());
+    }
+    for (size_t i = 0; i < repSummary.knownTarExtensions.size(); ++i) {
+      fwprintf_s(signature_summary, L"knownTarExtensions: %s\n", repSummary.knownTarExtensions[i].c_str());
+    }
+    for (size_t i = 0; i < repSummary.knownGZipTarExtensions.size(); ++i) {
+      fwprintf_s(signature_summary, L"knownGZipTarExtensions: %s\n", repSummary.knownGZipTarExtensions[i].c_str());
+    }
+    for (size_t i = 0; i < repSummary.knownBZipTarExtensions.size(); ++i) {
+      fwprintf_s(signature_summary, L"knownBZipTarExtensions: %s\n", repSummary.knownBZipTarExtensions[i].c_str());
+    }
+    for (size_t i = 0; i < repSummary.knownZipExtensions.size(); ++i) {
+      fwprintf_s(signature_summary, L"knownZipExtensions: %s\n", repSummary.knownZipExtensions[i].c_str());
     }
     fwprintf_s(signature_summary, L"vulnerabilitiesFound: %I64d\n", repSummary.foundVunerabilities);
     fclose(signature_summary);
