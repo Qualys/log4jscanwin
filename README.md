@@ -25,6 +25,17 @@ Qualys customers should use the following to run the tool on any asset they want
   Scan a specific file for supported CVE(s).
 /scaninclmountpoints
   Scan local drives including mount points for vulnerable files used by various Java applications.
+/exclude_drive "C:\"
+  Exclude a drive from the scan.
+/exclude_directory "C:\Some\Path"
+  Exclude a directory from a scan.
+/exclude_file "C:\Some\Path\Some.jar"
+  Exclude a file from a scan.
+/knownTarExtension ".tar"
+/knownGZipTarExtension ".tgz"
+/knownBZipTarExtension ".tbz"
+/knownZipExtension ".jar"
+  Add additional file type extensions to the scanner.
 /report
   Generate a JSON report of possible detections of supported CVE(s).
 /report_pretty
@@ -45,13 +56,40 @@ Sample Usage (from an elevated command prompt) - The following command helps you
 
 ## Output - The following output shows the detection
 ```
-Qualys Log4j Vulnerability Scanner 1.2.18.0
+D:\Temp>Log4jScanner.exe /scan /exclude_directory C:\ /knownZipExtension .ZZZ
+Qualys Log4j Vulnerability Scanner 2.1.1.0
 https://www.qualys.com/
-Supported CVE(s): CVE-2021-4104, CVE-2021-44228, CVE-2021-45046, CVE-2021-45105
+Dependencies: minizip/1.1 zlib/1.2.11, bzip2/1.0.8
+Supported CVE(s): CVE-2021-4104, CVE-2021-44228, CVE-2021-44832, CVE-2021-45046, CVE-2021-45105
+
+Known TAR Extensions            : .tar
+Known GZIP TAR Extensions       : .tgz, .tar.gz
+Known BZIP TAR Extensions       : .tbz, .tbz2, .tar.bz, .tar.bz2
+Known ZIP Extensions            : .zip, .jar, .war, .ear, .par, .kar, .sar, .rar, .jpi, .hpi, .apk, .ZZZ
+Excluding Directories:
+        C:\
+
 
 Scanning Local Drives...
-Log4j Found: 'D:\Temp\log4j-1.1.3.zip!jakarta-log4j-1.1.3/dist/lib/log4j-core.jar' ( Manifest Vendor: Apache Software Foundation, Manifest Version: 1.1.3, JNDI Class: NOT Found, Log4j Vendor: log4j, Log4j Version: 1.1.3, CVE Status: N/A )
-Log4j Found: 'D:\Temp\log4j-1.1.3.zip!jakarta-log4j-1.1.3/dist/lib/log4j.jar' ( Manifest Vendor: Apache Software Foundation, Manifest Version: 1.1.3, JNDI Class: NOT Found, Log4j Vendor: log4j, Log4j Version: 1.1.3, CVE Status: N/A )
+Log4j Found: 'D:\Src\Projects\log4jscanner\jar\testdata\arara.jar' ( Manifest Vendor: Unknown, Manifest Version: 6.1.1, JNDI Class: Found, Log4j Vendor: log4j-core, Log4j Version: 2.14.1, CVE Status: Potentially Vulnerable ( CVE-2021-44228: Found CVE-2021-44832: Found CVE-2021-45046: Found CVE-2021-45105: Found ) )
+Log4j Found: 'D:\Src\Projects\log4jscanner\jar\testdata\arara.signed.jar' ( Manifest Vendor: Unknown, Manifest Version: 6.1.1, JNDI Class: Found, Log4j Vendor: log4j-core, Log4j Version: 2.14.1, CVE Status: Potentially Vulnerable ( CVE-2021-44228: Found CVE-2021-44832: Found CVE-2021-45046: Found CVE-2021-45105: Found ) )
+Log4j Found: 'D:\Src\Projects\log4jscanner\jar\testdata\bad_jar_in_jar.jar!vuln-class.jar' ( Manifest Vendor: log4j, Manifest Version: 2.14.0, JNDI Class: NOT Found, Log4j Vendor: log4j-jcl, Log4j Version: 2.14.0, CVE Status: Mitigated )
+Log4j Found: 'D:\Src\Projects\log4jscanner\jar\testdata\bad_jar_in_jar_in_jar.jar!bad_jar_in_jar.jar!vuln-class.jar' ( Manifest Vendor: log4j, Manifest Version: 2.14.0, JNDI Class: NOT Found, Log4j Vendor: log4j-jcl, Log4j Version: 2.14.0, CVE Status: Mitigated )
+Log4j Found: 'D:\Src\Projects\log4jscanner\jar\testdata\bad_jar_with_invalid_jar.jar!vuln-class.jar' ( Manifest Vendor: log4j, Manifest Version: 2.14.0, JNDI Class: NOT Found, Log4j Vendor: log4j-jcl, Log4j Version: 2.14.0, CVE Status: Mitigated )
+Log4j Found: 'D:\Src\Projects\log4jscanner\jar\testdata\good_jar_in_jar.jar!safe1.jar' ( Manifest Vendor: log4j, Manifest Version: 2.14.0, JNDI Class: NOT Found, Log4j Vendor: log4j-jcl, Log4j Version: 2.14.0, CVE Status: Mitigated )
+Log4j Found: 'D:\Src\Projects\log4jscanner\jar\testdata\good_jar_in_jar_in_jar.jar!good_jar_in_jar.jar!safe1.jar' ( Manifest Vendor: log4j, Manifest Version: 2.14.0, JNDI Class: NOT Found, Log4j Vendor: log4j-jcl, Log4j Version: 2.14.0, CVE Status: Mitigated )
+Log4j Found: 'D:\Src\Projects\log4jscanner\jar\testdata\good_jar_with_invalid_jar.jar!safe1.jar' ( Manifest Vendor: log4j, Manifest Version: 2.14.0, JNDI Class: NOT Found, Log4j Vendor: log4j-jcl, Log4j Version: 2.14.0, CVE Status: Mitigated )
+Log4j Found: 'D:\Src\Projects\log4jscanner\jar\testdata\log4j-core-2.1.jar' ( Manifest Vendor: org.apache, Manifest Version: 2.1, JNDI Class: Found, Log4j Vendor: log4j-core, Log4j Version: 2.1, CVE Status: Potentially Vulnerable ( CVE-2021-44228: Found CVE-2021-44832: Found CVE-2021-45046: Found CVE-2021-45105: Found ) )
+Log4j Found: 'D:\Src\Projects\log4jscanner\jar\testdata\log4j-core-2.12.1.jar' ( Manifest Vendor: log4j, Manifest Version: 2.12.1, JNDI Class: Found, Log4j Vendor: log4j-core, Log4j Version: 2.12.1, CVE Status: Potentially Vulnerable ( CVE-2021-44228: Found CVE-2021-44832: Found CVE-2021-45046: Found CVE-2021-45105: Found ) )
+Log4j Found: 'D:\Src\Projects\log4jscanner\jar\testdata\log4j-core-2.14.0.jar' ( Manifest Vendor: log4j, Manifest Version: 2.14.0, JNDI Class: Found, Log4j Vendor: log4j-core, Log4j Version: 2.14.0, CVE Status: Potentially Vulnerable ( CVE-2021-44228: Found CVE-2021-44832: Found CVE-2021-45046: Found CVE-2021-45105: Found ) )
+Log4j Found: 'D:\Src\Projects\log4jscanner\jar\testdata\log4j-core-2.15.0.jar' ( Manifest Vendor: log4j, Manifest Version: 2.15.0, JNDI Class: Found, Log4j Vendor: log4j-core, Log4j Version: 2.15.0, CVE Status: Potentially Vulnerable ( CVE-2021-44228: NOT Found CVE-2021-44832: Found CVE-2021-45046: Found CVE-2021-45105: Found ) )
+Log4j Found: 'D:\Src\Projects\log4jscanner\jar\testdata\log4j-core-2.16.0.jar' ( Manifest Vendor: log4j, Manifest Version: 2.16.0, JNDI Class: Found, Log4j Vendor: log4j-core, Log4j Version: 2.16.0, CVE Status: Potentially Vulnerable ( CVE-2021-44228: NOT Found CVE-2021-44832: Found CVE-2021-45046: NOT Found CVE-2021-45105: Found ) )
+Log4j Found: 'D:\Src\Projects\log4jscanner\jar\testdata\safe1.jar' ( Manifest Vendor: log4j, Manifest Version: 2.14.0, JNDI Class: NOT Found, Log4j Vendor: log4j-jcl, Log4j Version: 2.14.0, CVE Status: Mitigated )
+Log4j Found: 'D:\Src\Projects\log4jscanner\jar\testdata\safe1.signed.jar' ( Manifest Vendor: log4j, Manifest Version: 2.14.0, JNDI Class: NOT Found, Log4j Vendor: log4j-jcl, Log4j Version: 2.14.0, CVE Status: Mitigated )
+Log4j Found: 'D:\Src\Projects\log4jscanner\jar\testdata\similarbutnotvuln.jar' ( Manifest Vendor: org.apache, Manifest Version: 2.1, JNDI Class: NOT Found, Log4j Vendor: log4j-core, Log4j Version: 2.1, CVE Status: Potentially Vulnerable ( CVE-2021-44228: NOT Found CVE-2021-44832: Found CVE-2021-45046: NOT Found CVE-2021-45105: Found ) )
+Log4j Found: 'D:\Src\Projects\log4jscanner\jar\testdata\vuln-class.jar' ( Manifest Vendor: log4j, Manifest Version: 2.14.0, JNDI Class: NOT Found, Log4j Vendor: log4j-jcl, Log4j Version: 2.14.0, CVE Status: Mitigated )
+Log4j Found: 'D:\Temp\log4j-1.1.3.zip!jakarta-log4j-1.1.3/dist/lib/log4j-core.jar' ( Manifest Vendor: Apache Software Foundation, Manifest Version: 1.1.3, JNDI Class: NOT Found, Log4j Vendor: log4j, Log4j Version: 1.1.3, CVE Status: Mitigated )
+Log4j Found: 'D:\Temp\log4j-1.1.3.zip!jakarta-log4j-1.1.3/dist/lib/log4j.jar' ( Manifest Vendor: Apache Software Foundation, Manifest Version: 1.1.3, JNDI Class: NOT Found, Log4j Vendor: log4j, Log4j Version: 1.1.3, CVE Status: Mitigated )
 Log4j Found: 'D:\Temp\log4j-1.1.3.zip' ( Manifest Vendor: , Manifest Version: , JNDI Class: NOT Found, Log4j Vendor: Unknown, Log4j Version: Unknown, CVE Status: N/A )
 Log4j Found: 'D:\Temp\log4j-1.2.17.jar' ( Manifest Vendor: Apache Software Foundation, Manifest Version: 1.2.17, JNDI Class: NOT Found, Log4j Vendor: log4j, Log4j Version: 1.2.17, CVE Status: Potentially Vulnerable ( CVE-2021-4104: Found ) )
 Log4j Found: 'D:\Temp\log4j-1.2.17.zip!apache-log4j-1.2.17/log4j-1.2.17.jar' ( Manifest Vendor: Apache Software Foundation, Manifest Version: 1.2.17, JNDI Class: NOT Found, Log4j Vendor: log4j, Log4j Version: 1.2.17, CVE Status: Potentially Vulnerable ( CVE-2021-4104: Found ) )
@@ -60,28 +98,37 @@ Log4j Found: 'D:\Temp\log4j-1.2.9.jar' ( Manifest Vendor: Apache Software Founda
 Log4j Found: 'D:\Temp\log4j-1.2.9.zip!logging-log4j-1.2.9/dist/lib/log4j-1.2.9.jar' ( Manifest Vendor: Apache Software Foundation, Manifest Version: 1.2.9, JNDI Class: NOT Found, Log4j Vendor: log4j, Log4j Version: 1.2.9, CVE Status: Potentially Vulnerable ( CVE-2021-4104: Found ) )
 Log4j Found: 'D:\Temp\log4j-1.2.9.zip' ( Manifest Vendor: , Manifest Version: , JNDI Class: NOT Found, Log4j Vendor: Unknown, Log4j Version: Unknown, CVE Status: N/A )
 Log4j Found: 'D:\Temp\log4j-api-2.16.0.jar' ( Manifest Vendor: log4j, Manifest Version: 2.16.0, JNDI Class: NOT Found, Log4j Vendor: log4j-api, Log4j Version: 2.16.0, CVE Status: Mitigated )
-Log4j Found: 'D:\Temp\log4j-core-2.11.1.jar' ( Manifest Vendor: log4j, Manifest Version: 2.11.1, JNDI Class: Found, Log4j Vendor: log4j-core, Log4j Version: 2.11.1, CVE Status: Potentially Vulnerable ( CVE-2021-44228: Found CVE-2021-45046: Found CVE-2021-45105: Found ) )
-Log4j Found: 'D:\Temp\log4j-core-2.14.0.jar' ( Manifest Vendor: log4j, Manifest Version: 2.14.0, JNDI Class: Found, Log4j Vendor: log4j-core, Log4j Version: 2.14.0, CVE Status: Potentially Vulnerable ( CVE-2021-44228: Found CVE-2021-45046: Found CVE-2021-45105: Found ) )
-Log4j Found: 'D:\Temp\log4j-core-2.15.0.jar' ( Manifest Vendor: log4j, Manifest Version: 2.15.0, JNDI Class: Found, Log4j Vendor: log4j-core, Log4j Version: 2.15.0, CVE Status: Potentially Vulnerable ( CVE-2021-44228: NOT Found CVE-2021-45046: Found CVE-2021-45105: Found ) )
-Log4j Found: 'D:\Temp\log4j-core-2.16.0.jar' ( Manifest Vendor: log4j, Manifest Version: 2.16.0, JNDI Class: Found, Log4j Vendor: log4j-core, Log4j Version: 2.16.0, CVE Status: Potentially Vulnerable ( CVE-2021-44228: NOT Found CVE-2021-45046: NOT Found CVE-2021-45105: Found ) )
-Log4j Found: 'D:\Temp\log4j-core-2.17.0.jar' ( Manifest Vendor: log4j, Manifest Version: 2.17.0, JNDI Class: Found, Log4j Vendor: log4j-core, Log4j Version: 2.17.0, CVE Status: Mitigated )
-Log4j Found: 'D:\Temp\log4j-core.jar' ( Manifest Vendor: Apache Software Foundation, Manifest Version: 1.1.3, JNDI Class: NOT Found, Log4j Vendor: log4j, Log4j Version: 1.1.3, CVE Status: N/A )
+Log4j Found: 'D:\Temp\log4j-core-2.11.1.jar' ( Manifest Vendor: log4j, Manifest Version: 2.11.1, JNDI Class: Found, Log4j Vendor: log4j-core, Log4j Version: 2.11.1, CVE Status: Potentially Vulnerable ( CVE-2021-44228: Found CVE-2021-44832: Found CVE-2021-45046: Found CVE-2021-45105: Found ) )
+Log4j Found: 'D:\Temp\log4j-core-2.12.4.jar' ( Manifest Vendor: log4j, Manifest Version: 2.12.4, JNDI Class: Found, Log4j Vendor: log4j-core, Log4j Version: 2.12.4, CVE Status: Mitigated )
+Log4j Found: 'D:\Temp\log4j-core-2.14.0.jar' ( Manifest Vendor: log4j, Manifest Version: 2.14.0, JNDI Class: Found, Log4j Vendor: log4j-core, Log4j Version: 2.14.0, CVE Status: Potentially Vulnerable ( CVE-2021-44228: Found CVE-2021-44832: Found CVE-2021-45046: Found CVE-2021-45105: Found ) )
+Log4j Found: 'D:\Temp\log4j-core-2.15.0.jar' ( Manifest Vendor: log4j, Manifest Version: 2.15.0, JNDI Class: Found, Log4j Vendor: log4j-core, Log4j Version: 2.15.0, CVE Status: Potentially Vulnerable ( CVE-2021-44228: NOT Found CVE-2021-44832: Found CVE-2021-45046: Found CVE-2021-45105: Found ) )
+Log4j Found: 'D:\Temp\log4j-core-2.15.0.ZZZ' ( Manifest Vendor: log4j, Manifest Version: 2.15.0, JNDI Class: Found, Log4j Vendor: log4j-core, Log4j Version: 2.15.0, CVE Status: Potentially Vulnerable ( CVE-2021-44228: NOT Found CVE-2021-44832: Found CVE-2021-45046: Found CVE-2021-45105: Found ) )
+Log4j Found: 'D:\Temp\log4j-core-2.16.0.jar' ( Manifest Vendor: log4j, Manifest Version: 2.16.0, JNDI Class: Found, Log4j Vendor: log4j-core, Log4j Version: 2.16.0, CVE Status: Potentially Vulnerable ( CVE-2021-44228: NOT Found CVE-2021-44832: Found CVE-2021-45046: NOT Found CVE-2021-45105: Found ) )
+Log4j Found: 'D:\Temp\log4j-core-2.17.0.jar' ( Manifest Vendor: log4j, Manifest Version: 2.17.0, JNDI Class: Found, Log4j Vendor: log4j-core, Log4j Version: 2.17.0, CVE Status: Potentially Vulnerable ( CVE-2021-44228: NOT Found CVE-2021-44832: Found CVE-2021-45046: NOT Found CVE-2021-45105: NOT Found ) )
+Log4j Found: 'D:\Temp\log4j-core-2.17.1.jar' ( Manifest Vendor: log4j, Manifest Version: 2.17.1, JNDI Class: Found, Log4j Vendor: log4j-core, Log4j Version: 2.17.1, CVE Status: Mitigated )
+Log4j Found: 'D:\Temp\log4j-core-2.3.2.jar' ( Manifest Vendor: org.apache, Manifest Version: 2.3.2, JNDI Class: Found, Log4j Vendor: log4j-core, Log4j Version: 2.3.2, CVE Status: Mitigated )
+Log4j Found: 'D:\Temp\log4j-core.jar' ( Manifest Vendor: Apache Software Foundation, Manifest Version: 1.1.3, JNDI Class: NOT Found, Log4j Vendor: log4j, Log4j Version: 1.1.3, CVE Status: Mitigated )
 Log4j Found: 'D:\Temp\log4j-iostreams-2.15.0.jar' ( Manifest Vendor: log4j, Manifest Version: 2.15.0, JNDI Class: NOT Found, Log4j Vendor: log4j-iostreams, Log4j Version: 2.15.0, CVE Status: Mitigated )
-Log4j Found: 'D:\Temp\log4j.jar' ( Manifest Vendor: Apache Software Foundation, Manifest Version: 1.1.3, JNDI Class: NOT Found, Log4j Vendor: log4j, Log4j Version: 1.1.3, CVE Status: N/A )
+Log4j Found: 'D:\Temp\log4j.jar' ( Manifest Vendor: Apache Software Foundation, Manifest Version: 1.1.3, JNDI Class: NOT Found, Log4j Vendor: log4j, Log4j Version: 1.1.3, CVE Status: Mitigated )
 Log4j Found: 'D:\Temp\org.apache.log4j_1.2.15.v201012070815.jar' ( Manifest Vendor: %PLUGIN_PROVIDER, Manifest Version: 1.2.15.v201012070815, JNDI Class: NOT Found, Log4j Vendor: Unknown, Log4j Version: Unknown, CVE Status: N/A )
-Log4j Found: 'D:\Temp\昆虫\log4j-core-2.11.1.jar' ( Manifest Vendor: log4j, Manifest Version: 2.11.1, JNDI Class: Found, Log4j Vendor: log4j-core, Log4j Version: 2.11.1, CVE Status: Potentially Vulnerable ( CVE-2021-44228: Found CVE-2021-45046: Found CVE-2021-45105: Found ) )
-Log4j Found: 'D:\Temp\昆虫\log4j-core-2.14.0.jar' ( Manifest Vendor: log4j, Manifest Version: 2.14.0, JNDI Class: Found, Log4j Vendor: log4j-core, Log4j Version: 2.14.0, CVE Status: Potentially Vulnerable ( CVE-2021-44228: Found CVE-2021-45046: Found CVE-2021-45105: Found ) )
+Log4j Found: 'D:\Temp\Sample3.zip!Sample1.jar' ( Manifest Vendor: Unknown, Manifest Version: 7.5.2, JNDI Class: Found, Log4j Vendor: log4j-core, Log4j Version: 2.11.1, CVE Status: Potentially Vulnerable ( CVE-2021-44228: Found CVE-2021-44832: Found CVE-2021-45046: Found CVE-2021-45105: Found ) )
+Log4j Found: 'D:\Temp\Sample3.zip!Sample2.jar' ( Manifest Vendor: Unknown, Manifest Version: 7.5.2, JNDI Class: Found, Log4j Vendor: log4j-core, Log4j Version: 2.11.1, CVE Status: Potentially Vulnerable ( CVE-2021-44228: Found CVE-2021-44832: Found CVE-2021-45046: Found CVE-2021-45105: Found ) )
+Log4j Found: 'D:\Temp\昆虫\log4j-core-2.11.1.jar' ( Manifest Vendor: log4j, Manifest Version: 2.11.1, JNDI Class: Found, Log4j Vendor: log4j-core, Log4j Version: 2.11.1, CVE Status: Potentially Vulnerable ( CVE-2021-44228: Found CVE-2021-44832: Found CVE-2021-45046: Found CVE-2021-45105: Found ) )
+Log4j Found: 'D:\Temp\昆虫\log4j-core-2.14.0.jar' ( Manifest Vendor: log4j, Manifest Version: 2.14.0, JNDI Class: Found, Log4j Vendor: log4j-core, Log4j Version: 2.14.0, CVE Status: Potentially Vulnerable ( CVE-2021-44228: Found CVE-2021-44832: Found CVE-2021-45046: Found CVE-2021-45105: Found ) )
 
 Scan Summary:
-        Scan Date:               2021-12-21T13:27:49-0800
-        Scan Duration:           66 Seconds
-        Files Scanned:           919154
-        Directories Scanned:     268121
-        JAR(s) Scanned:          617
-        WAR(s) Scanned:          0
-        EAR(s) Scanned:          0
-        ZIP(s) Scanned:          110
-        Vulnerabilities Found:   12
+        Scan Date:                       2022-01-10T10:05:18-0800
+        Scan Duration:                   9 Seconds
+        Scan Error Count:                1
+        Scan Status:                     Partially Successful
+        Files Scanned:                   184889
+        Directories Scanned:             30159
+        Compressed File(s) Scanned:      96
+        JAR(s) Scanned:                  50
+        WAR(s) Scanned:                  0
+        EAR(s) Scanned:                  0
+        TAR(s) Scanned:                  2
+        Vulnerabilities Found:           22
 ```
 
 # Log4jRemediate
