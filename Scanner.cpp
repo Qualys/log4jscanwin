@@ -37,7 +37,6 @@ int32_t CleanupTemporaryFiles() {
   hFind = FindFirstFile(search.c_str(), &FindFileData);
   if (hFind != INVALID_HANDLE_VALUE) {
     do {
-
       filename = FindFileData.cFileName;
 
       if ((filename.size() == 1) && (filename == L".")) continue;
@@ -536,6 +535,9 @@ int32_t ScanDirectory(CScannerOptions& options, std::wstring directory, std::wst
   std::wstring    file;
   std::wstring    file_phys;
 
+  // Checking for excluded directories
+  if (IsDirectoryExcluded(options, directory)) return ERROR_NO_MORE_ITEMS;
+
   if (options.verbose) {
     wprintf(L"Processing Directory '%s'\n", directory.c_str());
   }
@@ -567,9 +569,6 @@ int32_t ScanDirectory(CScannerOptions& options, std::wstring directory, std::wst
         } else {
           dir_phys.clear();
         }
-
-        // Checking for excluded directories
-        if (IsDirectoryExcluded(options, dir)) continue;
 
         ReportProcessDirectory();
 
