@@ -348,10 +348,10 @@ namespace tarlib
       _headersize += bytesRead;
       _nextentrypos += (streamoff)bytesRead;
 
-      // if we don't have 512 bytes this should be the MD5 hash and filename
+      // if we don't have 1 chunks, we don't have a valid tar file
       if(bytesRead < tarChunkSize)
       {
-         return tarEntry::makeMD5(&block[0], (size_t)bytesRead);
+         return tarEntry();
       }
 
       if(memcmp(block, zerorecord, tarChunkSize) == 0)

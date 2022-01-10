@@ -28,14 +28,6 @@ struct CCommandLineOptions {
 
 CCommandLineOptions cmdline_options;
 
-__inline std::vector<wchar_t> FormatTimestamp(uint64_t timestamp) {
-  std::vector<wchar_t> buf(64, L'\0');
-  struct tm* tm = std::localtime(reinterpret_cast<time_t*>(&timestamp));
-  wcsftime(buf.data(), buf.size() - 1, L"%FT%T%z", tm);
-
-  return buf;
-}
-
 DWORD PrintHelp(int32_t argc, wchar_t* argv[]) {
   DWORD rv{ ERROR_SUCCESS };
   
@@ -210,7 +202,7 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
   remSummary.scanStart = std::time(nullptr);
 
   if (cmdline_options.remediateSig) {
-    LOG_MESSAGE(L"Remediation start time : %s", FormatTimestamp(remSummary.scanStart).data());
+    LOG_MESSAGE(L"Remediation start time : %s", FormatLocalTime(remSummary.scanStart).c_str());
   }
 
   // Command handlers
@@ -224,12 +216,12 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
   remSummary.scanEnd = std::time(nullptr);
 
   if (cmdline_options.remediateSig) {
-    LOG_MESSAGE(L"Remediation end time : %s", FormatTimestamp(remSummary.scanEnd).data());
+    LOG_MESSAGE(L"Remediation end time : %s", FormatLocalTime(remSummary.scanEnd).c_str());
   }
 
   if (!cmdline_options.no_logo) {
     wprintf(L"\tRemediation Summary:\n");
-    wprintf(L"\tRemediation Date:\t\t %s\n", FormatTimestamp(remSummary.scanEnd).data());
+    wprintf(L"\tRemediation Date:\t\t %s\n", FormatLocalTime(remSummary.scanEnd).c_str());
     wprintf(L"\tRemediation Duration:\t\t %llu Seconds\n", remSummary.scanEnd - remSummary.scanStart);    
   }
 

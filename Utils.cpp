@@ -2,12 +2,88 @@
 #include "stdafx.h"
 #include "Utils.h"
 
+#include "zlib/zlib.h"
 #include "minizip/unzip.h"
 #include "minizip/iowin32.h"
-#include "zlib/zlib.h"
+
+
+constexpr wchar_t* qualys_program_data_location = L"%ProgramData%\\Qualys";
+constexpr wchar_t* report_sig_output_file = L"log4j_findings.out";
+constexpr wchar_t* report_sig_summary_file = L"log4j_summary.out";
+constexpr wchar_t* report_sig_status_file = L"status.txt";
+
+constexpr wchar_t* remediation_report_file = L"log4j_remediate.out";
+constexpr wchar_t* remediation_status_file = L"remediation_status.out";
+
 
 FILE* status_file = nullptr;
 std::vector<std::wstring> error_array;
+
+
+bool IsFileTarball(std::wstring file) {
+  wchar_t drive[_MAX_DRIVE];
+  wchar_t dir[_MAX_DIR];
+  wchar_t fname[_MAX_FNAME];
+  wchar_t ext[_MAX_EXT];
+
+  if (0 == _wsplitpath_s(file.c_str(), drive, dir, fname, ext)) {
+    if (0 == _wcsicmp(ext, L".tar")) return true;
+  }
+
+  return false;
+}
+
+bool IsFileCompressedBZIPTarball(std::wstring file) {
+  wchar_t drive[_MAX_DRIVE];
+  wchar_t dir[_MAX_DIR];
+  wchar_t fname[_MAX_FNAME];
+  wchar_t ext[_MAX_EXT];
+
+  if (0 == _wsplitpath_s(file.c_str(), drive, dir, fname, ext)) {
+    if ( (0 == _wcsicmp(ext, L".tbz")) || (0 == _wcsicmp(ext, L".tbz2")) ) return true;
+    if ( (0 == _wcsicmp(ext, L".bz")) || (0 == _wcsicmp(ext, L".bz2")) ) {
+      std::wstring s = std::wstring(drive) + std::wstring(dir) + std::wstring(fname);
+      if (0 == _wsplitpath_s(s.c_str(), drive, dir, fname, ext)) {
+        if (0 == _wcsicmp(ext, L".tar")) return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+bool IsFileCompressedGZIPTarball(std::wstring file) {
+  wchar_t drive[_MAX_DRIVE];
+  wchar_t dir[_MAX_DIR];
+  wchar_t fname[_MAX_FNAME];
+  wchar_t ext[_MAX_EXT];
+
+  if (0 == _wsplitpath_s(file.c_str(), drive, dir, fname, ext)) {
+    if (0 == _wcsicmp(ext, L".tgz")) return true;
+    if (0 == _wcsicmp(ext, L".gz")) {
+      std::wstring s = std::wstring(drive) + std::wstring(dir) + std::wstring(fname);
+      if (0 == _wsplitpath_s(s.c_str(), drive, dir, fname, ext)) {
+        if (0 == _wcsicmp(ext, L".tar")) return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+bool IsFileZIPArchive(std::wstring file) {
+  unzFile zf = NULL;
+
+  zlib_filefunc64_def zfm = { 0 };
+  fill_win32_filefunc64W(&zfm);
+
+  zf = unzOpen2_64(file.c_str(), &zfm);
+  if (NULL != zf) {
+    unzClose(zf);
+  }
+
+  return (NULL != zf);
+}
 
 std::wstring A2W(const std::string& str) {
   int length_wide = MultiByteToWideChar(CP_ACP, 0, str.data(), -1, NULL, 0);
@@ -102,13 +178,49 @@ bool ExpandEnvironmentVariables(const wchar_t* source, std::wstring& destination
   return true;
 }
 
-bool DirectoryExists(const wchar_t* dirPath) {
-  if (dirPath == NULL) {
+bool DirectoryExists(std::wstring directory) {
+  if (directory.empty()) {
     return false;
   }
-  DWORD fileAttr = GetFileAttributes(dirPath);
+  DWORD fileAttr = GetFileAttributes(directory.c_str());
   return (fileAttr != INVALID_FILE_ATTRIBUTES &&
           (fileAttr & FILE_ATTRIBUTE_DIRECTORY));
+}
+
+bool NormalizeDriveName(std::wstring& drive) {
+  if ((0 == drive.substr(0, 1).compare(L"\"")) || (0 == drive.substr(0, 1).compare(L"'"))) {
+    drive.erase(0, 1);
+  }
+  if ((0 == drive.substr(drive.size() - 1, 1).compare(L"\"")) || (0 == drive.substr(drive.size() - 1, 1).compare(L"'"))) {
+    drive.erase(drive.size() - 1, 1);
+  }
+  if (0 != drive.substr(drive.size() - 1, 1).compare(L"\\")) {
+    drive += L"\\";
+  }
+  return true;
+}
+
+bool NormalizeDirectoryName(std::wstring& dir) {
+  if ((0 == dir.substr(0, 1).compare(L"\"")) || (0 == dir.substr(0, 1).compare(L"'"))) {
+    dir.erase(0, 1);
+  }
+  if ((0 == dir.substr(dir.size() - 1, 1).compare(L"\"")) || (0 == dir.substr(dir.size() - 1, 1).compare(L"'"))) {
+    dir.erase(dir.size() - 1, 1);
+  }
+  if (0 != dir.substr(dir.size() - 1, 1).compare(L"\\")) {
+    dir += L"\\";
+  }
+  return true;
+}
+
+bool NormalizeFileName(std::wstring& file) {
+  if ((0 == file.substr(0, 1).compare(L"\"")) || (0 == file.substr(0, 1).compare(L"'"))) {
+    file.erase(0, 1);
+  }
+  if ((0 == file.substr(file.size() - 1, 1).compare(L"\"")) || (0 == file.substr(file.size() - 1, 1).compare(L"'"))) {
+    file.erase(file.size() - 1, 1);
+  }
+  return true;
 }
 
 std::wstring GetHostName() {
@@ -136,9 +248,10 @@ std::wstring FormatLocalTime(time_t datetime) {
 std::wstring GetScanUtilityDirectory() {
   wchar_t path[MAX_PATH] = {0};
   std::wstring utility_dir;
+  std::wstring::size_type pos;
   if (GetModuleFileName(NULL, path, _countof(path))) {
     utility_dir = path;
-    std::wstring::size_type pos = std::wstring(utility_dir).find_last_of(L"\\");
+    pos = utility_dir.find_last_of(L"\\");
     utility_dir = utility_dir.substr(0, pos);
   }
   return utility_dir;

@@ -8,13 +8,15 @@ class CReportSummary {
   uint64_t scannedJARs;
   uint64_t scannedWARs;
   uint64_t scannedEARs;
-  uint64_t scannedPARs;
   uint64_t scannedTARs;
   uint64_t foundVunerabilities;
   uint64_t scanStart;
   uint64_t scanEnd;
   uint64_t scanErrorCount;
   std::wstring scanStatus;
+  std::vector<std::wstring> excludedDrives;
+  std::vector<std::wstring> excludedDirectories;
+  std::vector<std::wstring> excludedFiles;
 
   CReportSummary() {
     scannedFiles = 0;
@@ -23,13 +25,15 @@ class CReportSummary {
     scannedJARs = 0;
     scannedWARs = 0;
     scannedEARs = 0;
-    scannedPARs = 0;
     scannedTARs = 0;
     foundVunerabilities = 0;
     scanStart = 0;
     scanEnd = 0;
     scanErrorCount = 0;
     scanStatus.clear();
+    excludedDrives.clear();
+    excludedDirectories.clear();
+    excludedFiles.clear();
   }
 };
 
@@ -95,7 +99,9 @@ extern CReportSummary repSummary;
 extern CRemediationSummary remSummary;
 extern std::vector<CReportVulnerabilities> repVulns;
 
-
+int32_t ReportProcessJARFile();
+int32_t ReportProcessWARFile();
+int32_t ReportProcessEARFile();
 int32_t ReportProcessDirectory(std::wstring directory);
 int32_t ReportProcessFile(std::wstring file);
 
