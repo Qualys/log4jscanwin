@@ -1,7 +1,7 @@
 #pragma once
 
 class CReportSummary {
- public:
+public:
   uint64_t scannedFiles;
   uint64_t scannedDirectories;
   uint64_t scannedCompressed;
@@ -17,6 +17,10 @@ class CReportSummary {
   std::vector<std::wstring> excludedDrives;
   std::vector<std::wstring> excludedDirectories;
   std::vector<std::wstring> excludedFiles;
+  std::vector<std::wstring> knownTarExtensions;
+  std::vector<std::wstring> knownGZipTarExtensions;
+  std::vector<std::wstring> knownBZipTarExtensions;
+  std::vector<std::wstring> knownZipExtensions;
 
   CReportSummary() {
     scannedFiles = 0;
@@ -34,6 +38,10 @@ class CReportSummary {
     excludedDrives.clear();
     excludedDirectories.clear();
     excludedFiles.clear();
+    knownTarExtensions.clear();
+    knownGZipTarExtensions.clear();
+    knownBZipTarExtensions.clear();
+    knownZipExtensions.clear();
   }
 };
 
@@ -102,8 +110,10 @@ extern std::vector<CReportVulnerabilities> repVulns;
 int32_t ReportProcessJARFile();
 int32_t ReportProcessWARFile();
 int32_t ReportProcessEARFile();
-int32_t ReportProcessDirectory(std::wstring directory);
-int32_t ReportProcessFile(std::wstring file);
+int32_t ReportProcessTARFile();
+int32_t ReportProcessCompressedFile();
+int32_t ReportProcessDirectory();
+int32_t ReportProcessFile();
 
 int32_t GenerateJSONReport(bool pretty);
 int32_t GenerateSignatureReport();
