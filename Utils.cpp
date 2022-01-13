@@ -36,8 +36,19 @@ std::string W2A(const std::wstring& str) {
   return result;
 }
 
-void SplitWideString(std::wstring str, const std::wstring& token, std::vector<std::wstring>& result)
-{
+std::wstring GetTempFilePath() {
+  std::vector<wchar_t> tmp_path(_MAX_PATH + 1, L'\0');
+  std::vector<wchar_t> tmp_filename(_MAX_PATH + 1, L'\0');
+
+  if (GetTempPath(static_cast<DWORD>(tmp_path.size()), tmp_path.data()) != 0 && 
+    GetTempFileName(tmp_path.data(), L"art", 0, tmp_filename.data()) != 0) {
+    return tmp_filename.data();
+  } 
+
+  return L"";
+}
+
+void SplitWideString(std::wstring str, const std::wstring& token, std::vector<std::wstring>& result) {
   while (str.size()) {
     auto index = str.find(token);
     if (index != std::wstring::npos) {
@@ -52,7 +63,7 @@ void SplitWideString(std::wstring str, const std::wstring& token, std::vector<st
 }
 
 bool SanitizeContents(std::string& str) {
-  std::string::iterator iter = str.begin();
+  auto iter = str.begin();
   while (iter != str.end()) {
     if (*iter == '\r') {
       iter = str.erase(iter);
@@ -95,7 +106,7 @@ bool GetDictionaryValue(std::string& dict, std::string name,
 
 bool ExpandEnvironmentVariables(const wchar_t* source, std::wstring& destination) {
   try {
-    DWORD dwReserve = ExpandEnvironmentStrings(source, NULL, 0);
+    DWORD dwReserve = ExpandEnvironmentStrings(source, nullptr, 0);
     if (dwReserve == 0) {
       return false;
     }
@@ -123,8 +134,8 @@ bool DirectoryExists(std::wstring directory) {
 }
 
 bool IsKnownFileExtension(std::vector<std::wstring>& exts, std::wstring file) {
-  for (size_t i = 0; i < exts.size(); ++i) {
-    if ( (file.size() >= exts[i].size()) && (file.substr(file.size() - exts[i].size()) == exts[i]) ) return true;
+  for (const auto &ext : exts) {
+    if ( (file.size() >= ext.size()) && (file.substr(file.size() - ext.size()) == ext) ) return true;
   }
   return false;
 }
@@ -372,9 +383,11 @@ bool IsCVE202145105Mitigated(std::string log4jVendor, std::string version) {
 
 int DumpGenericException(const wchar_t* szExceptionDescription,
                          DWORD dwExceptionCode, PVOID pExceptionAddress) {
-  LogStatusMessage(
-      L"Unhandled Exception Detected - Reason: %s (0x%x) at address 0x%p\n\n",
-      szExceptionDescription, dwExceptionCode, pExceptionAddress);
+  LogStatusMessage(L"Unhandled Exception Detected - Reason: %s (0x%x) at address 0x%p\n\n",
+    szExceptionDescription, 
+    dwExceptionCode, 
+    pExceptionAddress);
+
   return 0;
 }
 
@@ -384,8 +397,7 @@ int DumpExceptionRecord(PEXCEPTION_POINTERS pExPtrs) {
 
   switch (dwExceptionCode) {
     case 0xE06D7363:
-      DumpGenericException(L"Out Of Memory (C++ Exception)", dwExceptionCode,
-                           pExceptionAddress);
+      DumpGenericException(L"Out Of Memory (C++ Exception)", dwExceptionCode, pExceptionAddress);
       break;
     case EXCEPTION_ACCESS_VIOLATION:
       wchar_t szStatus[256];
@@ -589,7 +601,7 @@ LONG CALLBACK CatchUnhandledExceptionFilter(PEXCEPTION_POINTERS pExPtrs) {
     SAFE_CLOSE_HANDLE(hDumpFile);
   }
 
-  TerminateProcess(GetCurrentProcess(),
-                   pExPtrs->ExceptionRecord->ExceptionCode);
+  TerminateProcess(GetCurrentProcess(), pExPtrs->ExceptionRecord->ExceptionCode);
+
   return 0;
 }

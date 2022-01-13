@@ -1,13 +1,25 @@
 #include "stdafx.h"
+#include "Utils.h"
 #include "ArchiveUtil.h"
 
-int (*format_tab[])(archive*) = { archive_write_set_format_gnutar, archive_write_set_format_zip };
+int (*format_tab[])(archive*) = { 
+  archive_write_set_format_gnutar, 
+  archive_write_set_format_zip 
+};
 
-int (*compression_tab[])(archive*) = { archive_write_set_compression_none, archive_write_set_compression_gzip };
+int (*compression_tab[])(archive*) = { 
+  archive_write_set_compression_none, 
+  archive_write_set_compression_gzip,
+  archive_write_set_compression_bzip2,
+  archive_write_set_compression_xz
+};
 
-constexpr int archive_file_type[] = { AE_IFREG, AE_IFDIR };
+constexpr int archive_file_type[] = { 
+  AE_IFREG, 
+  AE_IFDIR 
+};
 
-WriterUtil::WriterUtil(const std::wstring& ArchiveFilePath, const Formats& Format, const Compressions& Compression) : format_(Format), compression_(Compression) {
+WriterUtil::WriterUtil(const std::wstring& ArchiveFilePath, const archive_type_& Type) : format_(Type.first), compression_(Type.second) {
   archive_file_path_ = ArchiveFilePath;
 }
 
@@ -129,7 +141,7 @@ int WriterUtil::addFinish() {
 
 DWORD WriterUtil::AddFile(const std::wstring& FilePath, const std::wstring& EntryName) {
   DWORD err_code{ ERROR_SUCCESS };
-  DWORD file_attrib = GetFileAttributes(FilePath.c_str());
+  DWORD file_attrib{ GetFileAttributes(FilePath.c_str()) };
 
   if (file_attrib == INVALID_FILE_ATTRIBUTES || (file_attrib & FILE_ATTRIBUTE_DIRECTORY)) {
     err_code = ERROR_FILE_INVALID;
@@ -231,6 +243,68 @@ DWORD WriterUtil::AddDirectoryFromFS(const std::wstring& DirPath) {
   
 }
 
+DWORD WriterUtil::AddEntriesFromAnotherArchive(archive* From, const std::wstring& SkipEntry) {
+  int archive_err{ ARCHIVE_OK };
+  archive_entry* entry_local{ nullptr };
+
+  auto CopyEntry = [](archive* ar, archive* aw) -> int {
+    int archive_err_local{ ARCHIVE_OK };
+    const void* buff{ nullptr };
+    size_t size{ 0 };
+    la_int64_t offset{ 0 };
+
+    while (true) {
+      archive_err_local = archive_read_data_block(ar, &buff, &size, &offset);
+
+      if (archive_err_local == ARCHIVE_EOF) {
+        return ARCHIVE_OK;
+      }
+
+      if (archive_err_local != ARCHIVE_OK) {
+        return archive_err_local;
+      }
+
+      if (archive_write_data(aw, buff, size) == -1) {
+        return ARCHIVE_FAILED;
+      }
+    }
+  };
+
+  while (true) {
+    int needcr = 0;
+    archive_err = archive_read_next_header(From, &entry_local);
+
+    if (archive_err != ARCHIVE_EOF && archive_err != ARCHIVE_OK) {
+      error_str = archive_error_string(From);
+      break;
+    }
+
+    if (archive_err == ARCHIVE_EOF) {
+      break;
+    }
+
+    if (!SkipEntry.empty() && _wcsicmp(SkipEntry.c_str(), archive_entry_pathname_w(entry_local)) == 0) {
+      continue;
+    }
+
+    archive_err = archive_write_header(archive_, entry_local);
+    if (archive_err != ARCHIVE_OK) {
+      error_str = archive_error_string(archive_);
+      break;
+    }
+
+    if (archive_entry_size(entry_local) > 0) {
+      archive_err = CopyEntry(From, archive_);
+      if (archive_err != ARCHIVE_OK) {
+        error_str = archive_error_string(archive_);
+        break;
+      }
+    }
+  }
+
+  return (archive_err == ARCHIVE_EOF ? ERROR_SUCCESS : ERROR_FUNCTION_FAILED);
+}
+
 DWORD WriterUtil::Close() {
   if (open_) {
     if (archive_) {
@@ -297,11 +371,11 @@ CLEANUP:
   return err_code;
 }
 
-DWORD ReaderUtil::ExtractFileTo(const std::wstring& RootPath) {
+DWORD ReaderUtil::ExtractFileTo(const std::wstring& RootPath, const std::wstring& EntryPath) {
   DWORD err_code{ ERROR_SUCCESS };
 
   while (true) {
-    if (!ExtractNext(RootPath)) {
+    if (!ExtractNext(RootPath, EntryPath)) {
       err_code = GetLastError();
 
       if (err_code == ERROR_HANDLE_EOF) {
@@ -321,43 +395,45 @@ ReaderUtil::~ReaderUtil() {
   Close();
 }
 
-int CopyData(archive* ar, archive* aw) {
-  int archive_err{ ARCHIVE_OK };
-  const void* buff{ nullptr };
-  size_t size{ 0 };
-  la_int64_t offset{ 0 };
-
-  while (true) {
-    archive_err = archive_read_data_block(ar, &buff, &size, &offset);
-
-    if (archive_err == ARCHIVE_EOF) {
-      return ARCHIVE_OK;
-    }
-
-    if (archive_err != ARCHIVE_OK) {
-      return archive_err;
-    }
-
-    archive_err = static_cast<int>(archive_write_data_block(aw, buff, size, offset));
-
-    if (archive_err != ARCHIVE_OK) {
-      return archive_err;
-    }
-  }
-}
-
-bool ReaderUtil::ExtractNext(const std::wstring& RootPath) {
+bool ReaderUtil::ExtractNext(const std::wstring& RootPath, const std::wstring& EntryPath) {
   archive_entry* entry{ nullptr };
   bool ret_val{ false };
   int archive_err{ ARCHIVE_OK };
+  const wchar_t* entry_path{ nullptr };
   archive* archive_local = archive_write_disk_new();
+
+  auto CopyData = [](archive* ar, archive* aw) -> int {
+    int archive_err{ ARCHIVE_OK };
+    const void* buff{ nullptr };
+    size_t size{ 0 };
+    la_int64_t offset{ 0 };
+
+    while (true) {
+      archive_err = archive_read_data_block(ar, &buff, &size, &offset);
+
+      if (archive_err == ARCHIVE_EOF) {
+        return ARCHIVE_OK;
+      }
+
+      if (archive_err != ARCHIVE_OK) {
+        return archive_err;
+      }
+
+      archive_err = static_cast<int>(archive_write_data_block(aw, buff, size, offset));
+
+      if (archive_err != ARCHIVE_OK) {
+        return archive_err;
+      }
+    }
+  };
 
   if (!archive_local) {
     SetLastError(ERROR_INVALID_HANDLE);
     goto CLEANUP;
   }
 
-  archive_err = archive_write_disk_set_options(archive_local, ARCHIVE_EXTRACT_TIME | ARCHIVE_EXTRACT_PERM | ARCHIVE_EXTRACT_ACL | ARCHIVE_EXTRACT_FFLAGS);
+  archive_err = archive_write_disk_set_options(archive_local,
+    ARCHIVE_EXTRACT_TIME | ARCHIVE_EXTRACT_PERM | ARCHIVE_EXTRACT_ACL | ARCHIVE_EXTRACT_FFLAGS | ARCHIVE_EXTRACT_OWNER);
 
   if (archive_err != ARCHIVE_OK) {
     error_str = archive_error_string(archive_);
@@ -386,11 +462,23 @@ bool ReaderUtil::ExtractNext(const std::wstring& RootPath) {
     goto CLEANUP;
   }
 
-  archive_entry_copy_pathname_w(entry, (RootPath + L"/" + archive_entry_pathname_w(entry)).c_str());
+  entry_path = archive_entry_pathname_w(entry);
+
+  if (!EntryPath.empty()) {
+    if (_wcsicmp(EntryPath.c_str(), entry_path) != 0) {
+      ret_val = true;
+      goto CLEANUP;
+    }
+
+    archive_entry_copy_pathname_w(entry, RootPath.c_str());
+  }
+  else {
+    archive_entry_copy_pathname_w(entry, (RootPath + L"\\" + entry_path).c_str());
+  }
 
   archive_err = archive_write_header(archive_local, entry);
   if (archive_err != ARCHIVE_OK) {
-    error_str = archive_error_string(archive_);
+    error_str = archive_error_string(archive_local);
     SetLastError(ERROR_FUNCTION_FAILED);
     goto CLEANUP;
   }
@@ -398,7 +486,7 @@ bool ReaderUtil::ExtractNext(const std::wstring& RootPath) {
   if (archive_entry_size(entry) > 0) {
     archive_err = CopyData(archive_, archive_local);
     if (archive_err != ARCHIVE_OK) {
-      error_str = archive_error_string(archive_);
+      error_str = archive_error_string(archive_local);
       SetLastError(ERROR_FUNCTION_FAILED);
       goto CLEANUP;
     }
@@ -428,4 +516,152 @@ DWORD ReaderUtil::Close() {
   }
 
   return ERROR_SUCCESS;
+}
+
+DWORD ArchiveUtil::CopyArchive(const std::wstring& Source, const std::wstring& Destination, 
+  const archive_type_& Type, const std::wstring& SkipEntry) {
+  DWORD err_code{ ERROR_SUCCESS };
+  WriterUtil writer(Destination, Type);
+  ReaderUtil reader(Source);
+
+  err_code = writer.Open();
+  if (err_code != ERROR_SUCCESS) {
+    goto END;
+  }
+
+  err_code = reader.Open();
+  if (err_code != ERROR_SUCCESS) {
+    goto END;
+  }
+
+  err_code = writer.AddEntriesFromAnotherArchive(reader.getArchivePtr(), SkipEntry);
+  if (err_code != ERROR_SUCCESS) {
+    goto END;
+  }
+
+END:
+
+  return err_code;
+}
+
+DWORD ArchiveUtil::RemoveFile(const std::wstring& Source, const std::wstring& EntryPath, const archive_type_& Type) {
+  DWORD err_code{ ERROR_SUCCESS };
+  std::wstring tmp_path{ GetTempFilePath() };
+
+  if (tmp_path.empty()) {
+    return ERROR_FUNCTION_FAILED;
+  }
+
+  err_code = CopyArchive(Source, tmp_path, Type, EntryPath);
+
+  if (err_code != ERROR_SUCCESS) {
+    goto END;
+  }
+
+  if (!MoveFileEx(tmp_path.c_str(), Source.c_str(), MOVEFILE_REPLACE_EXISTING)) {
+    err_code = GetLastError();
+    goto END;
+  }
+
+END:
+
+  if (err_code != ERROR_SUCCESS) {
+    DeleteFile(tmp_path.c_str());
+  }
+
+  return err_code;
+}
+
+DWORD ArchiveUtil::ExtractFile(const std::wstring& Source, const std::wstring& ToPath, const std::wstring& EntryPath) {
+  if (EntryPath.empty() || ToPath.empty() || Source.empty()) {
+    return ERROR_INVALID_PARAMETER;
+  }
+  
+  DWORD err_code{ ERROR_SUCCESS };
+  ReaderUtil reader(Source);
+
+  err_code = reader.Open();
+  if (err_code != ERROR_SUCCESS) {
+    goto END;
+  }
+
+  err_code = reader.ExtractFileTo(ToPath, EntryPath);
+  if (err_code != ERROR_SUCCESS) {
+    goto END;
+  }
+
+END:
+  return err_code;
+}
+
+DWORD ArchiveUtil::ReplaceEntry(const std::wstring& ArchivePath, const std::wstring& EntryPath, const std::wstring& FilePath, const archive_type_& Type) {
+  DWORD err_code{ ERROR_SUCCESS };
+  std::wstring tmp_path{ GetTempFilePath() };
+
+  if (tmp_path.empty()) {
+    return ERROR_FUNCTION_FAILED;
+  }
+
+  WriterUtil writer(tmp_path, Type);
+  ReaderUtil reader(ArchivePath.data());
+
+  err_code = writer.Open();
+  if (err_code != ERROR_SUCCESS) {
+    goto END;
+  }
+
+  err_code = reader.Open();
+  if (err_code != ERROR_SUCCESS) {
+    goto END;
+  }
+
+  err_code = writer.AddEntriesFromAnotherArchive(reader.getArchivePtr(), EntryPath);
+  if (err_code != ERROR_SUCCESS) {
+    goto END;
+  }
+
+  err_code = writer.AddFile(FilePath, EntryPath);
+  if (err_code != ERROR_SUCCESS) {
+    goto END;
+  }
+
+  writer.Close();
+  reader.Close();
+
+  if (!MoveFileEx(tmp_path.c_str(), ArchivePath.c_str(), MOVEFILE_REPLACE_EXISTING)) {
+    err_code = GetLastError();
+    goto END;
+  }
+
+END:
+
+  if (err_code != ERROR_SUCCESS) {
+    DeleteFile(tmp_path.c_str());
+  }
+
+  return err_code;
+}
+
+bool ArchiveUtil::GetFormatAndArchiveType(const std::wstring& Path, std::pair<Formats, Compressions>& ArchiveType) {
+  if (IsKnownFileExtension(knownZipExtensions, Path)) {
+    ArchiveType = std::make_pair(Formats::ZIP, Compressions::None);
+    return true;
+  }
+
+  if (IsKnownFileExtension(knownBZipTarExtensions, Path)) {
+    ArchiveType = std::make_pair(Formats::TAR, Compressions::BZip2);
+    return true;
+  }
+
+  if (IsKnownFileExtension(knownGZipTarExtensions, Path)) {
+    ArchiveType = std::make_pair(Formats::TAR, Compressions::Gzip);
+    return true;
+  }
+
+  if (IsKnownFileExtension(knownTarExtensions, Path)) {
+    ArchiveType = std::make_pair(Formats::TAR, Compressions::None);
+    return true;
+  }
+
+  return false;
 }

@@ -21,53 +21,25 @@
 #define ARGPARAMCOUNT(X) ((i + X) <= (argc - 1))
 
 
-class CCommandLineOptions {
+struct CCommandLineOptions {
  public:
-  bool scanLocalDrives;
-  bool scanLocalDrivesInclMountpoints;
-  bool scanNetworkDrives;
-  bool scanFile;
+  bool scanLocalDrives{ false };
+  bool scanLocalDrivesInclMountpoints{ false };
+  bool scanNetworkDrives{ false };
+  bool scanFile{ false };
+  bool scanDirectory{ false };
   std::wstring file;
-  bool scanDirectory;
   std::wstring directory;
   std::vector<std::wstring> excludedDrives;
   std::vector<std::wstring> excludedDirectories;
   std::vector<std::wstring> excludedFiles;
-  std::vector<std::wstring> knownTarExtensions;
-  std::vector<std::wstring> knownGZipTarExtensions;
-  std::vector<std::wstring> knownBZipTarExtensions;
-  std::vector<std::wstring> knownZipExtensions;
-  bool report;
-  bool reportPretty;
-  bool reportSig;
-  bool lowpriority;
-  bool verbose;
-  bool no_logo;
-  bool help;
-
-  CCommandLineOptions() {
-    scanLocalDrives = false;
-    scanLocalDrivesInclMountpoints = false;
-    scanNetworkDrives = false;
-    scanFile = false;
-    file.clear();
-    scanDirectory = false;
-    directory.clear();
-    excludedDrives.clear();
-    excludedDirectories.clear();
-    excludedFiles.clear();
-    knownTarExtensions.clear();
-    knownGZipTarExtensions.clear();
-    knownBZipTarExtensions.clear();
-    knownZipExtensions.clear();
-    report = false;
-    reportPretty = false;
-    reportSig = false;
-    lowpriority = false;
-    verbose = false;
-    no_logo = false;
-    help = false;
-  }
+  bool report{ false };
+  bool reportPretty{ false };
+  bool reportSig{ false };
+  bool lowpriority{ false };
+  bool verbose{ false };
+  bool no_logo{ false };
+  bool help{ false };
 };
 
 CCommandLineOptions cmdline_options;
@@ -113,31 +85,8 @@ int32_t PrintHelp(int32_t argc, wchar_t* argv[]) {
 }
 
 int32_t ProcessCommandLineOptions(int32_t argc, wchar_t* argv[]) {
-  int32_t       rv = ERROR_SUCCESS;
+  int32_t rv = ERROR_SUCCESS;
   std::wstring  str;
-
-  //
-  // Add known file type extensions
-  //
-  cmdline_options.knownTarExtensions.push_back(L".tar");
-  cmdline_options.knownGZipTarExtensions.push_back(L".tgz");
-  cmdline_options.knownGZipTarExtensions.push_back(L".tar.gz");
-  cmdline_options.knownBZipTarExtensions.push_back(L".tbz");
-  cmdline_options.knownBZipTarExtensions.push_back(L".tbz2");
-  cmdline_options.knownBZipTarExtensions.push_back(L".tar.bz");
-  cmdline_options.knownBZipTarExtensions.push_back(L".tar.bz2");
-  cmdline_options.knownZipExtensions.push_back(L".zip");
-  cmdline_options.knownZipExtensions.push_back(L".jar");
-  cmdline_options.knownZipExtensions.push_back(L".war");
-  cmdline_options.knownZipExtensions.push_back(L".ear");
-  cmdline_options.knownZipExtensions.push_back(L".par");
-  cmdline_options.knownZipExtensions.push_back(L".kar");
-  cmdline_options.knownZipExtensions.push_back(L".sar");
-  cmdline_options.knownZipExtensions.push_back(L".rar");
-  cmdline_options.knownZipExtensions.push_back(L".jpi");
-  cmdline_options.knownZipExtensions.push_back(L".hpi");
-  cmdline_options.knownZipExtensions.push_back(L".apk");
-
 
   for (int32_t i = 1; i < argc; i++) {
     if (0) {
@@ -177,22 +126,22 @@ int32_t ProcessCommandLineOptions(int32_t argc, wchar_t* argv[]) {
     } else if (ARG(knownTarExtension) && ARGPARAMCOUNT(1)) {
       str = argv[i + 1];
       if (NormalizeFileExtension(str)) {
-        cmdline_options.knownTarExtensions.push_back(str);
+        knownTarExtensions.push_back(str);
       }
     } else if (ARG(knownGZipTarExtension) && ARGPARAMCOUNT(1)) {
       str = argv[i + 1];
       if (NormalizeFileExtension(str)) {
-        cmdline_options.knownGZipTarExtensions.push_back(str);
+        knownGZipTarExtensions.push_back(str);
       }
     } else if (ARG(knownBZipTarExtension) && ARGPARAMCOUNT(1)) {
       str = argv[i + 1];
       if (NormalizeFileExtension(str)) {
-        cmdline_options.knownBZipTarExtensions.push_back(str);
+        knownBZipTarExtensions.push_back(str);
       }
     } else if (ARG(knownZipExtension) && ARGPARAMCOUNT(1)) {
       str = argv[i + 1];
       if (NormalizeFileExtension(str)) {
-        cmdline_options.knownZipExtensions.push_back(str);
+        knownZipExtensions.push_back(str);
       }
     } else if (ARG(report)) {
       cmdline_options.no_logo = true;
@@ -298,10 +247,10 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
   options.excludedDrives = cmdline_options.excludedDrives;
   options.excludedDirectories = cmdline_options.excludedDirectories;
   options.excludedFiles = cmdline_options.excludedFiles;
-  options.knownTarExtensions = cmdline_options.knownTarExtensions;
-  options.knownGZipTarExtensions = cmdline_options.knownGZipTarExtensions;
-  options.knownBZipTarExtensions = cmdline_options.knownBZipTarExtensions;
-  options.knownZipExtensions = cmdline_options.knownZipExtensions;
+  options.knownTarExtensions = knownTarExtensions;
+  options.knownGZipTarExtensions = knownGZipTarExtensions;
+  options.knownBZipTarExtensions = knownBZipTarExtensions;
+  options.knownZipExtensions = knownZipExtensions;
 
   //
   // Configure Reports
@@ -309,58 +258,58 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
   repSummary.excludedDrives = cmdline_options.excludedDrives;
   repSummary.excludedDirectories = cmdline_options.excludedDirectories;
   repSummary.excludedFiles = cmdline_options.excludedFiles;
-  repSummary.knownTarExtensions = cmdline_options.knownTarExtensions;
-  repSummary.knownGZipTarExtensions = cmdline_options.knownGZipTarExtensions;
-  repSummary.knownBZipTarExtensions = cmdline_options.knownBZipTarExtensions;
-  repSummary.knownZipExtensions = cmdline_options.knownZipExtensions;
+  repSummary.knownTarExtensions = knownTarExtensions;
+  repSummary.knownGZipTarExtensions = knownGZipTarExtensions;
+  repSummary.knownBZipTarExtensions = knownBZipTarExtensions;
+  repSummary.knownZipExtensions = knownZipExtensions;
 
   //
   // Report Configured Options
   //
-  if (!cmdline_options.no_logo && cmdline_options.knownTarExtensions.size()) {
+  if (!cmdline_options.no_logo && knownTarExtensions.size()) {
     wprintf(L"Known TAR Extensions\t\t: ");
-    for (size_t i = 0; i < cmdline_options.knownTarExtensions.size(); ++i) {
-      if ((cmdline_options.knownTarExtensions.size() == 1) ||
-          (cmdline_options.knownTarExtensions.size()-1 == i)) {
-        wprintf(L"%s", cmdline_options.knownTarExtensions[i].c_str());
+    for (size_t i = 0; i < knownTarExtensions.size(); ++i) {
+      if ((knownTarExtensions.size() == 1) ||
+          (knownTarExtensions.size() - 1 == i)) {
+        wprintf(L"%s", knownTarExtensions[i].c_str());
       } else {
-        wprintf(L"%s, ", cmdline_options.knownTarExtensions[i].c_str());
+        wprintf(L"%s, ", knownTarExtensions[i].c_str());
       }
     }
     wprintf(L"\n");
   }
-  if (!cmdline_options.no_logo && cmdline_options.knownGZipTarExtensions.size()) {
+  if (!cmdline_options.no_logo && knownGZipTarExtensions.size()) {
     wprintf(L"Known GZIP TAR Extensions\t: ");
-    for (size_t i = 0; i < cmdline_options.knownGZipTarExtensions.size(); ++i) {
-      if ((cmdline_options.knownGZipTarExtensions.size() == 1) ||
-          (cmdline_options.knownGZipTarExtensions.size()-1 == i)) {
-        wprintf(L"%s", cmdline_options.knownGZipTarExtensions[i].c_str());
+    for (size_t i = 0; i < knownGZipTarExtensions.size(); ++i) {
+      if ((knownGZipTarExtensions.size() == 1) ||
+          (knownGZipTarExtensions.size()-1 == i)) {
+        wprintf(L"%s", knownGZipTarExtensions[i].c_str());
       } else {
-        wprintf(L"%s, ", cmdline_options.knownGZipTarExtensions[i].c_str());
+        wprintf(L"%s, ", knownGZipTarExtensions[i].c_str());
       }
     }
     wprintf(L"\n");
   }
-  if (!cmdline_options.no_logo && cmdline_options.knownBZipTarExtensions.size()) {
+  if (!cmdline_options.no_logo && knownBZipTarExtensions.size()) {
     wprintf(L"Known BZIP TAR Extensions\t: ");
-    for (size_t i = 0; i < cmdline_options.knownBZipTarExtensions.size(); ++i) {
-      if ((cmdline_options.knownBZipTarExtensions.size() == 1) ||
-          (cmdline_options.knownBZipTarExtensions.size()-1 == i)) {
-        wprintf(L"%s", cmdline_options.knownBZipTarExtensions[i].c_str());
+    for (size_t i = 0; i < knownBZipTarExtensions.size(); ++i) {
+      if ((knownBZipTarExtensions.size() == 1) ||
+          (knownBZipTarExtensions.size()-1 == i)) {
+        wprintf(L"%s", knownBZipTarExtensions[i].c_str());
       } else {
-        wprintf(L"%s, ", cmdline_options.knownBZipTarExtensions[i].c_str());
+        wprintf(L"%s, ", knownBZipTarExtensions[i].c_str());
       }
     }
     wprintf(L"\n");
   }
-  if (!cmdline_options.no_logo && cmdline_options.knownZipExtensions.size()) {
+  if (!cmdline_options.no_logo && knownZipExtensions.size()) {
     wprintf(L"Known ZIP Extensions\t\t: ");
-    for (size_t i = 0; i < cmdline_options.knownZipExtensions.size(); ++i) {
-      if ((cmdline_options.knownZipExtensions.size() == 1) ||
-          (cmdline_options.knownZipExtensions.size()-1 == i)) {
-        wprintf(L"%s", cmdline_options.knownZipExtensions[i].c_str());
+    for (size_t i = 0; i < knownZipExtensions.size(); ++i) {
+      if ((knownZipExtensions.size() == 1) ||
+          (knownZipExtensions.size()-1 == i)) {
+        wprintf(L"%s", knownZipExtensions[i].c_str());
       } else {
-        wprintf(L"%s, ", cmdline_options.knownZipExtensions[i].c_str());
+        wprintf(L"%s, ", knownZipExtensions[i].c_str());
       }
     }
     wprintf(L"\n");

@@ -3,112 +3,48 @@
 #include "Reports.h"
 #include "Remediate.h"
 #include "Utils.h"
+#include "ArchiveUtil.h"
 
 namespace log4jremediate {
 	const std::wregex line1_regex(L"Source: Manifest Vendor: ([^,]*), Manifest Version: ([^,]*), JNDI Class: ([^,]*), Log4j Vendor: ([^,]*), Log4j Version: ([^,]*)");
 	const std::wregex line2_regex(L"Path=(.*)");
 
-	__inline zipFile UnZipOpenFile(const std::wstring& file_path, zlib_filefunc64_def* ffunc) {
-		if (!ffunc) {
-			return nullptr;
-		}
 
-		return unzOpen2_64(file_path.c_str(), ffunc);
-	}
-
-	__inline zipFile ZipOpenFile(const std::wstring& file_path, int append, zipcharpc* globalcomment, zlib_filefunc64_def* ffunc) {
-		if (!ffunc) {
-			return nullptr;
-		}
-
-		return zipOpen2_64(file_path.c_str(), append, globalcomment, ffunc);
-	}
-
-	int ExtractFileArchives(const std::vector<std::wstring>& archives, PairStack& archives_mapping, std::unordered_set<std::wstring>& tempLocset) {
+	DWORD ExtractFileArchives(const std::vector<std::wstring>& archives, PairStack& archives_mapping, std::unordered_set<std::wstring>& tempLocset) {
 		if (archives.empty()) {
-			return UNZ_BADZIPFILE;
+			return ERROR_INVALID_PARAMETER;
 		}
 
-		int rv{ UNZ_OK };
-		ULONG	bytesWritten{ 0 };
-		std::vector<BYTE> buf(1024, 0);
-		wchar_t tmpPath[_MAX_PATH + 1]{};
-		wchar_t tmpFilename[_MAX_PATH + 1]{};
-
-		zlib_filefunc64_def zfm = { 0 };
-		fill_win32_filefunc64W(&zfm);
-
+		DWORD err_code{ ERROR_SUCCESS };
+		std::wstring tmp_path;
 		std::wstring current_file{ archives.at(0) };
 
 		for (size_t i = 1; i < archives.size(); i++) {
-			unzFile zf = unzOpen2_64(current_file.c_str(), &zfm);
-
-			if (zf) {
-				rv = unzLocateFile(zf, W2A(archives[i]).c_str(), false);
-
-				if (UNZ_OK == rv) {
-					GetTempPath(_countof(tmpPath), tmpPath);
-					GetTempFileName(tmpPath, L"ljr", 0, tmpFilename);
-
-					HANDLE h = CreateFile(tmpFilename, GENERIC_READ | GENERIC_WRITE, 0,
-						nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_TEMPORARY, nullptr);
-
-					if (h != INVALID_HANDLE_VALUE) {
-						rv = unzOpenCurrentFile(zf);
-
-						if (UNZ_OK == rv) {
-							do {
-								std::fill(buf.begin(), buf.end(), 0);
-
-								rv = unzReadCurrentFile(zf, buf.data(), static_cast<unsigned int>(buf.size()));
-
-								if (rv < 0 || rv == 0) {
-									break;
-								}
-
-								WriteFile(h, buf.data(), rv, &bytesWritten, nullptr);
-
-							} while (rv > 0);
-
-							unzCloseCurrentFile(zf);
-						}
-
-						CloseHandle(h);
-					}
-
-					archives_mapping.emplace(archives[i], tmpFilename);
-					tempLocset.emplace(tmpFilename);
-
-					current_file = tmpFilename;
-				}
-				else {
-					LOG_MESSAGE(L"Failed to locate file: %s", archives[i].c_str());
-					break;
-				}
+			tmp_path = GetTempFilePath();
+			if (tmp_path.empty()) {
+				err_code = ERROR_FUNCTION_FAILED;
+				break;
 			}
 
-			if (zf) {
-				unzClose(zf);
+			err_code = ArchiveUtil::ExtractFile(current_file, tmp_path, archives[i]);
+			if (err_code == ERROR_SUCCESS) {
+				archives_mapping.emplace(archives[i], tmp_path);
+				tempLocset.emplace(tmp_path);
+				current_file = tmp_path;
+			}
+			else {
+				LOG_MESSAGE(L"Failed to locate file: %s", archives[i].c_str());
+				break;
 			}
 		}
 
-		return rv;
+		return err_code;
 	}
 
-	void log4jremediate::RemediateLog4JFile::CleanupTempFiles(std::unordered_set<std::wstring>& setTempLocs)
-	{
-
-		for (auto& filename : setTempLocs)
-		{
-			// If we are unable to File Attributes, it simply means file doesn't exist
-			//The variable are kept purposely. Helps in debugging.
-			const bool bFileExists = (GetFileAttributes(filename.c_str()) != INVALID_FILE_ATTRIBUTES);
-			if (bFileExists)
-			{
-				if (!DeleteFile(filename.c_str()))
-				{
+	void log4jremediate::RemediateLog4JFile::CleanupTempFiles(const std::unordered_set<std::wstring>& setTempLocs) {
+		for (const auto& filename : setTempLocs) {
+			if ((GetFileAttributes(filename.c_str()) != INVALID_FILE_ATTRIBUTES) && !DeleteFile(filename.c_str())) {
 					LogStatusMessage(L"Fail to delete %s; Win32 error: %d\n", filename.c_str(), GetLastError());
-				}
 			}
 		}
 	}
@@ -120,11 +56,7 @@ namespace log4jremediate {
 		std::vector<std::wstring> lines;
 
 		// If we are unable to fetch File Attributes, it simply means file doesn't exist
-		DWORD fileAttr = GetFileAttributes(report.c_str());
-		const bool bFileExists = (fileAttr != INVALID_FILE_ATTRIBUTES);
-
-		if (!bFileExists)
-		{
+		if (GetFileAttributes(report.c_str()) == INVALID_FILE_ATTRIBUTES) {
 			LOG_MESSAGE(L"Signature report %s not found.", report.c_str());
 			goto END;
 		}
@@ -133,7 +65,6 @@ namespace log4jremediate {
 		wif.open(report, std::ios::in);
 
 		if (!wif.is_open()) {
-
 			status = ERROR_OPEN_FAILED;
 			LOG_WIN32_MESSAGE(status, L"Failed to open signature report %s", report.c_str());
 			goto END;
@@ -173,7 +104,7 @@ namespace log4jremediate {
 		DWORD status{ ERROR_SUCCESS };
 		std::vector<CReportVulnerabilities> signature_report;
 
-		std::wstring sig_report_file = GetSignatureReportFindingsFilename();
+		std::wstring sig_report_file{ GetSignatureReportFindingsFilename() };
 
 		status = ReadSignatureReport(sig_report_file, signature_report);
 		if (status != ERROR_SUCCESS) {
@@ -216,8 +147,7 @@ namespace log4jremediate {
 		std::wstring rem_report_file;
 		RemediateLog4JFile remediator;
     
-		try
-		{
+		try {
 			sig_report_file = GetSignatureReportFindingsFilename();
 			rem_report_file = GetRemediationReportFilename();
 
@@ -291,12 +221,16 @@ namespace log4jremediate {
 	}
 
 	DWORD RemediateLog4JFile::RemediateFileArchive(const std::wstring& vulnerable_file_path) {
-		DWORD status{};
-		wchar_t	tmpPath[_MAX_PATH + 1]{};
-		wchar_t tmpFilename[_MAX_PATH + 1]{};
+		DWORD status{ ERROR_SUCCESS };
 		PairStack archives_mapping;
 		std::vector<std::wstring> result;
 		std::unordered_set<std::wstring> setTempLocs;
+		std::wstring tmp_path;
+		PACL pOldDACL{ nullptr };
+		PSID psidGroup{ nullptr };
+		PSID psidOwner{ nullptr };
+		PSECURITY_DESCRIPTOR pSD{ nullptr };
+		DWORD fileAttr{};
 
 		try {
 			SplitWideString(vulnerable_file_path, L"!", result);
@@ -304,83 +238,93 @@ namespace log4jremediate {
 			if (result.empty()) {
 				status = ERROR_INVALID_DATA;
 				LOG_WIN32_MESSAGE(status, L"No file path found in %s", vulnerable_file_path.c_str());
-				return status;
+				goto END;
 			}
 
 			// If we are unable to fetch File Attributes, it simply means file doesn't exist
-			DWORD fileAttr = GetFileAttributes(result[0].c_str());
-			const bool bFileExists = (fileAttr != INVALID_FILE_ATTRIBUTES);
+			fileAttr = GetFileAttributes(result[0].c_str());
 
-			if (!bFileExists)
-			{
+			if (fileAttr == INVALID_FILE_ATTRIBUTES) {
 				status = ERROR_FILE_NOT_FOUND;
 				LOG_WIN32_MESSAGE(status, L"Failed to fix %s because file not found", result[0].c_str());
-				return status;
+				goto END;
 			}
 			
-			// check if file is read only then do not process the jar
-			if (fileAttr & FILE_ATTRIBUTE_READONLY)
-			{
+			// check if file is read only then do not process the archive
+			if (fileAttr & FILE_ATTRIBUTE_READONLY) {
 				status = ERROR_ACCESS_DENIED;
 				LOG_WIN32_MESSAGE(status, L"Failed to fix %s because it is read only", result[0].c_str());
-				return status;
+				goto END;
 			}
 
-			// Copy original parent to temp	
-			GetTempPath(_countof(tmpPath), tmpPath);
-			// LJR for Log4J remediation
-			GetTempFileName(tmpPath, L"ljr", 0, tmpFilename);
-
-			if (FALSE == CopyFile(result[0].c_str(), tmpFilename, FALSE)) {
-				status = GetLastError();
-				LOG_WIN32_MESSAGE(status, L"Failed to copy %s to %s", result[0].c_str(), tmpFilename);
-				return status;
-			}			
-
-			PACL pOldDACL = nullptr;
-			PSID psidGroup = nullptr;
-			PSID psidOwner = nullptr;
-			PSECURITY_DESCRIPTOR pSD = nullptr;			
-
-			if (GetNamedSecurityInfo(result[0].c_str(), SE_FILE_OBJECT,
+			if (GetNamedSecurityInfo(result[0].c_str(),
+				SE_FILE_OBJECT,
 				GROUP_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION | OWNER_SECURITY_INFORMATION,
-				&psidOwner, &psidGroup, &pOldDACL, nullptr, &pSD) != ERROR_SUCCESS)
-			{
+				&psidOwner,
+				&psidGroup,
+				&pOldDACL,
+				nullptr,
+				&pSD) != ERROR_SUCCESS
+				) {
 				status = GetLastError();
 				LOG_WIN32_MESSAGE(status, L"Failed to get permissions of file %s", result[0].c_str());
-				return status;
+				goto END;
 			}
 
+			tmp_path = GetTempFilePath();
+
+			if (tmp_path.empty()) {
+				status = ERROR_FUNCTION_FAILED;
+				goto END;
+			}
+
+			if (FALSE == CopyFile(result[0].c_str(), tmp_path.c_str(), FALSE)) {
+				status = GetLastError();
+				LOG_WIN32_MESSAGE(status, L"Failed to copy %s to %s", result[0].c_str(), tmp_path.c_str());
+				goto END;
+			}			
+
 			// Map outermost file with corresponding temp file
-			archives_mapping.emplace(result[0], tmpFilename);
+			archives_mapping.emplace(result[0], tmp_path);
 
 			//Add to set of delete files
-			setTempLocs.emplace(tmpFilename);
+			setTempLocs.emplace(tmp_path);
 
 			if (ExtractFileArchives(result, archives_mapping, setTempLocs)) {
 				status = ERROR_INVALID_OPERATION;
 				LOG_WIN32_MESSAGE(status, L"Failed to extract file archives from %s", vulnerable_file_path.c_str());
-				return status;
+				goto END;
 			}
 
 			// Pop the stack and fix topmost jar.
 			auto last_visited = archives_mapping.top();
 			archives_mapping.pop();
 
-			if (DeleteFileFromZIP(last_visited.second.c_str(), L"org/apache/logging/log4j/core/lookup/JndiLookup.class")) {
-				status = ERROR_INVALID_OPERATION;
+			archive_type_ type;
+			if (!ArchiveUtil::GetFormatAndArchiveType(last_visited.first, type)) {
+				status = ERROR_FUNCTION_FAILED;
+				goto END;
+			}
+
+			status = ArchiveUtil::RemoveFile(last_visited.second.c_str(), L"org/apache/logging/log4j/core/lookup/JndiLookup.class", type);
+			if (status != ERROR_SUCCESS) {
 				LOG_WIN32_MESSAGE(status, L"Failed to delete JndiLookup.class from archive: %s", last_visited.second.c_str());
-				return status;
+				goto END;
 			}
 
 			while (!archives_mapping.empty()) {
 				auto parent_jar_mapping = archives_mapping.top();
 				archives_mapping.pop();
 
-				if (ReplaceFileInZip(parent_jar_mapping.second, last_visited.first, last_visited.second)) {
+				if (!ArchiveUtil::GetFormatAndArchiveType(parent_jar_mapping.first, type)) {
+					status = ERROR_FUNCTION_FAILED;
+					goto END;
+				}
+
+				if (ArchiveUtil::ReplaceEntry(parent_jar_mapping.second, last_visited.first, last_visited.second, type)) {
 					status = ERROR_INVALID_OPERATION;
 					LOG_WIN32_MESSAGE(status, L"Failed to repackage fixed %s into %s", last_visited.first.c_str(), parent_jar_mapping.second.c_str());
-					return status;
+					goto END;
 				}
 
 				last_visited = parent_jar_mapping;
@@ -391,39 +335,33 @@ namespace log4jremediate {
 			if (!MoveFile(result[0].c_str(), original_backup.c_str())) {
 				status = GetLastError();
 				LOG_WIN32_MESSAGE(status, L"Failed to rename %s to %s", result[0].c_str(), original_backup.c_str());
-				return status;
+				goto END;
 			}
 
 			// Add backup file to the set of delete files 
 			setTempLocs.emplace(original_backup);
 
 			// replace fixed jar with original
-			if (!MoveFile(tmpFilename, result[0].c_str())) {
+			if (!MoveFile(tmp_path.c_str(), result[0].c_str())) {
 				status = GetLastError();
-				LOG_WIN32_MESSAGE(status, L"Failed to rename %s to %s", tmpFilename, result[0].c_str());
-				return status;
+				LOG_WIN32_MESSAGE(status, L"Failed to rename %s to %s", tmp_path.c_str(), result[0].c_str());
+				goto END;
 			}
 
 			WCHAR file_path[MAX_PATH] = { '\0' };
 			wcscpy_s(file_path, result[0].c_str());
 
-			if (SetNamedSecurityInfo(file_path, SE_FILE_OBJECT,
+			if (SetNamedSecurityInfo(file_path, 
+				SE_FILE_OBJECT,
 				GROUP_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION | OWNER_SECURITY_INFORMATION,
-				psidOwner, psidGroup, pOldDACL, nullptr) != ERROR_SUCCESS)
-			{
+				psidOwner, 
+				psidGroup, 
+				pOldDACL, 
+				nullptr) != ERROR_SUCCESS
+				) {
 				status = GetLastError();
 				LOG_WIN32_MESSAGE(status, L"Failed to set permissions to file %s", result[0].c_str());
-
-				if (pSD != nullptr)
-				{
-					LocalFree((HLOCAL)pSD);
-				}
-
-				return status;
-			}
-			if (pSD != nullptr)
-			{
-				LocalFree((HLOCAL)pSD);
+				goto END;
 			}
 			
 			LOG_MESSAGE("Copied fixed file: %s", result[0].c_str());
@@ -434,202 +372,20 @@ namespace log4jremediate {
 		catch (std::bad_alloc&) {
 			status = ERROR_OUTOFMEMORY;
 			LOG_WIN32_MESSAGE(status, L"Failed to allocate memory in %S", __func__);
+			goto END;
 		}
 		catch (std::exception& e) {
 			status = ERROR_INVALID_OPERATION;
 			LOG_WIN32_MESSAGE(status, L"Exception %S caught in %S", e.what(), __func__);
+			goto END;
 		}		
 
+	END:
+
+		if (pSD != nullptr) {
+			LocalFree((HLOCAL)pSD);
+		}
+
 		return status;
-	}
-
-	int RemediateLog4JFile::FixArchive(const std::wstring& target_zip_path, const std::wstring& vulnerable_zip_name,
-		const std::wstring& fixed_zip_path, bool delete_file) {
-
-		std::wstring temp_name{ target_zip_path };
-		temp_name.append(L".tmp");
-
-		zipFile szip = UnZipOpenFile(target_zip_path, &ffunc_);
-		if (!szip) {
-			return 1;
-		}
-
-		zipFile dzip = ZipOpenFile(temp_name.c_str(), APPEND_STATUS_CREATE, nullptr, &ffunc_);
-		if (!dzip) {
-			unzClose(szip);
-			return 1;
-		}
-
-		// get global commentary
-		unz_global_info glob_info;
-		if (unzGetGlobalInfo(szip, &glob_info) != UNZ_OK) {
-			zipClose(dzip, nullptr);
-			unzClose(szip);
-			return 1;
-		}
-
-		std::vector<char> glob_comment;
-		if (glob_info.size_comment > 0) {
-			glob_comment.resize(glob_info.size_comment + 1, '\0');
-
-			if (static_cast<uLong>(unzGetGlobalComment(szip, glob_comment.data(), glob_info.size_comment + 1)) != glob_info.size_comment) {
-				zipClose(dzip, nullptr);
-				unzClose(szip);
-				return 1;
-			}
-		}
-
-		int rv = unzGoToFirstFile(szip);
-
-		while (rv == UNZ_OK) {
-			// get zipped file info
-			unz_file_info unzfi;
-			char dos_fn[MAX_PATH];
-			if (unzGetCurrentFileInfo(szip, &unzfi, dos_fn, MAX_PATH, nullptr, 0, nullptr, 0) != UNZ_OK) {
-				break;
-			}
-
-			std::wstring file = A2W(dos_fn);
-
-			bool file_found = false;
-
-			if (_wcsicmp(file.c_str(), vulnerable_zip_name.c_str()) == 0) {
-				file_found = true;
-			}
-
-			// if not need delete this file
-			if (file_found && delete_file) { // lowercase comparison
-				rv = unzGoToNextFile(szip);
-				continue;
-			}
-			else {
-				std::vector<char> extrafield;
-				std::vector<char> commentary;
-
-				if (unzfi.size_file_extra > 0) {
-					extrafield.resize(unzfi.size_file_extra);
-				}
-				if (unzfi.size_file_comment) {
-					commentary.resize(unzfi.size_file_comment);
-				}
-
-				if (unzGetCurrentFileInfo(szip, &unzfi, dos_fn, MAX_PATH, extrafield.data(), unzfi.size_file_extra, commentary.data(), unzfi.size_file_comment) != UNZ_OK) {
-					break;
-				}
-
-				int method{};
-				int level{};
-
-				// open file for RAW reading
-				if (unzOpenCurrentFile2(szip, &method, &level, 1) != UNZ_OK) {
-					break;
-				}
-
-				int size_local_extra = unzGetLocalExtrafield(szip, nullptr, 0);
-				if (size_local_extra < 0) {
-					break;
-				}
-
-				std::vector<BYTE> local_extra(size_local_extra);
-
-				if (unzGetLocalExtrafield(szip, local_extra.data(), size_local_extra) < 0) {
-					break;
-				}
-
-				std::vector<BYTE> buf;
-				ULONG file_size = 0;
-				// found the file that needs to be replaced
-				if (file_found && !delete_file) {
-					if (ReadFileContent(fixed_zip_path, buf, &file_size)) {
-						break;
-					}
-				}
-				else {
-					// this may fail if file very large
-					buf.resize(unzfi.compressed_size, '\0');
-
-					// read file
-					int sz = unzReadCurrentFile(szip, buf.data(), unzfi.compressed_size);
-					if (static_cast<uLong>(sz) != unzfi.compressed_size) {
-						break;
-					}
-
-					file_size = unzfi.compressed_size;
-				}
-
-				// open destination file
-				zip_fileinfo zfi;
-				memcpy(&zfi.tmz_date, &unzfi.tmu_date, sizeof(tm_unz));
-				zfi.dosDate = unzfi.dosDate;
-				zfi.internal_fa = unzfi.internal_fa;
-				zfi.external_fa = unzfi.external_fa;
-
-				if (zipOpenNewFileInZip2(dzip, dos_fn, &zfi, local_extra.data(), size_local_extra, extrafield.data(),
-					unzfi.size_file_extra, commentary.data(), method, level, (file_found && !delete_file) ? 0 : 1) != UNZ_OK) {
-					break;
-				}
-
-				// write file
-				if (zipWriteInFileInZip(dzip, buf.data(), file_size) != UNZ_OK) {
-					break;
-				}
-
-				if (zipCloseFileInZipRaw(dzip, (file_found && !delete_file) ? 0 : unzfi.uncompressed_size,
-					(file_found && !delete_file) ? 0 : unzfi.crc) != UNZ_OK) {
-					break;
-				}
-
-				if (unzCloseCurrentFile(szip) == UNZ_CRCERROR) {
-					break;
-				}
-			}
-
-			rv = unzGoToNextFile(szip);
-		}
-
-		zipClose(dzip, glob_comment.data());
-		unzClose(szip);
-
-		if (!DeleteFile(target_zip_path.c_str())) {
-			LOG_WIN32_MESSAGE(GetLastError(), L"Failed to delete %s", target_zip_path.c_str());
-			return 1;
-		}
-
-		if (!MoveFile(temp_name.c_str(), target_zip_path.c_str())) {
-			return 1;
-		}
-
-		return 0;
-	}
-
-	int RemediateLog4JFile::ReadFileContent(const std::wstring& file_path, std::vector<BYTE>& buf, PULONG size) {
-		int ret_val{};
-		DWORD bytes_read{};
-
-		if (!size) {
-			ret_val = 1;
-		}
-
-		// read file into buffer
-		HANDLE handle_fixed_zip = CreateFile(file_path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr);
-
-		if (handle_fixed_zip == INVALID_HANDLE_VALUE) {
-			LOG_MESSAGE(L"Failed to open file for read %s", file_path.c_str());
-			ret_val = 1;
-			goto CLEANUP;
-		}
-
-		*size = GetFileSize(handle_fixed_zip, nullptr);
-
-		buf.resize(*size, '\0');
-
-		if (0 == ReadFile(handle_fixed_zip, buf.data(), *size, &bytes_read, nullptr)) {
-			ret_val = 1;
-			goto CLEANUP;
-		}
-
-	CLEANUP:
-		SAFE_CLOSE_HANDLE(handle_fixed_zip);
-		return ret_val;
 	}
 }

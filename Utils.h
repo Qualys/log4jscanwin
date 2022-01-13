@@ -13,8 +13,39 @@
 typedef std::stack<std::pair<std::wstring, std::wstring>> PairStack;
 typedef std::pair<std::wstring, std::wstring> StringPair;
 
+static std::vector<std::wstring> knownTarExtensions{
+   L".tar"
+};
+
+static std::vector<std::wstring> knownGZipTarExtensions{
+  L".tgz",
+  L".tar.gz"
+};
+
+static std::vector<std::wstring> knownBZipTarExtensions{
+  L".tbz",
+  L".tbz2",
+  L".tar.bz",
+  L".tar.bz2"
+};
+
+static std::vector<std::wstring> knownZipExtensions{
+  L".zip",
+  L".jar",
+  L".war",
+  L".ear",
+  L".par",
+  L".kar",
+  L".sar",
+  L".rar",
+  L".jpi",
+  L".hpi",
+  L".apk"
+};
+
 std::wstring A2W(const std::string& str);
 std::string W2A(const std::wstring& str);
+std::wstring GetTempFilePath();
 
 std::wstring FormatLocalTime(time_t datetime);
 bool GetDictionaryValue(std::string& dict, std::string name, std::string defaultValue, std::string& value);

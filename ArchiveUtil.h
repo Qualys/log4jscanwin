@@ -7,30 +7,43 @@ enum class Formats : uint8_t {
 
 enum Compressions {
   None = 0,
-  Gzip = 1
+  Gzip = 1,
+  BZip2 = 2,
+  XZ = 3
 };
+
+using archive_type_ = std::pair<Formats, Compressions>;
 
 enum class FileTypes : uint8_t {
   Regular = 0,
   Directory = 1
 };
 
-class ArchiveUtil {
-public:
+class ArchiveBase {
+protected:
   bool open_{ false };
   std::string error_str;
   archive* archive_{ nullptr };
   std::wstring archive_file_path_;
-
+ 
   virtual DWORD Open() = 0;
   virtual DWORD Close() = 0;
 
-  virtual ~ArchiveUtil() = default;
+  virtual ~ArchiveBase() = default;
+
+public:
+  std::string getLastError() const {
+    return error_str;
+  }
+
+  archive* getArchivePtr() const {
+    return archive_;
+  }
 };
 
-class WriterUtil final : protected ArchiveUtil {
+class WriterUtil final : public ArchiveBase {
 public:
-  explicit WriterUtil(const std::wstring& ArchiveFilePath, const Formats& Format, const Compressions& Compression);
+  explicit WriterUtil(const std::wstring& ArchiveFilePath, const archive_type_& Type);
   ~WriterUtil();
 
   DWORD Open() override;
@@ -42,6 +55,8 @@ public:
   DWORD AddDirectory(const std::wstring& DirectoryName);
 
   DWORD AddDirectoryFromFS(const std::wstring& DirPath);
+
+  DWORD AddEntriesFromAnotherArchive(archive* From, const std::wstring& SkipEntry = L"");
 
   DWORD Close() override;
 
@@ -56,15 +71,24 @@ private:
   const Compressions compression_;
 };
 
-class ReaderUtil final : protected ArchiveUtil {
+class ReaderUtil final : public ArchiveBase {
 public:
   explicit ReaderUtil(const std::wstring& ArchiveFileName);
   ~ReaderUtil();
 
   DWORD Open() override;
-  DWORD ExtractFileTo(const std::wstring& RootPath);
+  DWORD ExtractFileTo(const std::wstring& RootPath, const std::wstring& EntryPath = L"");
+  DWORD Close() override;
 
 private:
-  bool ExtractNext(const std::wstring& RootPath);
-  DWORD Close() override;
+  bool ExtractNext(const std::wstring& RootPath, const std::wstring& EntryPath = L"");
+};
+
+class ArchiveUtil final {
+public:
+  static DWORD CopyArchive(const std::wstring& Source, const std::wstring& Destination, const archive_type_& Type, const std::wstring& SkipEntry = L"");
+  static DWORD RemoveFile(const std::wstring& Source, const std::wstring& EntryPath, const archive_type_& Type);
+  static DWORD ExtractFile(const std::wstring& Source, const std::wstring& ToPath, const std::wstring& EntryPath);
+  static DWORD ReplaceEntry(const std::wstring& ArchivePath, const std::wstring& EntryPath, const std::wstring& FilePath, const archive_type_& Type);
+  static bool GetFormatAndArchiveType(const std::wstring& Path, std::pair<Formats, Compressions>& ArchiveType);
 };

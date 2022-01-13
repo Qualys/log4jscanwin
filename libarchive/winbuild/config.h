@@ -373,7 +373,7 @@ typedef uint64_t uintmax_t;
 /* #undef HAVE_BSDXML_H */
 
 /* Define to 1 if you have the <bzlib.h> header file. */
-/* #undef HAVE_BZLIB_H */
+#define HAVE_BZLIB_H 1
 
 /* Define to 1 if you have the `chflags' function. */
 /* #undef HAVE_CHFLAGS */

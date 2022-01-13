@@ -104,7 +104,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>bzip2.lib;zlib.lib;minizip.lib;tarlib.lib;dbghelp.lib;msvcrtd.lib;archive_static.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>bzip2.lib;zlib.lib;dbghelp.lib;archive_static.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(OutDir)</AdditionalLibraryDirectories>
       <UACExecutionLevel>RequireAdministrator</UACExecutionLevel>
       <StackReserveSize>10</StackReserveSize>
@@ -121,13 +121,14 @@
       <AdditionalIncludeDirectories>zlib;rapidjson\include;libarchive\libarchive</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4091</DisableSpecificWarnings>
       <PrecompiledHeader>Use</PrecompiledHeader>
+      <Optimization>Full</Optimization>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>bzip2.lib;zlib.lib;minizip.lib;tarlib.lib;dbghelp.lib;msvcrt.lib;archive_static.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>bzip2.lib;zlib.lib;dbghelp.lib;archive_static.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(OutDir)</AdditionalLibraryDirectories>
       <UACExecutionLevel>RequireAdministrator</UACExecutionLevel>
       <StackReserveSize>10</StackReserveSize>
@@ -147,7 +148,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>bzip2.lib;zlib.lib;minizip.lib;tarlib.lib;dbghelp.lib;msvcrtd.lib;archive_static.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>bzip2.lib;zlib.lib;dbghelp.lib;archive_static.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(OutDir)</AdditionalLibraryDirectories>
       <UACExecutionLevel>RequireAdministrator</UACExecutionLevel>
       <StackReserveSize>10</StackReserveSize>
@@ -164,13 +165,14 @@
       <AdditionalIncludeDirectories>zlib;rapidjson\include;libarchive\libarchive;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4091</DisableSpecificWarnings>
       <PrecompiledHeader>Use</PrecompiledHeader>
+      <Optimization>Full</Optimization>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>bzip2.lib;zlib.lib;minizip.lib;tarlib.lib;dbghelp.lib;msvcrt.lib;archive_static.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>bzip2.lib;zlib.lib;dbghelp.lib;archive_static.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(OutDir)</AdditionalLibraryDirectories>
       <UACExecutionLevel>RequireAdministrator</UACExecutionLevel>
       <StackReserveSize>10</StackReserveSize>
