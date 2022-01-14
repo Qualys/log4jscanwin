@@ -41,7 +41,7 @@ namespace log4jremediate {
 		return err_code;
 	}
 
-	void log4jremediate::RemediateLog4JFile::CleanupTempFiles(const std::unordered_set<std::wstring>& setTempLocs) {
+	void RemediateLog4JFile::CleanupTempFiles(const std::unordered_set<std::wstring>& setTempLocs) {
 		for (const auto& filename : setTempLocs) {
 			if ((GetFileAttributes(filename.c_str()) != INVALID_FILE_ATTRIBUTES) && !DeleteFile(filename.c_str())) {
 					LogStatusMessage(L"Fail to delete %s; Win32 error: %d\n", filename.c_str(), GetLastError());
@@ -100,6 +100,52 @@ namespace log4jremediate {
 		return status;
 	}
 
+	DWORD UpdateExtensionsWithCustomExtensions(const std::wstring &sig_summary_file) {
+		DWORD status{ ERROR_SUCCESS };
+		std::wifstream wif;
+		std::wstring line;
+		std::wstring ext;
+
+		// If we are unable to fetch File Attributes, it simply means file doesn't exist
+		if (GetFileAttributes(sig_summary_file.c_str()) == INVALID_FILE_ATTRIBUTES) {
+			LOG_MESSAGE(L"Signature summary %s not found.", sig_summary_file.c_str());
+			goto END;
+		}
+
+		//Read the content
+		wif.open(sig_summary_file, std::ios::in);
+
+		if (!wif.is_open()) {
+			status = ERROR_OPEN_FAILED;
+			LOG_WIN32_MESSAGE(status, L"Failed to open signature report %s", sig_summary_file.c_str());
+			goto END;
+		}
+
+		wif.imbue(std::locale(std::locale::empty(), new std::codecvt_utf8<wchar_t>));
+
+		while (std::getline(wif, line)) {
+			if (StartsWithCaseInsensitive(line, L"knownTarExtensions: ")) {
+				ext = line.substr(20);
+				if (!ext.empty()) ArchiveUtil::supported_tar_exts.push_back(std::move(ext));
+			}
+			else if (StartsWithCaseInsensitive(line, L"knownGZipTarExtensions: ")) {
+				ext = line.substr(24);
+				if (!ext.empty()) ArchiveUtil::supported_gzip_exts.push_back(std::move(ext));
+			}
+			else if (StartsWithCaseInsensitive(line, L"knownBZipTarExtensions: ")) {
+				ext = line.substr(24);
+				if (!ext.empty()) ArchiveUtil::supported_bzip_exts.push_back(std::move(ext));
+			}
+			else if (StartsWithCaseInsensitive(line, L"knownZipExtensions: ")) {
+				ext = line.substr(20);
+				if (!ext.empty()) ArchiveUtil::supported_zip_exts.push_back(std::move(ext));
+			}
+		}
+
+	END:
+		return status;
+	}
+
 	DWORD ModifySigReportEntry(const CReportVulnerabilities& modify) {
 		DWORD status{ ERROR_SUCCESS };
 		std::vector<CReportVulnerabilities> signature_report;
@@ -145,15 +191,23 @@ namespace log4jremediate {
 		DWORD report_status{};  // record error inside loop
 		std::wstring sig_report_file;
 		std::wstring rem_report_file;
+		std::wstring sig_summary_file;
 		RemediateLog4JFile remediator;
     
 		try {
 			sig_report_file = GetSignatureReportFindingsFilename();
 			rem_report_file = GetRemediationReportFilename();
+			sig_summary_file = GetSignatureReportSummaryFilename();
 
 			// Truncate/Create remediation report
 			std::wofstream sig_file(rem_report_file, std::ios::trunc | std::ios::out);
 			sig_file.close();
+
+			status = UpdateExtensionsWithCustomExtensions(sig_summary_file);
+			if (status != ERROR_SUCCESS) {
+				LOG_MESSAGE(L"Failed to read signature summary file : %s", sig_report_file.c_str());
+				goto END;
+			}
 
 			status = ReadSignatureReport(sig_report_file, repVulns);
 			if (status != ERROR_SUCCESS) {

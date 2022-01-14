@@ -10,42 +10,18 @@
   } while (FALSE)
 
 
-typedef std::stack<std::pair<std::wstring, std::wstring>> PairStack;
-typedef std::pair<std::wstring, std::wstring> StringPair;
+#define ARGX3(s1, s2, s3) \
+  (!_wcsicmp(argv[i], s1) || !_wcsicmp(argv[i], s2) || !_wcsicmp(argv[i], s3))
+#define ARG(S) ARGX3(L"-" #S, L"--" #S, L"/" #S)
+#define ARGPARAMCOUNT(X) ((i + X) <= (argc - 1))
 
-static std::vector<std::wstring> knownTarExtensions{
-   L".tar"
-};
-
-static std::vector<std::wstring> knownGZipTarExtensions{
-  L".tgz",
-  L".tar.gz"
-};
-
-static std::vector<std::wstring> knownBZipTarExtensions{
-  L".tbz",
-  L".tbz2",
-  L".tar.bz",
-  L".tar.bz2"
-};
-
-static std::vector<std::wstring> knownZipExtensions{
-  L".zip",
-  L".jar",
-  L".war",
-  L".ear",
-  L".par",
-  L".kar",
-  L".sar",
-  L".rar",
-  L".jpi",
-  L".hpi",
-  L".apk"
-};
+using PairStack = std::stack<std::pair<std::wstring, std::wstring>>;
+using StringPair = std::pair<std::wstring, std::wstring>;
 
 std::wstring A2W(const std::string& str);
 std::string W2A(const std::wstring& str);
-std::wstring GetTempFilePath();
+std::wstring GetTempFilePath(const std::wstring & prefix = L"ljr");
+bool StartsWithCaseInsensitive(const std::wstring & text, const std::wstring & prefix);
 
 std::wstring FormatLocalTime(time_t datetime);
 bool GetDictionaryValue(std::string& dict, std::string name, std::string defaultValue, std::string& value);
@@ -55,7 +31,7 @@ bool StripWhitespace(std::string& str);
 
 bool ExpandEnvironmentVariables(const wchar_t* source, std::wstring& destination);
 bool DirectoryExists(std::wstring directory);
-bool IsKnownFileExtension(std::vector<std::wstring>& exts, std::wstring file);
+bool IsKnownFileExtension(const std::vector<std::wstring>& exts, const std::wstring &file);
 bool NormalizeDriveName(std::wstring& drive);
 bool NormalizeDirectoryName(std::wstring& dir);
 bool NormalizeFileName(std::wstring& file);

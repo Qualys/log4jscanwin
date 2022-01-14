@@ -518,6 +518,11 @@ DWORD ReaderUtil::Close() {
   return ERROR_SUCCESS;
 }
 
+static std::vector<std::wstring> asupported_zip_exts;
+static std::vector<std::wstring> supported_tar_exts;
+static std::vector<std::wstring> supported_gzip_exts;
+static std::vector<std::wstring> supported_bzip_exts;
+
 DWORD ArchiveUtil::CopyArchive(const std::wstring& Source, const std::wstring& Destination, 
   const archive_type_& Type, const std::wstring& SkipEntry) {
   DWORD err_code{ ERROR_SUCCESS };
@@ -543,6 +548,11 @@ END:
 
   return err_code;
 }
+
+ext_list ArchiveUtil::supported_zip_exts;
+ext_list ArchiveUtil::supported_tar_exts;
+ext_list ArchiveUtil::supported_gzip_exts;
+ext_list ArchiveUtil::supported_bzip_exts;
 
 DWORD ArchiveUtil::RemoveFile(const std::wstring& Source, const std::wstring& EntryPath, const archive_type_& Type) {
   DWORD err_code{ ERROR_SUCCESS };
@@ -643,22 +653,22 @@ END:
 }
 
 bool ArchiveUtil::GetFormatAndArchiveType(const std::wstring& Path, std::pair<Formats, Compressions>& ArchiveType) {
-  if (IsKnownFileExtension(knownZipExtensions, Path)) {
+  if (IsKnownFileExtension(ArchiveUtil::supported_zip_exts, Path)) {
     ArchiveType = std::make_pair(Formats::ZIP, Compressions::None);
     return true;
   }
 
-  if (IsKnownFileExtension(knownBZipTarExtensions, Path)) {
+  if (IsKnownFileExtension(ArchiveUtil::supported_bzip_exts, Path)) {
     ArchiveType = std::make_pair(Formats::TAR, Compressions::BZip2);
     return true;
   }
 
-  if (IsKnownFileExtension(knownGZipTarExtensions, Path)) {
+  if (IsKnownFileExtension(ArchiveUtil::supported_zip_exts, Path)) {
     ArchiveType = std::make_pair(Formats::TAR, Compressions::Gzip);
     return true;
   }
 
-  if (IsKnownFileExtension(knownTarExtensions, Path)) {
+  if (IsKnownFileExtension(ArchiveUtil::supported_tar_exts, Path)) {
     ArchiveType = std::make_pair(Formats::TAR, Compressions::None);
     return true;
   }

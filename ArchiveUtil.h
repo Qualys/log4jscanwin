@@ -13,6 +13,7 @@ enum Compressions {
 };
 
 using archive_type_ = std::pair<Formats, Compressions>;
+using ext_list = std::vector<std::wstring>;
 
 enum class FileTypes : uint8_t {
   Regular = 0,
@@ -86,6 +87,11 @@ private:
 
 class ArchiveUtil final {
 public:
+  static ext_list supported_zip_exts;
+  static ext_list supported_tar_exts;
+  static ext_list supported_gzip_exts;
+  static ext_list supported_bzip_exts;
+
   static DWORD CopyArchive(const std::wstring& Source, const std::wstring& Destination, const archive_type_& Type, const std::wstring& SkipEntry = L"");
   static DWORD RemoveFile(const std::wstring& Source, const std::wstring& EntryPath, const archive_type_& Type);
   static DWORD ExtractFile(const std::wstring& Source, const std::wstring& ToPath, const std::wstring& EntryPath);

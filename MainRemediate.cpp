@@ -10,13 +10,6 @@
 
 #include "Version.info"
 
-
-#define ARGX3(s1, s2, s3) \
-  (!_wcsicmp(argv[i], s1) || !_wcsicmp(argv[i], s2) || !_wcsicmp(argv[i], s3))
-#define ARG(S) ARGX3(L"-" #S, L"--" #S, L"/" #S)
-#define ARGPARAMCOUNT(X) ((i + X) <= (argc - 1))
-
-
 struct CCommandLineOptions {  
   bool remediateSig{};
   bool report{};
