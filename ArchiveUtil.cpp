@@ -663,7 +663,7 @@ bool ArchiveUtil::GetFormatAndArchiveType(const std::wstring& Path, std::pair<Fo
     return true;
   }
 
-  if (IsKnownFileExtension(ArchiveUtil::supported_zip_exts, Path)) {
+  if (IsKnownFileExtension(ArchiveUtil::supported_gzip_exts, Path)) {
     ArchiveType = std::make_pair(Formats::TAR, Compressions::Gzip);
     return true;
   }
