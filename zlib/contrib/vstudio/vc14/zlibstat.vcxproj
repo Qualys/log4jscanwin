@@ -204,7 +204,7 @@
       <WarningLevel>Level3</WarningLevel>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <DisableSpecificWarnings>4267;4244</DisableSpecificWarnings>
-      <Optimization>Full</Optimization>
+      <Optimization>MaxSpeed</Optimization>
     </ClCompile>
     <ResourceCompile>
       <Culture>0x040c</Culture>

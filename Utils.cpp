@@ -144,7 +144,7 @@ bool DirectoryExists(std::wstring directory) {
 bool IsKnownFileExtension(const std::vector<std::wstring>& exts, const std::wstring &file) {
   for (const auto& ext : exts) {
     if ((file.size() >= ext.size()) &&
-      (_wcsicmp(file.substr(file.size() - ext.size()).c_str(), ext.c_str())))
+      (_wcsicmp(file.substr(file.size() - ext.size()).c_str(), ext.c_str()) == 0))
       return true;
   }
   return false;
