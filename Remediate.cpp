@@ -100,7 +100,7 @@ namespace log4jremediate {
 		return status;
 	}
 
-	DWORD UpdateExtensionsWithCustomExtensions(const std::wstring &sig_summary_file) {
+	DWORD PopulateExtensionsFromScannerSummary(const std::wstring &sig_summary_file) {
 		DWORD status{ ERROR_SUCCESS };
 		std::wifstream wif;
 		std::wstring line;
@@ -203,7 +203,7 @@ namespace log4jremediate {
 			std::wofstream sig_file(rem_report_file, std::ios::trunc | std::ios::out);
 			sig_file.close();
 
-			status = UpdateExtensionsWithCustomExtensions(sig_summary_file);
+			status = PopulateExtensionsFromScannerSummary(sig_summary_file);
 			if (status != ERROR_SUCCESS) {
 				LOG_MESSAGE(L"Failed to read signature summary file : %s", sig_report_file.c_str());
 				goto END;

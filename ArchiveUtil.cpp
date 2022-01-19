@@ -55,6 +55,14 @@ DWORD WriterUtil::Open() {
     goto CLEANUP;
   }
 
+  archive_err = archive_write_set_options(archive_, "compression-level=9");
+
+  if (archive_err != ARCHIVE_OK) {
+    error_str = archive_error_string(archive_);
+    err_code = ERROR_FUNCTION_FAILED;
+    goto CLEANUP;
+  }
+
   archive_err = archive_write_open_filename_w(archive_, archive_file_path_.c_str());
   if (archive_err != ARCHIVE_OK) {
     error_str = archive_error_string(archive_);
