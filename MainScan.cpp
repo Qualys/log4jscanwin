@@ -10,64 +10,58 @@
 
 #include "zlib/zlib.h"
 #include "bzip2/bzlib.h"
-#include "minizip/unzip.h"
-#include "minizip/iowin32.h"
 #include "tarlib/tarlib.h"
 
 
-#define ARGX3(s1, s2, s3) \
-  (!_wcsicmp(argv[i], s1) || !_wcsicmp(argv[i], s2) || !_wcsicmp(argv[i], s3))
-#define ARG(S) ARGX3(L"-" #S, L"--" #S, L"/" #S)
-#define ARGPARAMCOUNT(X) ((i + X) <= (argc - 1))
-
-
-class CCommandLineOptions {
+struct CCommandLineOptions {
  public:
-  bool scanLocalDrives;
-  bool scanLocalDrivesInclMountpoints;
-  bool scanNetworkDrives;
-  bool scanFile;
+  bool scanLocalDrives{ false };
+  bool scanLocalDrivesInclMountpoints{ false };
+  bool scanNetworkDrives{ false };
+  bool scanFile{ false };
+  bool scanDirectory{ false };
   std::wstring file;
-  bool scanDirectory;
   std::wstring directory;
   std::vector<std::wstring> excludedDrives;
   std::vector<std::wstring> excludedDirectories;
   std::vector<std::wstring> excludedFiles;
-  std::vector<std::wstring> knownTarExtensions;
-  std::vector<std::wstring> knownGZipTarExtensions;
-  std::vector<std::wstring> knownBZipTarExtensions;
-  std::vector<std::wstring> knownZipExtensions;
-  bool report;
-  bool reportPretty;
-  bool reportSig;
-  bool lowpriority;
-  bool verbose;
-  bool no_logo;
-  bool help;
+  bool report{ false };
+  bool reportPretty{ false };
+  bool reportSig{ false };
+  bool lowpriority{ false };
+  bool verbose{ false };
+  bool no_logo{ false };
+  bool help{ false };
 
-  CCommandLineOptions() {
-    scanLocalDrives = false;
-    scanLocalDrivesInclMountpoints = false;
-    scanNetworkDrives = false;
-    scanFile = false;
-    file.clear();
-    scanDirectory = false;
-    directory.clear();
-    excludedDrives.clear();
-    excludedDirectories.clear();
-    excludedFiles.clear();
-    knownTarExtensions.clear();
-    knownGZipTarExtensions.clear();
-    knownBZipTarExtensions.clear();
-    knownZipExtensions.clear();
-    report = false;
-    reportPretty = false;
-    reportSig = false;
-    lowpriority = false;
-    verbose = false;
-    no_logo = false;
-    help = false;
-  }
+  std::vector<std::wstring> knownTarExtensions{
+   L".tar"
+  };
+
+  std::vector<std::wstring> knownGZipTarExtensions{
+    L".tgz",
+    L".tar.gz"
+  };
+
+  std::vector<std::wstring> knownBZipTarExtensions{
+    L".tbz",
+    L".tbz2",
+    L".tar.bz",
+    L".tar.bz2"
+  };
+
+  std::vector<std::wstring> knownZipExtensions{
+    L".zip",
+    L".jar",
+    L".war",
+    L".ear",
+    L".par",
+    L".kar",
+    L".sar",
+    L".rar",
+    L".jpi",
+    L".hpi",
+    L".apk"
+  };
 };
 
 CCommandLineOptions cmdline_options;
@@ -113,31 +107,8 @@ int32_t PrintHelp(int32_t argc, wchar_t* argv[]) {
 }
 
 int32_t ProcessCommandLineOptions(int32_t argc, wchar_t* argv[]) {
-  int32_t       rv = ERROR_SUCCESS;
+  int32_t rv = ERROR_SUCCESS;
   std::wstring  str;
-
-  //
-  // Add known file type extensions
-  //
-  cmdline_options.knownTarExtensions.push_back(L".tar");
-  cmdline_options.knownGZipTarExtensions.push_back(L".tgz");
-  cmdline_options.knownGZipTarExtensions.push_back(L".tar.gz");
-  cmdline_options.knownBZipTarExtensions.push_back(L".tbz");
-  cmdline_options.knownBZipTarExtensions.push_back(L".tbz2");
-  cmdline_options.knownBZipTarExtensions.push_back(L".tar.bz");
-  cmdline_options.knownBZipTarExtensions.push_back(L".tar.bz2");
-  cmdline_options.knownZipExtensions.push_back(L".zip");
-  cmdline_options.knownZipExtensions.push_back(L".jar");
-  cmdline_options.knownZipExtensions.push_back(L".war");
-  cmdline_options.knownZipExtensions.push_back(L".ear");
-  cmdline_options.knownZipExtensions.push_back(L".par");
-  cmdline_options.knownZipExtensions.push_back(L".kar");
-  cmdline_options.knownZipExtensions.push_back(L".sar");
-  cmdline_options.knownZipExtensions.push_back(L".rar");
-  cmdline_options.knownZipExtensions.push_back(L".jpi");
-  cmdline_options.knownZipExtensions.push_back(L".hpi");
-  cmdline_options.knownZipExtensions.push_back(L".apk");
-
 
   for (int32_t i = 1; i < argc; i++) {
     if (0) {
@@ -321,7 +292,7 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
     wprintf(L"Known TAR Extensions\t\t: ");
     for (size_t i = 0; i < cmdline_options.knownTarExtensions.size(); ++i) {
       if ((cmdline_options.knownTarExtensions.size() == 1) ||
-          (cmdline_options.knownTarExtensions.size()-1 == i)) {
+          (cmdline_options.knownTarExtensions.size() - 1 == i)) {
         wprintf(L"%s", cmdline_options.knownTarExtensions[i].c_str());
       } else {
         wprintf(L"%s, ", cmdline_options.knownTarExtensions[i].c_str());
