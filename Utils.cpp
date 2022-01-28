@@ -1,4 +1,3 @@
-
 #include "stdafx.h"
 #include "Utils.h"
 
@@ -36,8 +35,28 @@ std::string W2A(const std::wstring& str) {
   return result;
 }
 
-void SplitWideString(std::wstring str, const std::wstring& token, std::vector<std::wstring>& result)
-{
+std::wstring GetTempFilePath(const std::wstring &prefix) {
+  std::vector<wchar_t> tmp_path(_MAX_PATH + 1, L'\0');
+  std::vector<wchar_t> tmp_filename(_MAX_PATH + 1, L'\0');
+
+  if (GetTempPath(static_cast<DWORD>(tmp_path.size()), tmp_path.data()) != 0 && 
+    GetTempFileName(tmp_path.data(), prefix.c_str(), 0, tmp_filename.data()) != 0) {
+    return tmp_filename.data();
+  } 
+
+  return L"";
+}
+
+bool StartsWithCaseInsensitive(const std::wstring& text, const std::wstring& prefix) {
+  return (prefix.empty() ||
+    (text.size() >= prefix.size() &&
+      std::mismatch(text.begin(), text.end(), prefix.begin(), prefix.end(),
+        [](wchar_t first_char, wchar_t second_char) {
+          return first_char == second_char || towlower(first_char) == towlower(second_char);
+        }).second == prefix.end()));
+}
+
+void SplitWideString(std::wstring str, const std::wstring& token, std::vector<std::wstring>& result) {
   while (str.size()) {
     auto index = str.find(token);
     if (index != std::wstring::npos) {
@@ -52,7 +71,7 @@ void SplitWideString(std::wstring str, const std::wstring& token, std::vector<st
 }
 
 bool SanitizeContents(std::string& str) {
-  std::string::iterator iter = str.begin();
+  auto iter = str.begin();
   while (iter != str.end()) {
     if (*iter == '\r') {
       iter = str.erase(iter);
@@ -95,7 +114,7 @@ bool GetDictionaryValue(std::string& dict, std::string name,
 
 bool ExpandEnvironmentVariables(const wchar_t* source, std::wstring& destination) {
   try {
-    DWORD dwReserve = ExpandEnvironmentStrings(source, NULL, 0);
+    DWORD dwReserve = ExpandEnvironmentStrings(source, nullptr, 0);
     if (dwReserve == 0) {
       return false;
     }
@@ -122,9 +141,11 @@ bool DirectoryExists(std::wstring directory) {
           (fileAttr & FILE_ATTRIBUTE_DIRECTORY));
 }
 
-bool IsKnownFileExtension(std::vector<std::wstring>& exts, std::wstring file) {
-  for (size_t i = 0; i < exts.size(); ++i) {
-    if ( (file.size() >= exts[i].size()) && (file.substr(file.size() - exts[i].size()) == exts[i]) ) return true;
+bool IsKnownFileExtension(const std::vector<std::wstring>& exts, const std::wstring &file) {
+  for (const auto& ext : exts) {
+    if ((file.size() >= ext.size()) &&
+      (_wcsicmp(file.substr(file.size() - ext.size()).c_str(), ext.c_str()) == 0))
+      return true;
   }
   return false;
 }
@@ -302,12 +323,12 @@ bool CloseStatusFile() {
 }
 
 bool ParseVersion(std::string version, int& major, int& minor, int& build) {
-  return (0 != sscanf(version.c_str(), "%d.%d.%d", &major, &minor, &build));
+  return (0 != sscanf_s(version.c_str(), "%d.%d.%d", &major, &minor, &build));
 }
 
 bool IsCVE20214104Mitigated(std::string log4jVendor, std::string version) {
   int major = 0, minor = 0, build = 0;
-  if (log4jVendor.compare("log4j") != 0) return true;
+  if (log4jVendor != "log4j") return true;
   if (ParseVersion(version, major, minor, build)) {
     if ((major >= 2) || (major < 1)) return true;
     if ((major == 1) && (minor <= 1)) return true;
@@ -321,7 +342,7 @@ bool IsCVE202144228Mitigated(std::string log4jVendor, bool foundJNDILookupClass,
                              std::string version) {
   int major = 0, minor = 0, build = 0;
   if (!foundJNDILookupClass) return true;
-  if (log4jVendor.compare("log4j-core") != 0) return true;  // Impacted JAR
+  if (log4jVendor !="log4j-core") return true;  // Impacted JAR
   if (ParseVersion(version, major, minor, build)) {
     if (major < 2) return true;                                      // N/A
     if ((major == 2) && (minor == 3) && (build >= 1)) return true;   // Java 6
@@ -333,7 +354,7 @@ bool IsCVE202144228Mitigated(std::string log4jVendor, bool foundJNDILookupClass,
 
 bool IsCVE202144832Mitigated(std::string log4jVendor, std::string version) {
   int major = 0, minor = 0, build = 0;
-  if (log4jVendor.compare("log4j-core") != 0) return true;  // Impacted JAR
+  if (log4jVendor != "log4j-core") return true;  // Impacted JAR
   if (ParseVersion(version, major, minor, build)) {
     if (major < 2) return true;                                      // N/A
     if ((major == 2) && (minor == 3) && (build >= 2)) return true;   // Java 6
@@ -348,7 +369,7 @@ bool IsCVE202145046Mitigated(std::string log4jVendor, bool foundJNDILookupClass,
                              std::string version) {
   int major = 0, minor = 0, build = 0;
   if (!foundJNDILookupClass) return true;
-  if (log4jVendor.compare("log4j-core") != 0) return true;  // Impacted JAR
+  if (log4jVendor != "log4j-core") return true;  // Impacted JAR
   if (ParseVersion(version, major, minor, build)) {
     if (major < 2) return true;                                      // N/A
     if ((major == 2) && (minor == 3) && (build >= 1)) return true;   // Java 6
@@ -360,7 +381,7 @@ bool IsCVE202145046Mitigated(std::string log4jVendor, bool foundJNDILookupClass,
 
 bool IsCVE202145105Mitigated(std::string log4jVendor, std::string version) {
   int major = 0, minor = 0, build = 0;
-  if (log4jVendor.compare("log4j-core") != 0) return true;  // Impacted JAR
+  if (log4jVendor != "log4j-core") return true;  // Impacted JAR
   if (ParseVersion(version, major, minor, build)) {
     if (major < 2) return true;                                      // N/A
     if ((major == 2) && (minor == 3) && (build >= 1)) return true;   // Java 6
@@ -372,9 +393,11 @@ bool IsCVE202145105Mitigated(std::string log4jVendor, std::string version) {
 
 int DumpGenericException(const wchar_t* szExceptionDescription,
                          DWORD dwExceptionCode, PVOID pExceptionAddress) {
-  LogStatusMessage(
-      L"Unhandled Exception Detected - Reason: %s (0x%x) at address 0x%p\n\n",
-      szExceptionDescription, dwExceptionCode, pExceptionAddress);
+  LogStatusMessage(L"Unhandled Exception Detected - Reason: %s (0x%x) at address 0x%p\n\n",
+    szExceptionDescription, 
+    dwExceptionCode, 
+    pExceptionAddress);
+
   return 0;
 }
 
@@ -384,8 +407,7 @@ int DumpExceptionRecord(PEXCEPTION_POINTERS pExPtrs) {
 
   switch (dwExceptionCode) {
     case 0xE06D7363:
-      DumpGenericException(L"Out Of Memory (C++ Exception)", dwExceptionCode,
-                           pExceptionAddress);
+      DumpGenericException(L"Out Of Memory (C++ Exception)", dwExceptionCode, pExceptionAddress);
       break;
     case EXCEPTION_ACCESS_VIOLATION:
       wchar_t szStatus[256];
@@ -589,7 +611,7 @@ LONG CALLBACK CatchUnhandledExceptionFilter(PEXCEPTION_POINTERS pExPtrs) {
     SAFE_CLOSE_HANDLE(hDumpFile);
   }
 
-  TerminateProcess(GetCurrentProcess(),
-                   pExPtrs->ExceptionRecord->ExceptionCode);
+  TerminateProcess(GetCurrentProcess(), pExPtrs->ExceptionRecord->ExceptionCode);
+
   return 0;
 }

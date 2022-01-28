@@ -10,13 +10,6 @@
 
 #include "Version.info"
 
-
-#define ARGX3(s1, s2, s3) \
-  (!_wcsicmp(argv[i], s1) || !_wcsicmp(argv[i], s2) || !_wcsicmp(argv[i], s3))
-#define ARG(S) ARGX3(L"-" #S, L"--" #S, L"/" #S)
-#define ARGPARAMCOUNT(X) ((i + X) <= (argc - 1))
-
-
 struct CCommandLineOptions {  
   bool remediateSig{};
   bool report{};
@@ -24,13 +17,9 @@ struct CCommandLineOptions {
   bool verbose{};
   bool no_logo{};
   bool help{};  
-};
+} cmdline_options;
 
-CCommandLineOptions cmdline_options;
-
-DWORD PrintHelp(int32_t argc, wchar_t* argv[]) {
-  DWORD rv{ ERROR_SUCCESS };
-  
+void PrintHelp(int32_t argc, wchar_t* argv[]) {
   wprintf(L"/remediate_sig\n");
   wprintf(L"  Remove JndiLookup.class from JAR, WAR, EAR, ZIP files detected by scanner utility\n");
   wprintf(L"/report\n");
@@ -39,12 +28,10 @@ DWORD PrintHelp(int32_t argc, wchar_t* argv[]) {
   wprintf(L"  Generate a pretty JSON for mitigations of supported CVE(s).\n");
   wprintf(L"\n");
 
-  return rv;
+  return;
 }
 
 int32_t ProcessCommandLineOptions(int32_t argc, wchar_t* argv[]) {
-  int32_t rv = ERROR_SUCCESS;
-
   for (int32_t i = 1; i < argc; i++) {
     if (0) {
     }    
@@ -70,25 +57,16 @@ int32_t ProcessCommandLineOptions(int32_t argc, wchar_t* argv[]) {
     }
   }
   
-  return rv;
+  return ERROR_SUCCESS;
 }
 
-DWORD SetPrivilege(
-    HANDLE hToken,          // access token handle
-    const std::wstring& Privilege,  // name of privilege to enable/disable
-    bool EnablePrivilege   // to enable or disable privilege
-)
-{
-    TOKEN_PRIVILEGES tp = { 0 };
-    LUID luid = { 0 };
+DWORD SetPrivilege(HANDLE hToken, const std::wstring& Privilege, bool EnablePrivilege) {
+    TOKEN_PRIVILEGES tp{ 0 };
+    LUID luid{ 0 };
 
-    DWORD status = ERROR_SUCCESS;
+    DWORD status{ ERROR_SUCCESS };
 
-    if (!LookupPrivilegeValue(
-        nullptr,            // lookup privilege on local system
-        Privilege.c_str(),   // privilege to lookup 
-        &luid))        // receives LUID of privilege
-    {
+    if (!LookupPrivilegeValue(nullptr, Privilege.c_str(), &luid)) {
         status = GetLastError();
         LOG_WIN32_MESSAGE(status, L"%s", L"Failed to get privilege");
         return status;
@@ -100,65 +78,48 @@ DWORD SetPrivilege(
 
     // Enable the privilege or disable all privileges.
 
-    if (!AdjustTokenPrivileges(
-        hToken,
-        FALSE,
-        &tp,
-        sizeof(TOKEN_PRIVILEGES),
-        (PTOKEN_PRIVILEGES)nullptr,
-        (PDWORD)nullptr))
-    {
+    if (!AdjustTokenPrivileges(hToken, FALSE, &tp, sizeof(TOKEN_PRIVILEGES), nullptr, nullptr)) {
         status = GetLastError();
         LOG_WIN32_MESSAGE(status, L"%s", L"Failed to set privilege");
         return status;
     }
     
     status = GetLastError();
-    if (status == ERROR_NOT_ALL_ASSIGNED)
-    {
-        LOG_WIN32_MESSAGE(status, L"%s", L"The token does not have the specified privilege");
-        return status;
+    if (status == ERROR_NOT_ALL_ASSIGNED) {
+      LOG_WIN32_MESSAGE(status, L"%s", L"The token does not have the specified privilege");
+      return status;
     }
 
     return status;
 }
 
 int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
-  int32_t rv = ERROR_SUCCESS;
+  int32_t rv{ ERROR_SUCCESS };
 
   SetUnhandledExceptionFilter(CatchUnhandledExceptionFilter);
   _setmode(_fileno(stdout), _O_U16TEXT);
 
-  HANDLE hToken = nullptr;
+  HANDLE hToken{ nullptr };
   // Open a handle to the access token for the calling process.
-  if (!OpenProcessToken(GetCurrentProcess(),
-      TOKEN_ADJUST_PRIVILEGES,
-      &hToken))
-  {
+  if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES, &hToken)) {
       LOG_WIN32_MESSAGE(GetLastError(), L"%s", L"Failed to open process token");
       goto END;
   }
 
   // Enable the SE_TAKE_OWNERSHIP_NAME privilege.
-  if (SetPrivilege(hToken, SE_TAKE_OWNERSHIP_NAME, TRUE) != ERROR_SUCCESS)
-  {
+  if (SetPrivilege(hToken, SE_TAKE_OWNERSHIP_NAME, TRUE) != ERROR_SUCCESS) {
       LOG_MESSAGE("You must be logged on as Administrator");
-      CloseHandle(hToken);
       goto END;
   }
 
-  if (SetPrivilege(hToken, SE_RESTORE_NAME, TRUE) != ERROR_SUCCESS)
-  {
+  if (SetPrivilege(hToken, SE_RESTORE_NAME, TRUE) != ERROR_SUCCESS) {
       LOG_MESSAGE("You must be logged on as Administrator");
-      CloseHandle(hToken);
       goto END;
   }
 
-  CloseHandle(hToken);
+  SAFE_CLOSE_HANDLE(hToken);
 
 #ifndef _WIN64
-  using typeWow64DisableWow64FsRedirection = BOOL(WINAPI*)(PVOID OlValue);
-  typeWow64DisableWow64FsRedirection Wow64DisableWow64FsRedirection;
   BOOL bIs64BitWindows = FALSE;
   PVOID pHandle{};
 
@@ -168,9 +129,9 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
   }
 
   if (bIs64BitWindows) {
-    Wow64DisableWow64FsRedirection =
-      (typeWow64DisableWow64FsRedirection)GetProcAddress(
-        GetModuleHandle(L"Kernel32.DLL"), "Wow64DisableWow64FsRedirection");
+    using typeWow64DisableWow64FsRedirection = BOOL(WINAPI*)(PVOID OlValue);
+    typeWow64DisableWow64FsRedirection Wow64DisableWow64FsRedirection = 
+      (typeWow64DisableWow64FsRedirection)GetProcAddress(GetModuleHandle(L"Kernel32.DLL"), "Wow64DisableWow64FsRedirection");
 
     if (Wow64DisableWow64FsRedirection) {
       Wow64DisableWow64FsRedirection(&pHandle);
@@ -241,6 +202,8 @@ END:
       LOG_MESSAGE(L"Result file location : %s", GetRemediationReportFilename().c_str());      
     }
   }
+
+  SAFE_CLOSE_HANDLE(hToken);
 
   CloseStatusFile();
 

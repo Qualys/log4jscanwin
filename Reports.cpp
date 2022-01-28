@@ -108,20 +108,20 @@ int32_t GenerateReportSummary(DocumentW& doc) {
     ValueW vFile(repSummary.excludedFiles[i].c_str(), doc.GetAllocator());
     vExcludedFiles.PushBack(vFile, doc.GetAllocator());
   }
-  for (size_t i = 0; i < repSummary.knownTarExtensions.size(); ++i) {
-    ValueW vExtension(repSummary.knownTarExtensions[i].c_str(), doc.GetAllocator());
+  for (const auto &ext : repSummary.knownTarExtensions) {
+    ValueW vExtension(ext.c_str(), doc.GetAllocator());
     vKnownTarExtensions.PushBack(vExtension, doc.GetAllocator());
   }
-  for (size_t i = 0; i < repSummary.knownGZipTarExtensions.size(); ++i) {
-    ValueW vExtension(repSummary.knownGZipTarExtensions[i].c_str(), doc.GetAllocator());
+  for (const auto& ext : repSummary.knownGZipTarExtensions) {
+    ValueW vExtension(ext.c_str(), doc.GetAllocator());
     vKnownGZipTarExtensions.PushBack(vExtension, doc.GetAllocator());
   }
-  for (size_t i = 0; i < repSummary.knownBZipTarExtensions.size(); ++i) {
-    ValueW vExtension(repSummary.knownBZipTarExtensions[i].c_str(), doc.GetAllocator());
+  for (const auto& ext : repSummary.knownBZipTarExtensions) {
+    ValueW vExtension(ext.c_str(), doc.GetAllocator());
     vKnownBZipTarExtensions.PushBack(vExtension, doc.GetAllocator());
   }
-  for (size_t i = 0; i < repSummary.knownZipExtensions.size(); ++i) {
-    ValueW vExtension(repSummary.knownZipExtensions[i].c_str(), doc.GetAllocator());
+  for (const auto& ext : repSummary.knownZipExtensions) {
+    ValueW vExtension(ext.c_str(), doc.GetAllocator());
     vKnownZipExtensions.PushBack(vExtension, doc.GetAllocator());
   }
   vVulnerabilitiesFound.SetInt64(repSummary.foundVunerabilities);
@@ -269,17 +269,17 @@ int32_t GenerateSignatureReport() {
     for (size_t i = 0; i < repSummary.excludedFiles.size(); ++i) {
       fwprintf_s(signature_summary, L"excludedFile: %s\n", repSummary.excludedFiles[i].c_str());
     }
-    for (size_t i = 0; i < repSummary.knownTarExtensions.size(); ++i) {
-      fwprintf_s(signature_summary, L"knownTarExtensions: %s\n", repSummary.knownTarExtensions[i].c_str());
+    for (const auto& ext : repSummary.knownTarExtensions) {
+      fwprintf_s(signature_summary, L"knownTarExtensions: %s\n", ext.c_str());
     }
-    for (size_t i = 0; i < repSummary.knownGZipTarExtensions.size(); ++i) {
-      fwprintf_s(signature_summary, L"knownGZipTarExtensions: %s\n", repSummary.knownGZipTarExtensions[i].c_str());
+    for (const auto& ext : repSummary.knownGZipTarExtensions) {
+      fwprintf_s(signature_summary, L"knownGZipTarExtensions: %s\n", ext.c_str());
     }
-    for (size_t i = 0; i < repSummary.knownBZipTarExtensions.size(); ++i) {
-      fwprintf_s(signature_summary, L"knownBZipTarExtensions: %s\n", repSummary.knownBZipTarExtensions[i].c_str());
+    for (const auto& ext : repSummary.knownBZipTarExtensions) {
+      fwprintf_s(signature_summary, L"knownBZipTarExtensions: %s\n", ext.c_str());
     }
-    for (size_t i = 0; i < repSummary.knownZipExtensions.size(); ++i) {
-      fwprintf_s(signature_summary, L"knownZipExtensions: %s\n", repSummary.knownZipExtensions[i].c_str());
+    for (const auto& ext : repSummary.knownZipExtensions) {
+      fwprintf_s(signature_summary, L"knownZipExtensions: %s\n", ext.c_str());
     }
     fwprintf_s(signature_summary, L"vulnerabilitiesFound: %I64d\n", repSummary.foundVunerabilities);
     fclose(signature_summary);
