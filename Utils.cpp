@@ -6,6 +6,7 @@
 #include "minizip/iowin32.h"
 
 
+constexpr wchar_t* qualys_program_data_legacy_location =  L"%SystemDrive%\\Documents and Settings\\All Users\\Application Data\\Qualys";
 constexpr wchar_t* qualys_program_data_location = L"%ProgramData%\\Qualys";
 constexpr wchar_t* report_sig_output_file = L"log4j_findings.out";
 constexpr wchar_t* report_sig_summary_file = L"log4j_summary.out";
@@ -233,13 +234,39 @@ std::wstring GetScanUtilityDirectory() {
 std::wstring GetReportDirectory() {
   std::wstring destination_dir;
   std::wstring report_dir;
-  if (ExpandEnvironmentVariables(qualys_program_data_location,
-                                 destination_dir)) {
-    if (!DirectoryExists(destination_dir.c_str())) {
-      _wmkdir(destination_dir.c_str());
+  DWORD dwVersion = 0; 
+  DWORD dwMajorVersion = 0;
+  DWORD dwMinorVersion = 0; 
+
+  dwVersion = GetVersion();
+  dwMajorVersion = (DWORD)(LOBYTE(LOWORD(dwVersion)));
+  dwMinorVersion = (DWORD)(HIBYTE(LOWORD(dwVersion)));
+
+  if ( (dwMajorVersion >= 6) ||
+       (dwMajorVersion == 5 && dwMinorVersion >= 3) ) {
+    //
+    // Windows Vista or Better
+    //
+    if (ExpandEnvironmentVariables(qualys_program_data_location,
+                                   destination_dir)) {
+      if (!DirectoryExists(destination_dir.c_str())) {
+        _wmkdir(destination_dir.c_str());
+      }
+      report_dir = destination_dir;
     }
-    report_dir = destination_dir;
+  } else {
+    //
+    // Windows XP, Windows Server 2003, Windows Server 2003 R2
+    //
+    if (ExpandEnvironmentVariables(qualys_program_data_legacy_location,
+                                   destination_dir)) {
+      if (!DirectoryExists(destination_dir.c_str())) {
+        _wmkdir(destination_dir.c_str());
+      }
+      report_dir = destination_dir;
+    }
   }
+
   if (report_dir.empty()) {
     report_dir = GetScanUtilityDirectory();
   }
