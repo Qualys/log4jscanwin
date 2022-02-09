@@ -171,11 +171,9 @@ int32_t ProcessCommandLineOptions(int32_t argc, wchar_t* argv[]) {
       cmdline_options.report = true;
     } else if (ARG(report_pretty)) {
       cmdline_options.no_logo = true;
-      cmdline_options.report = true;
       cmdline_options.reportPretty = true;
     } else if (ARG(report_sig)) {
       cmdline_options.no_logo = true;
-      cmdline_options.report = true;
       cmdline_options.reportSig = true;
     } else if (ARG(nologo)) {
       cmdline_options.no_logo = true;
@@ -358,7 +356,9 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
     }
     wprintf(L"\n");
   }
-  wprintf(L"\n");
+  if (!cmdline_options.no_logo) {
+    wprintf(L"\n");
+  }
 
   //
   // Scan Started
