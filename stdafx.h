@@ -1,5 +1,6 @@
 #pragma once
 
+#include "targetver.h"
 #include <windows.h>
 #include <dbghelp.h>
 #include <fcntl.h>
