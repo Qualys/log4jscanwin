@@ -57,7 +57,9 @@ DWORD WriterUtil::Open() {
 
   archive_err = archive_write_set_options(archive_, "compression-level=9");
 
-  if (archive_err != ARCHIVE_OK) {
+  // Some of the archives will not support compression-level, 
+  // If it is not FATAL, continue with the next steps
+  if (archive_err == ARCHIVE_FATAL) {
     error_str = archive_error_string(archive_);
     err_code = ERROR_FUNCTION_FAILED;
     goto CLEANUP;
