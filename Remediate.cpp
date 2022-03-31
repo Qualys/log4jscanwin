@@ -6,7 +6,7 @@
 #include "ArchiveUtil.h"
 
 namespace log4jremediate {
-	const std::wregex line1_regex(L"Source: Manifest Vendor: ([^,]*), Manifest Version: ([^,]*), JNDI Class: ([^,]*), Log4j Vendor: ([^,]*), Log4j Version: ([^,]*)");
+	const std::wregex line1_regex(L"Source: Manifest Vendor: (.*), Manifest Version: ([^,]*), JNDI Class: ([^,]*), Log4j Vendor: (.*), Log4j Version: ([^,]*)");
 	const std::wregex line2_regex(L"Path=(.*)");
 
 
