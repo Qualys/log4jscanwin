@@ -26,6 +26,8 @@ struct CCommandLineOptions {
   std::vector<std::wstring> excludedDrives;
   std::vector<std::wstring> excludedDirectories;
   std::vector<std::wstring> excludedFiles;
+  int64_t maxFileSize{ 0 };
+  std::wstring tempDirectory;
   bool report{ false };
   bool reportPretty{ false };
   bool reportSig{ false };
@@ -35,7 +37,7 @@ struct CCommandLineOptions {
   bool help{ false };
 
   std::vector<std::wstring> knownTarExtensions{
-   L".tar"
+    L".tar"
   };
 
   std::vector<std::wstring> knownGZipTarExtensions{
@@ -81,6 +83,10 @@ int32_t PrintHelp(int32_t argc, wchar_t* argv[]) {
   wprintf(L"  Scan a specific file for supported CVE(s).\n");
   wprintf(L"/scaninclmountpoints\n");
   wprintf(L"  Scan local drives including mount points for vulnerable files used by various Java applications.\n");
+  wprintf(L"/max_size X\n");
+  wprintf(L"  Skip scanning files which are larger than X megabytes in size.\n");
+  wprintf(L"/temp_directory \"C:\\Temp\"\n");
+  wprintf(L"  Use the desired directory for storing temporary files.\n");
   wprintf(L"/exclude_drive \"C:\\\"\n");
   wprintf(L"  Exclude a drive from the scan.\n");
   wprintf(L"/exclude_directory \"C:\\Some\\Path\"\n");
@@ -128,6 +134,13 @@ int32_t ProcessCommandLineOptions(int32_t argc, wchar_t* argv[]) {
       str = argv[i + 1];
       if (NormalizeDirectoryName(str)) {
         cmdline_options.directory = str;
+      }
+    } else if (ARG(max_size) && ARGPARAMCOUNT(1)) {
+      cmdline_options.maxFileSize = _wtoi(argv[i + 1]) * 1024 * 1024;
+    } else if (ARG(temp_directory) && ARGPARAMCOUNT(1)) {
+      str = argv[i + 1];
+      if (NormalizeDirectoryName(str)) {
+        cmdline_options.tempDirectory = str;
       }
     } else if (ARG(scaninclmountpoints)) {
       cmdline_options.scanLocalDrivesInclMountpoints = true;
@@ -272,6 +285,8 @@ int32_t __cdecl wmain(int32_t argc, wchar_t* argv[]) {
   options.knownGZipTarExtensions = cmdline_options.knownGZipTarExtensions;
   options.knownBZipTarExtensions = cmdline_options.knownBZipTarExtensions;
   options.knownZipExtensions = cmdline_options.knownZipExtensions;
+  options.maxFileSize = cmdline_options.maxFileSize;
+  options.tempDirectory = cmdline_options.tempDirectory;
 
   //
   // Configure Reports

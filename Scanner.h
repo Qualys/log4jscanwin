@@ -7,6 +7,8 @@ public:
   std::vector<std::wstring> excludedDrives;
   std::vector<std::wstring> excludedDirectories;
   std::vector<std::wstring> excludedFiles;
+  int64_t maxFileSize;
+  std::wstring tempDirectory;
   std::vector<std::wstring> knownTarExtensions;
   std::vector<std::wstring> knownGZipTarExtensions;
   std::vector<std::wstring> knownBZipTarExtensions;
@@ -18,6 +20,8 @@ public:
     excludedDrives.clear();
     excludedDirectories.clear();
     excludedFiles.clear();
+    maxFileSize = 0;
+    tempDirectory.clear();
     knownTarExtensions.clear();
     knownGZipTarExtensions.clear();
     knownBZipTarExtensions.clear();

@@ -11,17 +11,21 @@
 #include "tarlib/tarlib.h"
 
 
-std::wstring GetTempporaryFilename() {
+std::wstring GetTempporaryFilename(CScannerOptions& options) {
   wchar_t tmpPath[_MAX_PATH + 1];
   wchar_t tmpFilename[_MAX_PATH + 1];
 
-  GetTempPath(_countof(tmpPath), tmpPath);
+  if (!options.tempDirectory.empty()) {
+    wcscpy_s(tmpPath, options.tempDirectory.c_str());
+  } else {
+    GetTempPath(_countof(tmpPath), tmpPath);
+  }
   GetTempFileName(tmpPath, L"qua", 0, tmpFilename);
 
   return std::wstring(tmpFilename);
 }
 
-int32_t CleanupTemporaryFiles() {
+int32_t CleanupTemporaryFiles(CScannerOptions& options) {
   int32_t         rv = ERROR_SUCCESS;
   WIN32_FIND_DATA FindFileData;
   HANDLE          hFind;
@@ -30,7 +34,12 @@ int32_t CleanupTemporaryFiles() {
   std::wstring    fullfilename;
   wchar_t         tmpPath[_MAX_PATH + 1];
 
-  GetTempPath(_countof(tmpPath), tmpPath);
+  if (!options.tempDirectory.empty()) {
+    wcscpy_s(tmpPath, options.tempDirectory.c_str());
+  }
+  else {
+    GetTempPath(_countof(tmpPath), tmpPath);
+  }
 
   search = tmpPath + std::wstring(L"qua*.tmp");
 
@@ -263,7 +272,7 @@ int32_t ScanFileZIPArchive(CScannerOptions& options, std::wstring file, std::wst
           //
           wFilename = A2W(filename);
           if (IsKnownFileExtension(options.knownZipExtensions, wFilename)) {
-            tmpFilename = GetTempporaryFilename();
+            tmpFilename = GetTempporaryFilename(options);
 
             if (UncompressZIPContentsToFile(zf, tmpFilename)) {
               std::wstring masked_filename = file + L"!" + wFilename;
@@ -430,7 +439,7 @@ int32_t ScanFileTarball(CScannerOptions& options, std::wstring file, std::wstrin
     do 
     {
       if (tar_entry.header.indicator == tarlib::tarEntryNormalFile) {         
-        tmpFilename = GetTempporaryFilename();
+        tmpFilename = GetTempporaryFilename(options);
 
         std::wstring masked_filename = file + L"!" + A2W(tar_entry.header.filename);
         std::wstring alternate_filename = tmpFilename;
@@ -463,7 +472,7 @@ int32_t ScanFileCompressedBZIPTarball(CScannerOptions& options, std::wstring fil
   }
   if (NULL != bzf) {
     ReportProcessCompressedFile();
-    tmpFilename = GetTempporaryFilename();
+    tmpFilename = GetTempporaryFilename(options);
 
     if (UncompressBZIPContentsToFile(bzf, tmpFilename)) {
       ScanFileTarball(options, file, tmpFilename);
@@ -488,7 +497,7 @@ int32_t ScanFileCompressedGZIPTarball(CScannerOptions& options, std::wstring fil
   }
   if (NULL != gzf) {
     ReportProcessCompressedFile();
-    tmpFilename = GetTempporaryFilename();
+    tmpFilename = GetTempporaryFilename(options);
 
     if (UncompressGZIPContentsToFile(gzf, tmpFilename)) {
       ScanFileTarball(options, file, tmpFilename);
@@ -503,9 +512,21 @@ int32_t ScanFileCompressedGZIPTarball(CScannerOptions& options, std::wstring fil
 
 int32_t ScanFile(CScannerOptions& options, std::wstring file, std::wstring file_physical) {
   int32_t rv = ERROR_SUCCESS;
+  struct _stat64 stat;
 
   // Checking for excluded files
   if (IsFileExcluded(options, file)) return ERROR_NO_MORE_ITEMS;
+
+  // Greater than desired max size?
+  if (options.maxFileSize > 0) {
+    if (!_wstat64(file.c_str(), &stat)) {
+      if (stat.st_size > options.maxFileSize) {
+        wprintf(L"Skipping File '%s' (Too large.)\n", file.c_str());
+        return ERROR_FILE_TOO_LARGE;
+      }
+    }
+  }
+  
 
   if (options.verbose) {
     wprintf(L"Processing File '%s'\n", file.c_str());
@@ -701,6 +722,6 @@ int32_t ScanLocalDrivesInclMountpoints(CScannerOptions& options) {
 
 int32_t ScanPrepareEnvironment(CScannerOptions& options) {
   int32_t rv = ERROR_SUCCESS;
-  rv = CleanupTemporaryFiles();
+  rv = CleanupTemporaryFiles(options);
   return rv;
 }
