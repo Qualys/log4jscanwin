@@ -3,10 +3,6 @@ THIS SCRIPT IS PROVIDED TO YOU "AS IS." TO THE EXTENT PERMITTED BY LAW, QUALYS H
 # Project Archived
 Functionality has been rolled into our product offerings, see https://www.qualys.com/apps/software-composition-analysis/ for details.
 
-# Direct Download Links
-https://github.com/Qualys/log4jscanwin/releases/download/2.1.3.0/Log4jScanner-2.1.3.0.zip
-https://github.com/Qualys/log4jscanwin/releases/download/log4j-rem-1.2.2.1/Log4jRemediate-1.2.2.1.zip
-
 # Log4jScanner
 ## Description
 The Log4jScanner.exe utility helps to detect CVE-2021-44228, CVE-2021-44832, CVE-2021-45046, and CVE-2021-45105 vulnerabilities.
