@@ -3,6 +3,8 @@ THIS SCRIPT IS PROVIDED TO YOU "AS IS." TO THE EXTENT PERMITTED BY LAW, QUALYS H
 # Project Deprecated
 Functionality has been rolled into our product offerings, see https://www.qualys.com/apps/software-composition-analysis/ for details.
 
+Project will be deleted/removed October 1, 2025.
+
 # Log4jScanner
 ## Description
 The Log4jScanner.exe utility helps to detect CVE-2021-44228, CVE-2021-44832, CVE-2021-45046, and CVE-2021-45105 vulnerabilities.
