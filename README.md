@@ -3,7 +3,7 @@ THIS SCRIPT IS PROVIDED TO YOU "AS IS." TO THE EXTENT PERMITTED BY LAW, QUALYS H
 # Project Deprecated
 Functionality has been rolled into our product offerings, see https://www.qualys.com/apps/software-composition-analysis/ for details.
 
-Project will be deleted/removed October 1, 2025.
+Project will be deleted/removed July 1, 2026.
 
 # Log4jScanner
 ## Description
@@ -176,3 +176,4 @@ Remediation end time : 2022-01-03T11:04:54+0530
 Run status : Success
 Result file location : C:\ProgramData\Qualys\log4j_remediate.out
 ```
+
